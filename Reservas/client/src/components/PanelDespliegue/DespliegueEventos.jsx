@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Typography, IconButton, Slide, Button, TextField } from '@mui/material';
 import { usePaciente } from '../../context/pacienteContext';
 import { useReserva } from '../../context/reservaContext';
+import AgregarPaciente from '../Modales/AgregarPaciente';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
@@ -26,6 +27,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
     hora: event?.start ? dayjs(event.start).format("HH:mm") : '',
     profesional: event?.profesional || ''
   });
+  const [openModal, setOpenModal] = useState(false); // Estado para controlar la apertura del modal
 
   if (!event) return null;
 
@@ -74,6 +76,14 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
       profesional: event.profesional
     });
     setEditSection(null);
+  };
+
+  const handleOpenModal = () => {
+    setOpenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
   };
 
   return (
@@ -200,7 +210,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
                     <Typography variant="body2" color="textSecondary" textAlign={'center'}>
                         Nota: Es la primera cita con este paciente
                     </Typography>
-                    <Button variant="contained" color="primary" fullWidth>
+                    <Button variant="contained" color="primary" fullWidth onClick={handleOpenModal}>
                         Registrar Ficha
                     </Button>
                 </>
@@ -215,6 +225,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
                 </Box>
             )}
         </Box>
+        <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} />
       </Box>
     </Slide>
   );

@@ -5,12 +5,14 @@ import AlarmOnIcon from '@mui/icons-material/AlarmOn';
 import AlarmOffIcon from '@mui/icons-material/AlarmOff';
 import SearchIcon from '@mui/icons-material/Search';
 import AgregarPaciente from '../Modales/AgregarPaciente';
-import BuscarPacientes from '../Modales/BuscarPacientes';
+import BuscarPacientes from '../Modales/BuscarPacientesCon';
+import BuscarTodosPacientes from '../Modales/BuscarTodosPacientes';
 
 const BotonFlotante = ({ onClick, fetchReservas }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [openAgregarPacienteSin, setOpenAgregarPacienteSin] = useState(false);
   const [openBuscarPacientes, setOpenBuscarPacientes] = useState(false);
+  const [openBuscarTodosLosPacientes, setOpenBuscarTodosLosPacientes] = useState(false);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -25,6 +27,8 @@ const BotonFlotante = ({ onClick, fetchReservas }) => {
       setOpenAgregarPacienteSin(true);
     } else if (option === 'Agregar paciente con hora previa') {
       setOpenBuscarPacientes(true);
+    } else if (option === 'Buscar paciente') {
+      setOpenBuscarTodosLosPacientes(true);
     }
     handleClose();
   };
@@ -62,7 +66,8 @@ const BotonFlotante = ({ onClick, fetchReservas }) => {
         </MenuItem>
       </Menu>
       <AgregarPaciente open={openAgregarPacienteSin} onClose={() => setOpenAgregarPacienteSin(false)} fetchReservas={fetchReservas}/>
-      <BuscarPacientes open={openBuscarPacientes} onClose={() => setOpenBuscarPacientes(false)} fetchReservas={fetchReservas}/>
+      <BuscarPacientes open={openBuscarPacientes} onClose={() => setOpenBuscarPacientes(false)} />
+      <BuscarTodosPacientes open={openBuscarTodosLosPacientes} onClose={() => setOpenBuscarTodosLosPacientes(false)} />
     </>
   );
 };

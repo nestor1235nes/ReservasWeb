@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Box, Stepper, Step, StepLabel, Button, TextField, Typography } from '@mui/material';
+import { Modal, Box, Stepper, Step, StepLabel, Button, TextField, Typography, Snackbar, Alert } from '@mui/material';
 import dayjs from 'dayjs';
 import { useReserva } from '../../context/reservaContext';
 import { usePaciente } from '../../context/pacienteContext';
-import { set } from 'mongoose';
+import { useAlert } from '../../context/AlertContext';
+import Rutificador from '../Rutificador';
 
 const steps = ['Datos del paciente', 'Fecha y hora de la cita', 'Datos de la consulta'];
 
 const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
   const { createPaciente, getPacientePorRut } = usePaciente();
   const { createReserva, updateReserva } = useReserva();
+  const showAlert = useAlert();
   const [activeStep, setActiveStep] = useState(0);
   const [patientData, setPatientData] = useState({
     nombre: '',
@@ -22,6 +24,9 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
     diagnostico: '',
     anamnesis: ''
   });
+  const [pacienteExistente, setPacienteExistente] = useState(false);
+  const [alert, setAlert] = useState({ type: '', message: '' });
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
   useEffect(() => {
     if (data) {
@@ -35,8 +40,29 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
     }
   }, [data]);
 
-  const handleNext = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  const handleNext = async () => {
+    if (activeStep === 0) {
+      try {
+        const response = await getPacientePorRut(patientData.rut);
+        if (response) {
+          setPatientData({
+            ...patientData,
+            nombre: response.nombre,
+            telefono: response.telefono,
+            email: response.email
+          });
+          setPacienteExistente(true);
+        }
+      } catch (error) {
+        setPacienteExistente(false);
+      }
+    }
+    if (validateStep()) {
+      setActiveStep((prevActiveStep) => prevActiveStep + 1);
+    } else {
+      setAlert({ type: 'error', message: 'Por favor, complete todos los campos obligatorios' });
+      setOpenSnackbar(true);
+    }
   };
 
   const handleBack = () => {
@@ -50,7 +76,6 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
 
   const handleSubmit = async () => {
     try {
-
       if (data) {
         await updateReserva(patientData.rut, patientData);
       } else {
@@ -68,7 +93,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
         diagnostico: '',
         anamnesis: ''
       });
-      
+      showAlert('success', 'Paciente registrado correctamente');
     } catch (error) {
       console.log(error);
     }
@@ -77,9 +102,40 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
     onClose();
   };
 
+  const validateStep = () => {
+    if (activeStep === 0) {
+      return patientData.nombre && patientData.rut && patientData.telefono;
+    } else if (activeStep === 1) {
+      return patientData.siguienteCita && patientData.hora;
+    }
+    return true;
+  };
+
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setOpenSnackbar(false);
+  };
+
   return (
     <Modal open={open} onClose={onClose}>
       <Box sx={{ width: '50%', margin: 'auto', marginTop: '5%', padding: '2rem', backgroundColor: 'white' }}>
+        <Snackbar
+          open={openSnackbar}
+          autoHideDuration={4000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={alert.type}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {alert.message}
+          </Alert>
+        </Snackbar>
         <Stepper activeStep={activeStep}>
           {steps.map((label, index) => (
             <Step key={index}>
@@ -89,8 +145,20 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
         </Stepper>
         {activeStep === 0 && (
           <Box>
+            {data ? (
+              <TextField
+                label="RUT"
+                name="rut"
+                value={patientData.rut}
+                fullWidth
+                margin="normal"
+                required
+                InputProps={{ readOnly: true }}
+              />
+            ) : (
+              <Rutificador onRutValidated={(validatedRut) => setPatientData({ ...patientData, rut: validatedRut })} />
+            )}
             <TextField label="Nombre" name="nombre" value={patientData.nombre} onChange={handleChange} fullWidth margin="normal" required />
-            <TextField label="RUT" name="rut" value={patientData.rut} onChange={handleChange} fullWidth margin="normal" required />
             <TextField label="Celular" name="telefono" value={patientData.telefono} onChange={handleChange} fullWidth margin="normal" required />
             <TextField label="Email" name="email" value={patientData.email} onChange={handleChange} fullWidth margin="normal" />
           </Box>

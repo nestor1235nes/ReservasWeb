@@ -1,18 +1,42 @@
 .modal-box {
-    width: 90%;
-    max-width: 600px;
-    margin: auto;
-    margin-top: 5%;
-    padding: 1rem;
-    background-color: white;
-    min-height: 80vh;
-    overflow-y: auto;
-  }
-  
-  .modal-list {
-    max-height: 50vh;
-    overflow-y: auto;
-  }
+  width: 90%;
+  max-width: 600px;
+  margin: auto;
+  margin-top: 5%;
+  padding: 1rem;
+  background-color: white;
+  min-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Asegura que el botón esté abajo */
+}
+
+.modal-list {
+  min-height: 50vh;
+  overflow-y: auto;
+  flex-grow: 1; /* Empuja el contenido hacia arriba */
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 10px;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
   
   @media (min-width: 600px) {
     .modal-box {
