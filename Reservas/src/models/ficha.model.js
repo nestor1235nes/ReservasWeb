@@ -27,6 +27,9 @@ const ReservasSchema = new mongoose.Schema({
     anamnesis: {
         type: String,
     },
+    imagenes: {
+        type: [String],
+    },
     historial: {
         type: [[{
             fecha: {

@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Navbar } from "./components/Navbar";
 import { AuthProvider } from "./context/authContext";
 import { PacienteProvider } from "./context/pacienteContext";
 import { ReservaProvider } from "./context/reservaContext";
@@ -7,6 +6,7 @@ import { ProtectedRoute } from "./routes";
 import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import { LoginPage } from "./pages/LoginPage";
+import { CalendarioPage } from "./pages/CalendarioPage";
 
 function App() {
   return (
@@ -20,7 +20,7 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route element={<ProtectedRoute />}>
-                  <Route path="*" element={<Navbar />} />
+                  <Route path="/calendario" element={<CalendarioPage />} />
                 </Route>
               </Routes>
             </main>

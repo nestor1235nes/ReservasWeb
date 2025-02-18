@@ -22,7 +22,7 @@ function RegisterPage() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) navigate("/tasks");
+    if (isAuthenticated) navigate("/calendario");
   }, [isAuthenticated]);
 
   return (

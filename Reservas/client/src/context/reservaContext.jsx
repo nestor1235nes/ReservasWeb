@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from "react";
-import { getHistorialRequest, getReservaRequest, getReservasRequest, updateReservaRequest, deleteReservaRequest, createReservaRequest, addHistorialRequest } from "../api/reservas";
+import { getHistorialRequest, getReservaRequest, getReservasRequest, updateReservaRequest, deleteReservaRequest, createReservaRequest, addHistorialRequest, obtenerPacientesSinSesionesRequest } from "../api/reservas";
 
 const ReservaContext = createContext();
 
@@ -14,6 +14,7 @@ export const ReservaProvider = ({ children }) => {
   const getReservas = async () => {
     try {
       const response = await getReservasRequest();
+      console.log(response.data);
       return response.data;
     } catch (error) {
       console.error(error);
@@ -32,7 +33,8 @@ export const ReservaProvider = ({ children }) => {
   const createReserva = async (rut, reserva) => {
     try {
       await createReservaRequest(rut, reserva);
-      getReservas();
+      
+      return getReservas();
     } catch (error) {
       console.error(error);
     }
@@ -50,7 +52,7 @@ export const ReservaProvider = ({ children }) => {
   const updateReserva = async (rut, reserva) => {
     try {
       await updateReservaRequest(rut, reserva);
-      getReservas();
+      await getReservas();
     } catch (error) {
       console.error(error);
     }
@@ -74,8 +76,19 @@ export const ReservaProvider = ({ children }) => {
     }
   }
 
+  // funciones
+
+  const pacientesSinSesiones = async () => {
+    try {
+      const response = await obtenerPacientesSinSesionesRequest();
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   return (
-    <ReservaContext.Provider value={{getReservas, getReserva, createReserva, deleteReserva, updateReserva, getHistorial, addHistorial }}>
+    <ReservaContext.Provider value={{getReservas, getReserva, createReserva, deleteReserva, updateReserva, getHistorial, addHistorial, pacientesSinSesiones }}>
       {children}
     </ReservaContext.Provider>
   );

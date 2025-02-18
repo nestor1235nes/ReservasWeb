@@ -18,7 +18,6 @@ const PacienteSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        unique: true,
     },
     estado: {
         type: Boolean,

@@ -1,0 +1,21 @@
+.modal-box {
+    width: 90%;
+    max-width: 600px;
+    margin: auto;
+    margin-top: 5%;
+    padding: 1rem;
+    background-color: white;
+    min-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .modal-list {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  
+  @media (min-width: 600px) {
+    .modal-box {
+      width: 40%;
+    }
+  }

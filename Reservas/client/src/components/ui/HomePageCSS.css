@@ -16,3 +16,38 @@
   .stepper-completed {
     text-align: center;
   }
+
+  @media (max-width: 768px) {
+    .stepper-container {
+        width: 80%;
+        margin: 20px auto;
+        padding: 15px;
+    }
+
+    .stepper-box {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .stepper-box button {
+        width: 100%;
+        margin-top: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stepper-container {
+        width: 110%;
+        margin-left: -20px;
+    }
+
+    .stepper-box {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .stepper-box button {
+        width: 100%;
+        margin-top: 10px;
+    }
+}

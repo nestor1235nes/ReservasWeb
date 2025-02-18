@@ -7,3 +7,7 @@ export const deleteReservaRequest = async (id) => axios.delete(`/api/reserva/${i
 export const updateReservaRequest = async (rut, reserva) => axios.put(`/api/reserva/${rut}`, reserva);
 export const getHistorialRequest = async (id) => axios.get(`/api/reserva/${id}/historial`);
 export const addHistorialRequest = async (id, historial) => axios.post(`/api/reserva/${id}/historial`, historial);
+
+// Funciones
+
+export const obtenerPacientesSinSesionesRequest = async () => axios.get(`/api/pacientes-sin-sesiones`);

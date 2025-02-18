@@ -15,6 +15,7 @@ function HomePage() {
     telefono: '',
     email: '',
     diaPrimeraCita: '',
+    siguienteCita: '',
     hora: '',
     profesional: '',
     mensajePaciente: ''
@@ -58,8 +59,19 @@ function HomePage() {
         await updateReserva(formData.rut, formData);
         setAlert({ type: 'success', message: 'Reserva actualizada con éxito' });
       } else {
-        await createPaciente(formData);
-        await createReserva(formData.rut, formData);
+        const newData = {
+          rut: formData.rut,
+          nombre: formData.nombre,
+          telefono: formData.telefono,
+          email: formData.email,
+          diaPrimeraCita: formData.diaPrimeraCita,
+          siguienteCita: formData.diaPrimeraCita,
+          hora: formData.hora,
+          profesional: formData.profesional,
+          mensajePaciente: formData.mensajePaciente
+        }
+        await createPaciente(newData);
+        await createReserva(newData.rut, newData);
         setAlert({ type: 'success', message: 'Nueva Reserva Guardada' });
       }
       setFormData({
@@ -169,7 +181,7 @@ function HomePage() {
                 label="Fecha de Cita"
                 name="diaPrimeraCita"
                 type="date"
-                value={formData.fechaCita}
+                value={formData.diaPrimeraCita}
                 onChange={handleChange}
                 fullWidth
                 margin="normal"
@@ -180,7 +192,7 @@ function HomePage() {
                 label="Hora de Cita"
                 name="hora"
                 type="time"
-                value={formData.horaCita}
+                value={formData.hora}
                 onChange={handleChange}
                 fullWidth
                 margin="normal"
@@ -198,7 +210,7 @@ function HomePage() {
               <TextField
                 label="Mensaje"
                 name="mensajePaciente"
-                value={formData.mensaje}
+                value={formData.mensajePaciente}
                 onChange={handleChange}
                 fullWidth
                 margin="normal"

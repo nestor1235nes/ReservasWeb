@@ -8,10 +8,11 @@ import fichaRoutes from './routes/ficha.routes.js';
 
 const app = express();
 
+//console.log(process.env.FRONTEND_URL);
 app.use(
   cors({
     credentials: true,
-    origin: process.env.FRONTEND_URL,
+    origin: 'http://localhost:5173', // process.env.FRONTEND_URL,
   })
 );
 app.use(express.json());
