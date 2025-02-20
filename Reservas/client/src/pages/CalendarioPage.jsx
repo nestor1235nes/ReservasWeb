@@ -52,7 +52,6 @@ export function CalendarioPage() {
       };
     });
 
-    console.log(data);
     setEvents(transformedEvents);
   };
 

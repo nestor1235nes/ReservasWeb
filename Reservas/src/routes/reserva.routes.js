@@ -17,8 +17,8 @@ router.get("/reserva/:id", getReserva);
 router.post("/reserva/:rut", createReserva);
 router.delete("/reserva/:id", deleteReserva);
 router.put("/reserva/:rut", updateReserva);
-router.get("/reserva/:id/historial", getHistorial);
-router.post("/reserva/:id/historial", addHistorial);
+router.get("/reserva/:rut/historial", getHistorial);
+router.post("/reserva/:rut/historial", addHistorial);
 
 ////////////////////// Funciones //////////////////////
 router.get("/pacientes-sin-sesiones", obtenerPacientesSinSesiones);

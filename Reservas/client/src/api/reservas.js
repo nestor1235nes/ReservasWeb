@@ -5,8 +5,8 @@ export const getReservaRequest = async (id) => axios.get(`/api/reserva/${id}`);
 export const createReservaRequest = async (rut, reserva) => axios.post(`/api/reserva/${rut}`, reserva);
 export const deleteReservaRequest = async (id) => axios.delete(`/api/reserva/${id}`);
 export const updateReservaRequest = async (rut, reserva) => axios.put(`/api/reserva/${rut}`, reserva);
-export const getHistorialRequest = async (id) => axios.get(`/api/reserva/${id}/historial`);
-export const addHistorialRequest = async (id, historial) => axios.post(`/api/reserva/${id}/historial`, historial);
+export const getHistorialRequest = async (rut) => axios.get(`/api/reserva/${rut}/historial`);
+export const addHistorialRequest = async (rut, data) => axios.post(`/api/reserva/${rut}/historial`, data);
 
 // Funciones
 

@@ -14,7 +14,6 @@ export const ReservaProvider = ({ children }) => {
   const getReservas = async () => {
     try {
       const response = await getReservasRequest();
-      console.log(response.data);
       return response.data;
     } catch (error) {
       console.error(error);
@@ -58,19 +57,20 @@ export const ReservaProvider = ({ children }) => {
     }
   }
 
-  const getHistorial = async () => {
+  const getHistorial = async (rut) => {
     try {
-      const response = await getHistorialRequest();
+      const response = await getHistorialRequest(rut);
       return response.data;
     } catch (error) {
       console.error(error);
     }
   }
 
-  const addHistorial = async (historial) => {
+  const addHistorial = async (rut, data) => {
     try {
-      await addHistorialRequest(historial);
-      getHistorial();
+      console.log(rut, data);
+      await addHistorialRequest(rut, data);
+      return getReservas();
     } catch (error) {
       console.error(error);
     }

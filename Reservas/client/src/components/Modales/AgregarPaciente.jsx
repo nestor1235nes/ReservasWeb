@@ -5,6 +5,8 @@ import { useReserva } from '../../context/reservaContext';
 import { usePaciente } from '../../context/pacienteContext';
 import { useAlert } from '../../context/AlertContext';
 import Rutificador from '../Rutificador';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const steps = ['Datos del paciente', 'Fecha y hora de la cita', 'Datos de la consulta'];
 
@@ -72,6 +74,10 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setPatientData({ ...patientData, [name]: value });
+  };
+
+  const handleQuillChange = (value) => {
+    setPatientData({ ...patientData, anamnesis: value });
   };
 
   const handleSubmit = async () => {
@@ -210,15 +216,29 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
               fullWidth
               margin="normal"
             />
-            <TextField
-              label="Anamnesis"
-              name="anamnesis"
+            <Typography variant="h6" gutterBottom>
+              Anamnesis
+            </Typography>
+            <ReactQuill
               value={patientData.anamnesis}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              multiline
-              rows={4}
+              onChange={handleQuillChange}
+              theme="snow"
+              modules={{
+                toolbar: [
+                  [{ 'header': '1'}, {'header': '2'}, { 'font': [] }],
+                  [{size: []}],
+                  ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+                  [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
+                  ['link', 'image', 'video'],
+                  ['clean']
+                ],
+              }}
+              formats={[
+                'header', 'font', 'size',
+                'bold', 'italic', 'underline', 'strike', 'blockquote',
+                'list', 'bullet', 'indent',
+                'link', 'image', 'video'
+              ]}
             />
             <Button variant="contained" component="label">
               Añadir imágenes

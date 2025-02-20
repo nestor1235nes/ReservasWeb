@@ -3,6 +3,8 @@ import { Box, Typography, IconButton, Slide, Button, TextField } from '@mui/mate
 import { usePaciente } from '../../context/pacienteContext';
 import { useReserva } from '../../context/reservaContext';
 import AgregarPaciente from '../Modales/AgregarPaciente';
+import AgregarSesion from './AgregarSesion';
+import VerHistorial from './VerHistorial';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
@@ -28,6 +30,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
     profesional: event?.profesional || ''
   });
   const [openModal, setOpenModal] = useState(false); // Estado para controlar la apertura del modal
+  const [openSesionModal, setOpenSesionModal] = useState(false); // Estado para controlar la apertura del modal de sesión
+  const [openHistorialModal, setOpenHistorialModal] = useState(false); // Estado para controlar la apertura del modal de historial
 
   if (!event) return null;
 
@@ -84,6 +88,22 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
 
   const handleCloseModal = () => {
     setOpenModal(false);
+  };
+
+  const handleOpenSesionModal = () => {
+    setOpenSesionModal(true);
+  };
+
+  const handleCloseSesionModal = () => {
+    setOpenSesionModal(false);
+  };
+
+  const handleOpenHistorialModal = () => {
+    setOpenHistorialModal(true);
+  };
+
+  const handleCloseHistorialModal = () => {
+    setOpenHistorialModal(false);
   };
 
   return (
@@ -202,7 +222,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
           </>
         )}
         <Typography variant="body1"><strong>Diagnóstico:</strong> {event.diagnostico}</Typography>
-        <Typography variant="body1"><strong>Sesiones:</strong> {event.historial.length} </Typography>
+        <Typography variant="body1"><strong>N° Sesiones:</strong> {event.historial.length} </Typography>
         
         <Box position="fixed" bottom={0} right={0} width={window.innerWidth < 600 ? '100%' : 500} p={3}>
             {event.historial.length === 0 && !event.diagnostico ?  (
@@ -216,16 +236,18 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
                 </>
             ) : (
                 <Box display="flex" justifyContent="space-between">
-                    <Button variant="contained" color="primary" fullWidth style={{ marginRight: '8px' }}>
+                    <Button variant="contained" color="primary" fullWidth style={{ marginRight: '8px' }} onClick={handleOpenSesionModal}>
                         Agregar Sesión
                     </Button>
-                    <Button variant="contained" color="secondary" fullWidth>
+                    <Button variant="contained" color="secondary" fullWidth onClick={handleOpenHistorialModal}>
                         Ver historial
                     </Button>
                 </Box>
             )}
         </Box>
         <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} />
+        <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} />
+        <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
       </Box>
     </Slide>
   );

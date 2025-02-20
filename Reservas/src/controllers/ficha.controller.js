@@ -171,7 +171,11 @@ export const updateReserva = async (req, res) => {
 
 export const getHistorial = async (req, res) => {
     try {
-        const reserva = await Reserva.findById(req.params.id);
+        const paciente = await Paciente.findOne({ rut: req.params.rut });
+        if (!paciente) {
+            return res.status(404).json({ message: "Paciente not found" });
+        }
+        const reserva = await Reserva.findOne({ paciente: paciente._id });
         if (!reserva) {
             return res.status(404).json({ message: "Reserva not found" });
         }
@@ -183,13 +187,27 @@ export const getHistorial = async (req, res) => {
 
 export const addHistorial = async (req, res) => {
     try {
-        const reserva = await Reserva.findById(req.params.id);
+        const paciente = await Paciente.findOne({ rut: req.params.rut });
+        if (!paciente) {
+            return res.status(404).json({ message: "Paciente not found" });
+        }
+        const reserva = await Reserva.findOne({ paciente : paciente._id });
         if (!reserva) {
             return res.status(404).json({ message: "Reserva not found" });
         }
-        reserva.historial.push(req.body);
+
+        const newHistorialEntry = {
+            fecha: req.body.fecha,
+            notas: req.body.notas,
+        };
+
+        reserva.historial.push(newHistorialEntry);
+        reserva.siguienteCita = req.body.siguienteCita;
+        reserva.hora = req.body.hora;
+
         await reserva.save();
-        res.json(reserva.historial[reserva.historial.length - 1]);
+
+        res.status(200).json(reserva);
     } catch (error) {
         res.status(404).json({ message: error.message });
     }
