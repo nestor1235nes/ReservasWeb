@@ -77,7 +77,11 @@ export const getReservas = async (req, res) => {
 
 export const getReserva = async (req, res) => {
     try {
-        const reserva = await Reserva.findById(req.params.id).populate('paciente');
+        const paciente = await Paciente.findOne({ rut: req.params.rut });
+        if (!paciente) {
+            return res.status(404).json({ message: "Paciente not found" });
+        }
+        const reserva = await Reserva.findOne({ paciente: paciente._id });
         if (!reserva) {
             return res.status(404).json({ message: "Reserva not found" });
         }

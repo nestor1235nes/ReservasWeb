@@ -13,7 +13,7 @@ import { obtenerPacientesSinSesiones } from "../controllers/funciones.controller
 const router = Router();
 
 router.get("/reserva", getReservas);
-router.get("/reserva/:id", getReserva);
+router.get("/reserva/:rut", getReserva);
 router.post("/reserva/:rut", createReserva);
 router.delete("/reserva/:id", deleteReserva);
 router.put("/reserva/:rut", updateReserva);
