@@ -27,6 +27,18 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    celular: {
+        type: String,
+    },
+    fotoPerfil: {
+        type: String,
+    },
+    especialidad: {
+        type: String,
+    },
+    descripcion: {
+        type: String,
+    },
     timetable: {
         type: [timetableSchema],
         default: []

@@ -6,7 +6,7 @@ import { createAccessToken } from "../libs/jwt.js";
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password, timetable } = req.body;
+    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable } = req.body;
 
     const userFound = await User.findOne({ email });
 
@@ -19,10 +19,15 @@ export const register = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // creating the user
+    console.log(req.body);
     const newUser = new User({
       username,
       email,
       password: passwordHash,
+      celular,
+      fotoPerfil,
+      especialidad,
+      descripcion,
       timetable,
     });
 
@@ -44,6 +49,10 @@ export const register = async (req, res) => {
       id: userSaved._id,
       username: userSaved.username,
       email: userSaved.email,
+      celular: userSaved.celular,
+      fotoPerfil: userSaved.fotoPerfil,
+      especialidad: userSaved.especialidad,
+      descripcion: userSaved.descripcion,
       timetable: userSaved.timetable,
     });
   } catch (error) {
@@ -83,6 +92,10 @@ export const login = async (req, res) => {
       id: userFound._id,
       username: userFound.username,
       email: userFound.email,
+      celular: userFound.celular,
+      fotoPerfil: userFound.fotoPerfil,
+      especialidad: userFound.especialidad,
+      descripcion: userFound.descripcion,
       timetable: userFound.timetable,
     });
   } catch (error) {
@@ -104,6 +117,11 @@ export const verifyToken = async (req, res) => {
       id: userFound._id,
       username: userFound.username,
       email: userFound.email,
+      celular: userFound.celular,
+      fotoPerfil: userFound.fotoPerfil,
+      especialidad: userFound.especialidad,
+      descripcion: userFound.descripcion,
+      timetable: userFound.timetable
     });
   });
 };
@@ -116,3 +134,23 @@ export const logout = async (req, res) => {
   });
   return res.sendStatus(200);
 };
+
+export const updatePerfil = async (req, res) => {
+  try {
+    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    console.log(updated);
+    res.json(updated);
+  }
+  catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+}
+
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    res.json(user);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+}

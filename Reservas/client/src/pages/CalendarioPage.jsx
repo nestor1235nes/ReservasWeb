@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { AppBar, Toolbar, Typography, Box, Drawer, Slide } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Drawer, Slide, IconButton, Button, Tooltip } from '@mui/material';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import es from 'date-fns/locale/es';
 import { useReserva } from '../context/reservaContext';
+import { useAuth } from '../context/authContext';
+import { Link, useNavigate } from "react-router-dom";
 import DespliegueEventos from '../components/PanelDespliegue/DespliegueEventos';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -12,6 +14,9 @@ import timezone from 'dayjs/plugin/timezone';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 import 'dayjs/locale/es';
 import BotonFlotante from '../components/PanelDespliegue/BotonFlotante';
+
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 
 dayjs.extend(localizedFormat);
 dayjs.extend(utc);
@@ -33,6 +38,8 @@ export function CalendarioPage() {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const { getReservas } = useReserva();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   const fetchReservas = async () => {
@@ -74,11 +81,31 @@ export function CalendarioPage() {
     console.log('Botón flotante clickeado');
   };
 
+  const handleProfileClick = () => {
+    navigate('/perfil');
+  };
+  
+  const handleLogoutClick = async () => {
+    await logout();
+    navigate('/login');
+    
+  };
+
   return (
     <Box display="flex" flexDirection="column" height="100vh" backgroundColor="white">
       <AppBar position="static" style={{ borderEndEndRadius: '5px', borderEndStartRadius: '5px' }}>
         <Toolbar>
-          <Typography variant="h6">Calendario</Typography>
+          <Typography variant="h6" style={{ flexGrow: 1 }}>Calendario</Typography>
+          <Tooltip title="Ver mi Perfil" arrow>
+            <Button color="inherit" onClick={handleProfileClick} startIcon={<AccountCircleIcon />}>
+              Perfil
+            </Button>
+          </Tooltip>
+          <Tooltip title="Cerrar sesión" arrow>
+            <IconButton color="inherit" onClick={handleLogoutClick}>
+              <ExitToAppIcon />
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
       <Box flex="1" display="flex" justifyContent="center" alignItems="center" p={2}>

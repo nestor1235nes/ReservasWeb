@@ -1,24 +1,51 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/authContext";
 import { Link, useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, Typography, TextField, Button, Box, Alert } from "@mui/material";
+import { Card, CardContent, Typography, TextField, Button, Box, Alert, MenuItem, Select, InputLabel, FormControl } from "@mui/material";
 import { registerSchema } from "../schemas/auth";
+import { z } from "zod";
 
 function RegisterPage() {
   const { signup, errors: registerErrors, isAuthenticated } = useAuth();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({
-    resolver: zodResolver(registerSchema),
-  });
   const navigate = useNavigate();
 
-  const onSubmit = async (value) => {
-    await signup(value);
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    especialidad: "",
+  });
+
+  const [formErrors, setFormErrors] = useState({});
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({ ...prevData, [name]: value }));
+  };
+
+  const validateForm = () => {
+    try {
+      registerSchema.parse(formData);
+      setFormErrors({});
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errors = error.errors.reduce((acc, curr) => {
+          acc[curr.path[0]] = curr.message;
+          return acc;
+        }, {});
+        setFormErrors(errors);
+      }
+      return false;
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (validateForm()) {
+      await signup(formData);
+    }
   };
 
   useEffect(() => {
@@ -35,16 +62,17 @@ function RegisterPage() {
           <Typography variant="h5" component="div" gutterBottom>
             Registro
           </Typography>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit}>
             <TextField
               label="Nombre de usuario"
               type="text"
               name="username"
               fullWidth
               margin="normal"
-              {...register("username")}
-              error={!!errors.username}
-              helperText={errors.username?.message}
+              value={formData.username}
+              onChange={handleChange}
+              error={!!formErrors.username}
+              helperText={formErrors.username}
               autoFocus
             />
             <TextField
@@ -53,9 +81,10 @@ function RegisterPage() {
               name="email"
               fullWidth
               margin="normal"
-              {...register("email")}
-              error={!!errors.email}
-              helperText={errors.email?.message}
+              value={formData.email}
+              onChange={handleChange}
+              error={!!formErrors.email}
+              helperText={formErrors.email}
             />
             <TextField
               label="Contraseña"
@@ -63,9 +92,10 @@ function RegisterPage() {
               name="password"
               fullWidth
               margin="normal"
-              {...register("password")}
-              error={!!errors.password}
-              helperText={errors.password?.message}
+              value={formData.password}
+              onChange={handleChange}
+              error={!!formErrors.password}
+              helperText={formErrors.password}
             />
             <TextField
               label="Confirmar contraseña"
@@ -73,10 +103,27 @@ function RegisterPage() {
               name="confirmPassword"
               fullWidth
               margin="normal"
-              {...register("confirmPassword")}
-              error={!!errors.confirmPassword}
-              helperText={errors.confirmPassword?.message}
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              error={!!formErrors.confirmPassword}
+              helperText={formErrors.confirmPassword}
             />
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="especialidad-label">Especialidad</InputLabel>
+              <Select
+                labelId="especialidad-label"
+                id="especialidad"
+                name="especialidad"
+                value={formData.especialidad}
+                onChange={handleChange}
+                error={!!formErrors.especialidad}
+              >
+                <MenuItem value="Kinesiólogo">Kinesiólogo</MenuItem>
+                <MenuItem value="Nutricionista">Nutricionista</MenuItem>
+                <MenuItem value="Terapeuta Ocupacional">Terapeuta Ocupacional</MenuItem>
+              </Select>
+              {formErrors.especialidad && <Typography color="error">{formErrors.especialidad}</Typography>}
+            </FormControl>
             <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 2 }}>
               Registrarse
             </Button>

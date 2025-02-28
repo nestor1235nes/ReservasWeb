@@ -8,6 +8,7 @@ import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import { LoginPage } from "./pages/LoginPage";
 import { CalendarioPage } from "./pages/CalendarioPage";
+import PerfilPage from "./pages/PerfilPage";
 
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
                   <Route path="/register" element={<RegisterPage />} />
                   <Route element={<ProtectedRoute />}>
                     <Route path="/calendario" element={<CalendarioPage />} />
+                    <Route path="/perfil" element={<PerfilPage />} />
                   </Route>
                 </Routes>
               </main>

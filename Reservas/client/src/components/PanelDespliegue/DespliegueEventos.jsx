@@ -108,7 +108,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
 
   return (
     <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500}>
-      <Box p={2} width={window.innerWidth < 600 ? '100%' : 500} height={window.innerWidth < 600 ? 600 : '100%'}>
+      <Box p={2} width={window.innerWidth < 600 ? '100%' : 500} height={window.innerWidth < 600 ? 600 : '100%'} style={{ overflowY:'auto' }}>
         <Box display="flex" justifyContent="space-between" style={{ justifyContent: 'center' }}>
           <Typography variant="h6" style={{ textAlign: 'center' }}>Detalles de la Cita</Typography>
         </Box>
@@ -223,7 +223,11 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
         )}
         <Typography variant="body1"><strong>Diagnóstico:</strong> {event.diagnostico}</Typography>
         <Typography variant="body1"><strong>N° Sesiones:</strong> {event.historial.length} </Typography>
-        
+        <Typography variant="body1" textAlign={'center'}><strong>Anamnesis</strong>  </Typography>
+        <Box width="100%" style={{ overflowY:'auto', minHeight: '180px', boxShadow: '0 0 5px 0 rgba(0,0,0,0.5)', padding: '8px', borderRadius: '8px' }}>
+          <Typography variant="body1">{event.anamnesis}</Typography>
+
+        </Box>
         <Box position="fixed" bottom={0} right={0} width={window.innerWidth < 600 ? '100%' : 500} p={3}>
             {event.historial.length === 0 && !event.diagnostico ?  (
                 <>
