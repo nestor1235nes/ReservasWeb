@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes.js';
 import reservaRoutes from './routes/reserva.routes.js';
 import fichaRoutes from './routes/ficha.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 
 const app = express();
 
@@ -22,6 +23,8 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/", reservaRoutes);
 app.use("/api/", fichaRoutes);
+app.use("/api/", uploadRoutes);
+app.use('/uploads', express.static('uploads'))
 
 if (process.env.NODE_ENV === "production") {
   const path = await import("path");

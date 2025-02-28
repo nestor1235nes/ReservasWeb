@@ -1,0 +1,101 @@
+import React, { useState, useRef } from 'react';
+import { Avatar, Tooltip, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, Button, Slider } from '@mui/material';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
+import { useAuth } from '../context/authContext';
+import axios from '../api/axios';
+import AvatarEditor from 'react-avatar-editor';
+
+const FotoPerfil = () => {
+  const { user, updatePerfil } = useAuth();
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [scale, setScale] = useState(1);
+  const editorRef = useRef(null);
+
+  const handleFileChange = (event) => {
+    setSelectedFile(event.target.files[0]);
+    setEditorOpen(true);
+  };
+
+  const handleScaleChange = (event, newValue) => {
+    setScale(newValue);
+  };
+
+  const handleSave = async () => {
+    if (editorRef.current) {
+      const canvas = editorRef.current.getImageScaledToCanvas().toDataURL();
+      const blob = await fetch(canvas).then(res => res.blob());
+      const formData = new FormData();
+      formData.append('file', blob, selectedFile.name);
+
+      try {
+        const res = await axios.post('/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        console.log('File uploaded:', res.data.url);
+        await updatePerfil(user.id, { fotoPerfil: res.data.url });
+        setEditorOpen(false);
+      } catch (error) {
+        console.error('Error uploading file:', error);
+      }
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
+      <input
+        accept="image/*"
+        style={{ display: 'none' }}
+        id="icon-button-file"
+        type="file"
+        onChange={handleFileChange}
+      />
+      <label htmlFor="icon-button-file">
+        <Tooltip title="Agregar foto de perfil" arrow>
+          <IconButton color="primary" component="span">
+            <Avatar src={user.fotoPerfil ? `http://localhost:4000${user.fotoPerfil}` : undefined} style={{ width: '100%', height: '100%' }}>
+              {!user.fotoPerfil && <AddPhotoAlternateIcon />}
+            </Avatar>
+          </IconButton>
+        </Tooltip>
+      </label>
+
+      <Dialog open={editorOpen} onClose={() => setEditorOpen(false)}>
+        <DialogTitle>Ajustar Imagen</DialogTitle>
+        <DialogContent>
+          {selectedFile && (
+            <AvatarEditor
+              ref={editorRef}
+              image={selectedFile}
+              width={250}
+              height={250}
+              border={50}
+              borderRadius={125}
+              scale={scale}
+            />
+          )}
+          <Slider
+            value={scale}
+            min={1}
+            max={2}
+            step={0.01}
+            onChange={handleScaleChange}
+            aria-labelledby="scale-slider"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditorOpen(false)} color="secondary">
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} color="primary">
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </div>
+  );
+};
+
+export default FotoPerfil;

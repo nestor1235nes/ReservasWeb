@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Tooltip, Avatar, Box, Card, CardContent, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Stack, AppBar, Toolbar, Button, IconButton, TextField, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
 import { makeStyles } from "@mui/styles";
 import { useAuth } from "../context/authContext";
+import FotoPerfil from "../components/FotoPerfil";
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -130,15 +131,7 @@ const PerfilPage = () => {
             {/* Sección de la imagen y datos principales */}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
                 <Box className={classes.perfilAvatarContainer}>
-                    <Avatar
-                        src={user.fotoPerfil || ""}
-                        alt={user.username}
-                        className={classes.perfilAvatar}
-                    >
-                        <Tooltip title="Agregar foto de perfil" arrow>
-                            {!user.fotoPerfil && <AddPhotoAlternateIcon className={classes.perfilIcon} />}
-                        </Tooltip>
-                    </Avatar>
+                    <FotoPerfil />
                 </Box>
                 <Box>
                     {editMode ? (
