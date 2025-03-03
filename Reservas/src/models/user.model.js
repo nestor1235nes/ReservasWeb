@@ -1,13 +1,11 @@
 import mongoose from "mongoose";
 
 const timetableSchema = new mongoose.Schema({
-    fromTime: {
-        type: String,
-        required: true,
+    days: {
+        type: [String],
     },
-    toTime: {
-        type: String,
-        required: true,
+    times: {
+        type: [String],
     }
 }, { _id: false });
 

@@ -4,15 +4,19 @@ import dayjs from 'dayjs';
 import { useReserva } from '../../context/reservaContext';
 import { usePaciente } from '../../context/pacienteContext';
 import { useAlert } from '../../context/AlertContext';
+import { useAuth } from '../../context/authContext';
 import Rutificador from '../Rutificador';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import ProfesionalBusquedaHoras from '../ProfesionalBusquedaHoras';
+import { set } from 'mongoose';
 
 const steps = ['Datos del paciente', 'Fecha y hora de la cita', 'Datos de la consulta'];
 
 const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
-  const { createPaciente, getPacientePorRut } = usePaciente();
-  const { createReserva, updateReserva } = useReserva();
+  const { createPaciente } = usePaciente();
+  const { createReserva, updateReserva, getReserva } = useReserva();
+  const { user, obtenerHorasDisponibles } = useAuth();
   const showAlert = useAlert();
   const [activeStep, setActiveStep] = useState(0);
   const [patientData, setPatientData] = useState({
@@ -22,6 +26,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
     email: '',
     diaPrimeraCita: dayjs().format('YYYY-MM-DD'),
     siguienteCita: '',
+    profesional: user.id,
     hora: '',
     diagnostico: '',
     anamnesis: ''
@@ -45,15 +50,20 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
   const handleNext = async () => {
     if (activeStep === 0) {
       try {
-        const response = await getPacientePorRut(patientData.rut);
+        const response = await getReserva(patientData.rut);
         if (response) {
           setPatientData({
             ...patientData,
-            nombre: response.nombre,
-            telefono: response.telefono,
-            email: response.email
+            nombre: response.paciente.nombre,
+            telefono: response.paciente.telefono,
+            email: response.paciente.email,
+            profesional: response.profesional,
           });
           setPacienteExistente(true);
+        }
+        else {
+          setPacienteExistente(false);
+          setPatientData({ ...patientData, profesional: user.id });
         }
       } catch (error) {
         setPacienteExistente(false);
@@ -112,7 +122,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
     if (activeStep === 0) {
       return patientData.nombre && patientData.rut && patientData.telefono;
     } else if (activeStep === 1) {
-      return patientData.siguienteCita && patientData.hora;
+      return patientData.diaPrimeraCita && patientData.hora;
     }
     return true;
   };
@@ -170,41 +180,11 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
           </Box>
         )}
         {activeStep === 1 && (
-          <Box>
-            <TextField
-              label="Fecha de registro"
-              name="diaPrimeraCita"
-              type="date"
-              value={new Date().toISOString().split('T')[0]}
-              fullWidth
-              margin="normal"
-              required
-              InputLabelProps={{ shrink: true }}
-              InputProps={{ readOnly: true }}
-            />
-            <TextField
-              label="Fecha siguiente Cita"
-              name="siguienteCita"
-              type="date"
-              value={patientData.siguienteCita}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              required
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Hora de Cita"
-              name="hora"
-              type="time"
-              value={patientData.hora}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              required
-              InputLabelProps={{ shrink: true }}
-            />
-          </Box>
+          <ProfesionalBusquedaHoras
+            formData={patientData}
+            setFormData={setPatientData}
+            obtenerHorasDisponibles={obtenerHorasDisponibles}
+          />
         )}
         {activeStep === 2 && (
           <Box>

@@ -60,7 +60,7 @@ export const updatePaciente = async (req, res) => {
 
 export const getReservas = async (req, res) => {
     try {
-        const reservas = await Reserva.find().populate('paciente');
+        const reservas = await Reserva.find().populate('paciente').populate('profesional');
         reservas.forEach(reserva => {
             if (reserva.diaPrimeraCita) {
                 reserva.diaPrimeraCita = new Date(reserva.diaPrimeraCita).toISOString().split('T')[0].replace(/-/g, '/');
@@ -81,7 +81,7 @@ export const getReserva = async (req, res) => {
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
-        const reserva = await Reserva.findOne({ paciente: paciente._id });
+        const reserva = await Reserva.findOne({ paciente: paciente._id }).populate('paciente');
         if (!reserva) {
             return res.status(404).json({ message: "Reserva not found" });
         }
@@ -183,6 +183,13 @@ export const getHistorial = async (req, res) => {
         if (!reserva) {
             return res.status(404).json({ message: "Reserva not found" });
         }
+        
+        reserva.historial.forEach(historialArray => {
+            historialArray.forEach(historial => {
+                historial.fecha = new Date(historial.fecha).toISOString().split('T')[0].replace(/-/g, '/');
+            });
+        });
+
         res.json(reserva.historial);
     } catch (error) {
         res.status(404).json({ message: error.message });

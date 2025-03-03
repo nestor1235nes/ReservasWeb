@@ -19,7 +19,8 @@ const ReservasSchema = new mongoose.Schema({
         type: String,
     },
     profesional: {
-        type: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
     },
     diagnostico: {
         type: String,

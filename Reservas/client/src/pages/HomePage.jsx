@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Stepper, Step, StepLabel, Button, TextField, Typography, Box, Snackbar, Alert } from '@mui/material';
 import { usePaciente } from '../context/pacienteContext';
 import { useReserva } from '../context/reservaContext';
+import { useAuth } from '../context/authContext';
 import '../components/ui/HomePageCSS.css';
 import Rutificador from '../components/Rutificador';
+import BusquedaHoras from '../components/BusquedaHoras';
 
 function HomePage() {
   const [activeStep, setActiveStep] = useState(0);
   const { getPacientePorRut, createPaciente } = usePaciente();
   const { createReserva, updateReserva } = useReserva();
+  const { getAllUsers, obtenerHorasDisponibles } = useAuth();
   const [formData, setFormData] = useState({
     rut: '',
     nombre: '',
@@ -23,7 +26,16 @@ function HomePage() {
   const [pacienteExistente, setPacienteExistente] = useState(false);
   const [alert, setAlert] = useState({ type: '', message: '' });
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [profesionales, setProfesionales] = useState([]);
   const steps = ['Ingresar RUT', 'Datos del Paciente', 'Confirmar Reserva'];
+
+  useEffect(() => {
+    const fetchProfesionales = async () => {
+      const response = await getAllUsers();
+      setProfesionales(response);
+    };
+    fetchProfesionales();
+  }, [getAllUsers]);
 
   const handleNext = async () => {
     if (activeStep === 0) {
@@ -176,46 +188,12 @@ function HomePage() {
             </Box>
           )}
           {activeStep === 2 && (
-            <Box>
-              <TextField
-                label="Fecha de Cita"
-                name="diaPrimeraCita"
-                type="date"
-                value={formData.diaPrimeraCita}
-                onChange={handleChange}
-                fullWidth
-                margin="normal"
-                required
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="Hora de Cita"
-                name="hora"
-                type="time"
-                value={formData.hora}
-                onChange={handleChange}
-                fullWidth
-                margin="normal"
-                required
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="Profesional"
-                name="profesional"
-                value={formData.profesional}
-                onChange={handleChange}
-                fullWidth
-                margin="normal"
-              />
-              <TextField
-                label="Mensaje"
-                name="mensajePaciente"
-                value={formData.mensajePaciente}
-                onChange={handleChange}
-                fullWidth
-                margin="normal"
-              />
-            </Box>
+            <BusquedaHoras
+              formData={formData}
+              setFormData={setFormData}
+              profesionales={profesionales}
+              obtenerHorasDisponibles={obtenerHorasDisponibles}
+            />
           )}
           <Box className="stepper-box">
             <Button disabled={activeStep === 0} onClick={handleBack}>

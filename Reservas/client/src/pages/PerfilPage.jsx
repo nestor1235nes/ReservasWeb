@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Tooltip, Avatar, Box, Card, CardContent, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Stack, AppBar, Toolbar, Button, IconButton, TextField, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
+import { Tooltip, Avatar, Box, Card, CardContent, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Stack, AppBar, Toolbar, Button, IconButton, TextField, Dialog, DialogActions, DialogContent, DialogTitle, Checkbox, FormControlLabel, MenuItem, Select, InputLabel, FormControl } from "@mui/material";
 import { makeStyles } from "@mui/styles";
 import { useAuth } from "../context/authContext";
 import FotoPerfil from "../components/FotoPerfil";
@@ -48,16 +48,19 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
+const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const intervals = [10, 15, 30, 60];
+
 const PerfilPage = () => {
   const classes = useStyles();
   const { user, logout, updatePerfil } = useAuth();
   const navigate = useNavigate();
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({
-    username: user.username,
-    celular: user.celular,
-    descripcion: user.descripcion,
-    timetable: user.timetable || [{ fromTime: "", toTime: "" }]
+    username: user.username || "",
+    celular: user.celular || "",
+    descripcion: user.descripcion || "",
+    timetable: user.timetable.length > 0 ? user.timetable : [{ fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "" }]
   });
 
   const handleProfileClick = () => {
@@ -74,16 +77,21 @@ const PerfilPage = () => {
   };
 
   const handleSaveClick = async () => {
-    await updatePerfil(user.id, formData);
+    const updatedTimetable = formData.timetable.map(time => {
+      const { fromTime, toTime, breakFrom, breakTo, interval, days } = time;
+      const times = generateTimes(fromTime, toTime, breakFrom, breakTo, interval);
+      return { ...time, times };
+    });
+    await updatePerfil(user.id, { ...formData, timetable: updatedTimetable });
     setEditMode(false);
   };
 
   const handleCancelClick = () => {
     setFormData({
-      username: user.username,
-      celular: user.celular,
-      descripcion: user.descripcion,
-      timetable: user.timetable || [{ fromTime: "", toTime: "" }]
+      username: user.username || "",
+      celular: user.celular || "",
+      descripcion: user.descripcion || "",
+      timetable: user.timetable.length > 0 ? user.timetable : [{ fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "" }]
     });
     setEditMode(false);
   };
@@ -104,6 +112,40 @@ const PerfilPage = () => {
       ...formData,
       timetable: newTimetable
     });
+  };
+
+  const handleDaysChange = (index, day) => {
+    const newTimetable = [...formData.timetable];
+    const days = newTimetable[index].days.includes(day)
+      ? newTimetable[index].days.filter(d => d !== day)
+      : [...newTimetable[index].days, day];
+    newTimetable[index].days = days;
+    setFormData({
+      ...formData,
+      timetable: newTimetable
+    });
+  };
+
+  const generateTimes = (fromTime, toTime, breakFrom, breakTo, interval) => {
+    const times = [];
+    let currentTime = fromTime;
+    while (currentTime < toTime) {
+      if (currentTime >= breakFrom && currentTime < breakTo) {
+        currentTime = breakTo;
+      } else {
+        times.push(currentTime);
+        currentTime = addMinutes(currentTime, interval);
+      }
+    }
+    return times;
+  };
+
+  const addMinutes = (time, minutes) => {
+    const [hours, mins] = time.split(":").map(Number);
+    const totalMinutes = hours * 60 + mins + minutes;
+    const newHours = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
+    const newMinutes = (totalMinutes % 60).toString().padStart(2, "0");
+    return `${newHours}:${newMinutes}`;
   };
 
   if (!user) return <Typography>Cargando perfil...</Typography>;
@@ -192,23 +234,27 @@ const PerfilPage = () => {
             </Stack>
 
             {/* Horario */}
-            <Box mt={4}>
-              <Typography variant="h6" gutterBottom>
-                Horarios Disponibles:
-              </Typography>
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell><strong>Desde</strong></TableCell>
-                      <TableCell><strong>Hasta</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {formData.timetable.map((time, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          {editMode ? (
+            {editMode && (
+              <Box mt={4}>
+                <Typography variant="h6" gutterBottom>
+                  Horarios Disponibles:
+                </Typography>
+                <TableContainer component={Paper}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell><strong>Desde</strong></TableCell>
+                        <TableCell><strong>Hasta</strong></TableCell>
+                        <TableCell><strong>Días</strong></TableCell>
+                        <TableCell><strong>Intervalo</strong></TableCell>
+                        <TableCell><strong>Colación Desde</strong></TableCell>
+                        <TableCell><strong>Colación Hasta</strong></TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {formData.timetable.map((time, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
                             <TextField
                               name="fromTime"
                               type="time"
@@ -216,12 +262,8 @@ const PerfilPage = () => {
                               onChange={(e) => handleTimetableChange(index, e)}
                               fullWidth
                             />
-                          ) : (
-                            time.fromTime || "No especificado"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {editMode ? (
+                          </TableCell>
+                          <TableCell>
                             <TextField
                               name="toTime"
                               type="time"
@@ -229,10 +271,80 @@ const PerfilPage = () => {
                               onChange={(e) => handleTimetableChange(index, e)}
                               fullWidth
                             />
-                          ) : (
-                            time.toTime || "No especificado"
-                          )}
-                        </TableCell>
+                          </TableCell>
+                          <TableCell>
+                            {daysOfWeek.map(day => (
+                              <FormControlLabel
+                                key={day}
+                                control={
+                                  <Checkbox
+                                    checked={time.days.includes(day)}
+                                    onChange={() => handleDaysChange(index, day)}
+                                  />
+                                }
+                                label={day}
+                              />
+                            ))}
+                          </TableCell>
+                          <TableCell>
+                            <FormControl fullWidth>
+                              <InputLabel>Intervalo</InputLabel>
+                              <Select
+                                name="interval"
+                                value={time.interval}
+                                onChange={(e) => handleTimetableChange(index, e)}
+                              >
+                                {intervals.map(interval => (
+                                  <MenuItem key={interval} value={interval}>
+                                    {`Distribuir cada ${interval} min.`}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              name="breakFrom"
+                              type="time"
+                              value={time.breakFrom}
+                              onChange={(e) => handleTimetableChange(index, e)}
+                              fullWidth
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              name="breakTo"
+                              type="time"
+                              value={time.breakTo}
+                              onChange={(e) => handleTimetableChange(index, e)}
+                              fullWidth
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+
+            <Box mt={4}>
+              <Typography variant="h6" gutterBottom>
+                Horas Generadas:
+              </Typography>
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Días</strong></TableCell>
+                      <TableCell><strong>Horas</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {formData.timetable.map((time, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{(time.days && time.days.join(", ")) || "No especificado"}</TableCell>
+                        <TableCell>{(time.times && time.times.join(", ")) || "No especificado"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

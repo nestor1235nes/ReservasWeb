@@ -95,7 +95,6 @@ const VerHistorial = ({ open, onClose, paciente }) => {
 
   const handleConfirmPDF = () => {
     if (selectedSesiones.length > 0) {
-      console.log(dataReserva);
       PDFPaciente({ paciente, dataReserva, sesiones: selectedSesiones });
       setSelectingPDF(false);
       setSelectedSesiones([]);

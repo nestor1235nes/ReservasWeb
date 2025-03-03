@@ -146,11 +146,11 @@ export const updatePerfil = async (req, res) => {
   }
 }
 
-export const getProfile = async (req, res) => {
+export const getAllProfiles = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    res.json(user);
+    const users = await User.find();
+    res.json(users);
   } catch (error) {
-    res.status(404).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 }

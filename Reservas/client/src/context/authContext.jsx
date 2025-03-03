@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { createContext, useContext, useState } from "react";
-import { loginRequest, registerRequest, verifyTokenRequest, updatePerfilRequest, getProfileRequest } from "../api/auth";
+import { loginRequest, registerRequest, verifyTokenRequest, updatePerfilRequest, getAllUsersRequest } from "../api/auth";
+import { obtenerHorasDisponiblesRequest } from "../api/funcion";
 import Cookies from "js-cookie";
 
 const AuthContext = createContext();
@@ -67,6 +68,26 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const obtenerHorasDisponibles = async (id, fecha) => {
+    try {
+      const res = await obtenerHorasDisponiblesRequest(id, fecha);
+      return res.data;
+    } catch (error) {
+      console.log(error);
+      setErrors(error.response.data.message);
+    }
+  }
+
+  const getAllUsers = async () => {
+    try {
+      const res = await getAllUsersRequest();
+      return res.data;
+    } catch (error) {
+      console.log(error);
+      setErrors(error.response.data.message);
+    }
+  }
+
   useEffect(() => {
     const checkLogin = async () => {
       const cookies = Cookies.get();
@@ -101,6 +122,8 @@ export const AuthProvider = ({ children }) => {
         errors,
         loading,
         updatePerfil,
+        obtenerHorasDisponibles,
+        getAllUsers,
       }}
     >
       {children}

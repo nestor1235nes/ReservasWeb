@@ -5,7 +5,7 @@ import {
   register,
   verifyToken,
   updatePerfil,
-  getProfile,
+  getAllProfiles,
 } from "../controllers/auth.controller.js";
 import { validateSchema } from "../middlewares/validator.middleware.js";
 import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
@@ -17,6 +17,6 @@ router.post("/login", validateSchema(loginSchema), login);
 router.get("/verify", verifyToken);
 router.post("/logout", verifyToken, logout);
 router.put("/:id", updatePerfil);
-router.get("/:id", getProfile);
+router.get("/", getAllProfiles);
 
 export default router;
