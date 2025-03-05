@@ -1,8 +1,14 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-const PDFPaciente = ({ paciente, dataReserva, sesiones }) => {
+const PDFPaciente = ({ paciente, dataReserva, sesiones, user }) => {
   const doc = new jsPDF();
+
+  // Función para limpiar etiquetas HTML
+  const stripHtmlTags = (html) => {
+    return html.replace(/<[^>]+>/g, '');
+  };
+
 
   // Título principal
   doc.setFont('helvetica', 'bold');
@@ -34,11 +40,6 @@ const PDFPaciente = ({ paciente, dataReserva, sesiones }) => {
   doc.text(paciente.telefono || 'No disponible', 40, 45);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Edad:', 110, 45);
-  doc.setFont('helvetica', 'normal');
-  doc.text(paciente.edad ? `${paciente.edad} años` : 'No disponible', 130, 45);
-
-  doc.setFont('helvetica', 'bold');
   doc.text('Email:', 10, 55);
   doc.setFont('helvetica', 'normal');
   doc.text(paciente.email || 'No disponible', 40, 55);
@@ -51,7 +52,7 @@ const PDFPaciente = ({ paciente, dataReserva, sesiones }) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Profesional Asignado:', 10, 75);
   doc.setFont('helvetica', 'normal');
-  doc.text(dataReserva.profesional || 'No disponible', 55, 75);
+  doc.text(user.username || 'No disponible', 55, 75);
 
   let nextY = 85; // Ajuste de posición
 
@@ -71,9 +72,13 @@ const PDFPaciente = ({ paciente, dataReserva, sesiones }) => {
   doc.text('Anamnesis:', 10, nextY);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(dataReserva.anamnesis || 'No disponible', 10, nextY + 6, { maxWidth: 180 });
+  
+  // Limpiar etiquetas HTML de la anamnesis
+  const anamnesisText = stripHtmlTags(dataReserva.anamnesis || 'No disponible');
+  const anamnesisLines = doc.splitTextToSize(anamnesisText, 180);
+  doc.text(anamnesisLines, 10, nextY + 6);
 
-  nextY += 20; // Ajustar espacio
+  nextY += 6 + anamnesisLines.length * 10; // Ajustar espacio dinámicamente
 
   // Sección: Historial de Sesiones
   doc.setFont('helvetica', 'bold');
@@ -82,10 +87,7 @@ const PDFPaciente = ({ paciente, dataReserva, sesiones }) => {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
 
-  // Función para limpiar etiquetas HTML
-  const stripHtmlTags = (html) => {
-    return html.replace(/<[^>]+>/g, '');
-  };
+  
 
   // Preparar datos de la tabla
   const tableData = sesiones.map(sesion => [

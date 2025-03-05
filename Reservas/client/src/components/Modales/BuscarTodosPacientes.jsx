@@ -1,23 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Box, Typography, List, ListItem, ListItemText, Button } from '@mui/material';
 import '../ui/ModalBuscarPaciente.css';
-import { usePaciente } from '../../context/pacienteContext';
+import { useReserva } from '../../context/reservaContext';
 import MotorBusqueda from '../MotorBusqueda';
 
 const BuscarTodosPacientes = ({ open, onClose }) => {
-  const { getPacientes } = usePaciente();
+  const { getReservas } = useReserva();
   const [pacientes, setPacientes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchPacientes = async () => {
-      const data = await getPacientes();
-      setPacientes(data);
+      const data = await getReservas();
+      const pacientesData = data.map(reserva => reserva.paciente);
+      setPacientes(pacientesData);
     };
     if (open) {
       fetchPacientes();
     }
-  }, [open, getPacientes]);
+  }, [open, getReservas]);
 
   const handleSearch = (term) => {
     setSearchTerm(term);

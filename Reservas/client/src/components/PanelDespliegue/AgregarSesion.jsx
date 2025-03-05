@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Box, Typography, TextField, Button, MobileStepper, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import { useReserva } from '../../context/reservaContext';
 import { useAlert } from '../../context/AlertContext';
 import { useAuth } from '../../context/authContext';
@@ -10,6 +15,11 @@ import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+
+dayjs.extend(localizedFormat);
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.locale('es')
 
 const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas }) => {
   const [sesionData, setSesionData] = useState('');
@@ -169,26 +179,28 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas }) => {
                   shrink: true,
                 }}
               />
-              <DatePicker
-                label="Fecha Nueva Cita"
-                value={fecha ? dayjs(fecha) : null}
-                onChange={handleFechaChange}
-                shouldDisableDate={(date) => {
-                  const dayName = date.format('dddd');
-                  const translatedDays = {
-                    Monday: "Lunes",
-                    Tuesday: "Martes",
-                    Wednesday: "Miércoles",
-                    Thursday: "Jueves",
-                    Friday: "Viernes",
-                    Saturday: "Sábado",
-                    Sunday: "Domingo",
-                  };
-                  const translatedDayName = translatedDays[dayName];
-                  return !diasDeTrabajo.includes(translatedDayName);
-                }}
-                renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
-              />
+              <LocalizationProvider dateAdapter={AdapterDayjs} locale="es">
+                <DatePicker
+                  label="Fecha Nueva Cita"
+                  value={fecha ? dayjs(fecha) : null}
+                  onChange={handleFechaChange}
+                  shouldDisableDate={(date) => {
+                    const dayName = date.format('dddd');
+                    const translatedDays = {
+                      Monday: "Lunes",
+                      Tuesday: "Martes",
+                      Wednesday: "Miércoles",
+                      Thursday: "Jueves",
+                      Friday: "Viernes",
+                      Saturday: "Sábado",
+                      Sunday: "Domingo",
+                    };
+                    const translatedDayName = translatedDays[dayName];
+                    return !diasDeTrabajo.includes(translatedDayName);
+                  }}
+                  renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
+                />
+              </LocalizationProvider>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Hora</InputLabel>
                 <Select

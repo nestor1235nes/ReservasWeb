@@ -14,6 +14,7 @@ import timezone from 'dayjs/plugin/timezone';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 import 'dayjs/locale/es';
 import BotonFlotante from '../components/PanelDespliegue/BotonFlotante';
+import SinDatos from '../components/Modales/SinDatos';
 
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
@@ -38,25 +39,30 @@ export function CalendarioPage() {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const { getReservas } = useReserva();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const fetchReservas = async () => {
     const data = await getReservas();
     setReservas(data);
+    console.log(data);
 
     const transformedEvents = data.map(reserva => {
-      const startDate = dayjs(reserva.siguienteCita).tz('America/Santiago');
-      const [hours, minutes] = reserva.hora.split(":").map(Number);
-      const localStartDate = startDate.hour(hours).minute(minutes).second(0).toDate();
-    
-      return {
-        title: reserva.paciente.nombre,
-        start: localStartDate,
-        end: dayjs(localStartDate).add(1, 'hour').toDate(),
-        ...reserva,
-      };
+      if(reserva.siguienteCita){
+        const startDate = dayjs(reserva.siguienteCita).tz('America/Santiago');
+        const [hours, minutes] = reserva.hora.split(":").map(Number);
+        const localStartDate = startDate.hour(hours).minute(minutes).second(0).toDate();
+      
+        return {
+          title: reserva.paciente.nombre,
+          start: localStartDate,
+          end: dayjs(localStartDate).add(1, 'hour').toDate(),
+          ...reserva,
+        };
+      }
+      
     });
 
     setEvents(transformedEvents);
@@ -65,6 +71,12 @@ export function CalendarioPage() {
   useEffect(() => {
     fetchReservas();
   }, []);
+
+  useEffect(() => {
+    if (user && (!user.timetable || user.timetable.length === 0)) {
+      setShowModal(true);
+    }
+  }, [user]);
 
   const handleSelectEvent = (event) => {
     setSelectedEvent(event);
@@ -149,6 +161,7 @@ export function CalendarioPage() {
       </Drawer>
 
       <BotonFlotante onClick={handleFabClick} fetchReservas={fetchReservas} />
+      <SinDatos open={showModal} />
     </Box>
   );
 }

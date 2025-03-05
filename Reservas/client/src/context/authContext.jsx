@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createContext, useContext, useState } from "react";
 import { loginRequest, registerRequest, verifyTokenRequest, updatePerfilRequest, getAllUsersRequest } from "../api/auth";
-import { obtenerHorasDisponiblesRequest } from "../api/funcion";
+import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/funcion";
 import Cookies from "js-cookie";
 
 const AuthContext = createContext();
@@ -78,6 +78,15 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const liberarHoras = async (data) => {
+    try {
+      const response = await liberarHorasRequest(data);
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const getAllUsers = async () => {
     try {
       const res = await getAllUsersRequest();
@@ -124,6 +133,7 @@ export const AuthProvider = ({ children }) => {
         updatePerfil,
         obtenerHorasDisponibles,
         getAllUsers,
+        liberarHoras,
       }}
     >
       {children}

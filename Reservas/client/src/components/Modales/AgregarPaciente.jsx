@@ -13,7 +13,7 @@ import { set } from 'mongoose';
 
 const steps = ['Datos del paciente', 'Fecha y hora de la cita', 'Datos de la consulta'];
 
-const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
+const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
   const { createPaciente } = usePaciente();
   const { createReserva, updateReserva, getReserva } = useReserva();
   const { user, obtenerHorasDisponibles } = useAuth();
@@ -94,6 +94,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas }) => {
     try {
       if (data) {
         await updateReserva(patientData.rut, patientData);
+        fetchReservas();
       } else {
         await createPaciente(patientData);
         await createReserva(patientData.rut, patientData);

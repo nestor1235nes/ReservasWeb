@@ -9,18 +9,19 @@ import {
     addHistorial,
 } from "../controllers/ficha.controller.js";
 import { obtenerPacientesSinSesiones } from "../controllers/funciones.controller.js";
+import { auth } from "../middlewares/auth.middleware.js"; // Importa el middleware de autenticación
 
 const router = Router();
 
-router.get("/reserva", getReservas);
-router.get("/reserva/:rut", getReserva);
-router.post("/reserva/:rut", createReserva);
-router.delete("/reserva/:id", deleteReserva);
-router.put("/reserva/:rut", updateReserva);
-router.get("/reserva/:rut/historial", getHistorial);
-router.post("/reserva/:rut/historial", addHistorial);
+router.get("/reserva", auth, getReservas); // Aplica el middleware de autenticación
+router.get("/reserva/:rut", auth, getReserva); // Aplica el middleware de autenticación
+router.post("/reserva/:rut", auth, createReserva); // Aplica el middleware de autenticación
+router.delete("/reserva/:id", auth, deleteReserva); // Aplica el middleware de autenticación
+router.put("/reserva/:rut", auth, updateReserva); // Aplica el middleware de autenticación
+router.get("/reserva/:rut/historial", auth, getHistorial); // Aplica el middleware de autenticación
+router.post("/reserva/:rut/historial", auth, addHistorial); // Aplica el middleware de autenticación
 
 ////////////////////// Funciones //////////////////////
-router.get("/pacientes-sin-sesiones", obtenerPacientesSinSesiones);
+router.get("/pacientes-sin-sesiones", auth, obtenerPacientesSinSesiones); // Aplica el middleware de autenticación
 
 export default router;

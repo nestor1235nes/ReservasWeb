@@ -6,7 +6,8 @@ import User from "../models/user.model.js";
 
 export const obtenerPacientesSinSesiones = async (req, res) => {
   try {
-    const pacientesSinSesiones = await Reserva.find({ historial: { $size: 0 } }).populate('paciente');
+    const profesionalId = req.user.id;
+    const pacientesSinSesiones = await Reserva.find({ historial: { $size: 0 }, profesional: profesionalId }).populate('paciente');
     const filtro = pacientesSinSesiones.filter(reserva => reserva.paciente.estado === true && !reserva.diagnostico);
     res.status(200).json(filtro.map(reserva => reserva.paciente));
   } catch (error) {
@@ -52,3 +53,36 @@ export const obtenerHorasDisponibles = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+//////////////////// Liberar horas de un profesional en un día especifico ////////////////////
+
+export const liberarHoras = async (req, res) => {
+  try {
+    const { id, fecha } = req.body;
+    const profesional = await User.findById(id);
+
+    if (!profesional) {
+      return res.status(400).json({ message: "Profesional no encontrado" });
+    }
+
+    const startOfDay = new Date(fecha);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(fecha);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    await Reserva.updateMany(
+      {
+      profesional: id,
+      siguienteCita: { $gte: startOfDay, $lte: endOfDay }
+      },
+      {
+      $unset: { siguienteCita: "" }
+      }
+    );
+
+    res.status(200).json({ message: "Horas liberadas correctamente" });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}

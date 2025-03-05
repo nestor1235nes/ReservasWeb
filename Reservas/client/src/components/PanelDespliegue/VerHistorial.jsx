@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Box, Typography, List, ListItem, ListItemText, Tooltip, IconButton, Button, Checkbox, FormControlLabel } from '@mui/material';
 import { useReserva } from '../../context/reservaContext';
+import { useAuth } from '../../context/authContext';
 import PDFPaciente from '../Pdfs/PDFPaciente';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -23,6 +24,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
   const [dataReserva, setDataReserva] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const { getHistorial, getReserva } = useReserva();
+  const { user } = useAuth();
 
   const stickyHeaderStyles = {
     position: 'sticky',
@@ -95,7 +97,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
 
   const handleConfirmPDF = () => {
     if (selectedSesiones.length > 0) {
-      PDFPaciente({ paciente, dataReserva, sesiones: selectedSesiones });
+      PDFPaciente({ paciente, dataReserva, sesiones: selectedSesiones, user });
       setSelectingPDF(false);
       setSelectedSesiones([]);
     }

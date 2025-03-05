@@ -60,20 +60,20 @@ export const updatePaciente = async (req, res) => {
 
 export const getReservas = async (req, res) => {
     try {
-        const reservas = await Reserva.find().populate('paciente').populate('profesional');
-        reservas.forEach(reserva => {
-            if (reserva.diaPrimeraCita) {
-                reserva.diaPrimeraCita = new Date(reserva.diaPrimeraCita).toISOString().split('T')[0].replace(/-/g, '/');
-            }
-            if (reserva.siguienteCita) {
-                reserva.siguienteCita = new Date(reserva.siguienteCita).toISOString().split('T')[0].replace(/-/g, '/');
-            }
-        });
-        res.json(reservas);
+      const reservas = await Reserva.find({ profesional: req.user.id }).populate('paciente').populate('profesional');
+      reservas.forEach(reserva => {
+        if (reserva.diaPrimeraCita) {
+          reserva.diaPrimeraCita = new Date(reserva.diaPrimeraCita).toISOString().split('T')[0].replace(/-/g, '/');
+        }
+        if (reserva.siguienteCita) {
+          reserva.siguienteCita = new Date(reserva.siguienteCita).toISOString().split('T')[0].replace(/-/g, '/');
+        }
+      });
+      res.json(reservas);
     } catch (error) {
-        res.status(404).json({ message: error.message });
+      res.status(404).json({ message: error.message });
     }
-};
+  };
 
 export const getReserva = async (req, res) => {
     try {

@@ -16,7 +16,6 @@ const BuscarPacientes = ({ open, onClose, fetchReservas }) => {
     const fetchPacientes = async () => {
       const data = await pacientesSinSesiones();
       setPacientes(data);
-      console.log(data);
     };
     if (open) {
       fetchPacientes();

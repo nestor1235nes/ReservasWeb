@@ -11,10 +11,32 @@ import { CalendarioPage } from "./pages/CalendarioPage";
 import PerfilPage from "./pages/PerfilPage";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { deDE } from '@mui/x-date-pickers/locales';
 
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#3f51b5',
+    },
+    secondary: {
+      main: '#f50057',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+        },
+      },
+    },
+  },
+});
 
 function App() {
   return (
+    <ThemeProvider theme={theme}>
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <AuthProvider>
         <AlertProvider>
@@ -38,6 +60,7 @@ function App() {
         </AlertProvider>
       </AuthProvider>
     </LocalizationProvider>
+    </ThemeProvider>
   );
 }
 
