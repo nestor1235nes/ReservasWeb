@@ -7,6 +7,7 @@ import reservaRoutes from './routes/reserva.routes.js';
 import fichaRoutes from './routes/ficha.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import funcionRoutes from './routes/funciones.routes.js';
+import deletePerfilRoutes from './routes/deletePerfil.routes.js';
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use("/api/", reservaRoutes);
 app.use("/api/", fichaRoutes);
 app.use("/api/", uploadRoutes);
 app.use("/api/", funcionRoutes);
+app.use("/api/", deletePerfilRoutes);
 app.use('/uploads', express.static('uploads'))
 
 if (process.env.NODE_ENV === "production") {

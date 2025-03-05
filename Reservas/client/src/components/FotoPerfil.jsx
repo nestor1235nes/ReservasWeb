@@ -29,12 +29,17 @@ const FotoPerfil = () => {
       formData.append('file', blob, selectedFile.name);
 
       try {
+        // Eliminar la foto de perfil anterior
+        if (user.fotoPerfil) {
+          await axios.delete(`/delete`, { data: { filePath: user.fotoPerfil } });
+        }
+
+        // Subir la nueva foto de perfil
         const res = await axios.post('/upload', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
-        console.log('File uploaded:', res.data.url);
         await updatePerfil(user.id, { fotoPerfil: res.data.url });
         setEditorOpen(false);
       } catch (error) {

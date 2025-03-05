@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Box, Typography, List, ListItem, ListItemText, Tooltip, IconButton, Button, Checkbox, FormControlLabel } from '@mui/material';
 import { useReserva } from '../../context/reservaContext';
 import { useAuth } from '../../context/authContext';
+import { useAlert } from '../../context/AlertContext';
 import PDFPaciente from '../Pdfs/PDFPaciente';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -24,6 +25,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
   const [dataReserva, setDataReserva] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const { getHistorial, getReserva } = useReserva();
+  const showAlert = useAlert();
   const { user } = useAuth();
 
   const stickyHeaderStyles = {
@@ -101,6 +103,9 @@ const VerHistorial = ({ open, onClose, paciente }) => {
       setSelectingPDF(false);
       setSelectedSesiones([]);
     }
+    else{
+      showAlert('error', 'Debes seleccionar al menos una sesión para generar el PDF');
+    }
   };
 
   const handleCancelPDF = () => {
@@ -121,7 +126,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
   const modalClass = window.innerWidth < 600 ? (closing ? 'modal-slide-out-down' : 'modal-slide-in-up') : (closing ? 'modal-slide-out-right' : 'modal-slide-in-right');
 
   return (
-    <Modal open={open} onClose={handleClose}>
+    <Modal open={open} onClose={handleClose} className="modal-over-drawer">
       <Box
         p={3}
         bgcolor="#f1eeee"

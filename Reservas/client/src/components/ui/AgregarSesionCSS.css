@@ -57,3 +57,7 @@
   .modal-slide-in-up {
     animation: slideInUp 0.5s forwards;
   }
+
+  .modal-over-drawer {
+    z-index: 1302 !important; /* Asegúrate de que el z-index sea mayor que el del Drawer */
+  }

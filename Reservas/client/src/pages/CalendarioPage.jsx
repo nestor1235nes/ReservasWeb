@@ -47,7 +47,6 @@ export function CalendarioPage() {
   const fetchReservas = async () => {
     const data = await getReservas();
     setReservas(data);
-    console.log(data);
 
     const transformedEvents = data.map(reserva => {
       if(reserva.siguienteCita){

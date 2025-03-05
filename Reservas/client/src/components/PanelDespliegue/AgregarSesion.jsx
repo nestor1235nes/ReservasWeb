@@ -111,7 +111,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas }) => {
   const modalClass = window.innerWidth < 600 ? (closing ? 'modal-slide-out-down' : 'modal-slide-in-up') : (closing ? 'modal-slide-out-right' : 'modal-slide-in-right');
 
   return (
-    <Modal open={open} onClose={handleClose}>
+    <Modal open={open} onClose={handleClose} className="modal-over-drawer">
       <Box
         p={3}
         bgcolor="#eeee"

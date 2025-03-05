@@ -10,9 +10,10 @@ const MotorBusqueda = ({ onSearch }) => {
   return (
     <TextField
       className='search-container'
-      label="Buscar paciente"
+      label="Buscar paciente (nombre o rut)"
       variant="outlined"
       fullWidth
+      style={{ background:'white' }}
       onChange={handleSearchChange}
       InputProps={{
         startAdornment: (

@@ -89,7 +89,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
       }
       setEditSection(null);
       fetchReservas();
-      onClose();
+      onCloseDespligue();
     } catch (error) {
       console.error(error);
     }
@@ -99,8 +99,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
     setEditableFields({
       email: event.paciente.email,
       telefono: event.paciente.telefono,
-      fecha: event.start.toISOString().split('T')[0],
-      hora: event.start.toTimeString().split(' ')[0],
+      fecha: event.start ? event.start.toISOString().split('T')[0] : '',
+      hora: event.start ? event.start.toTimeString().split(' ')[0] : '',
       profesional: event.profesional
     });
     setEditSection(null);
@@ -131,7 +131,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
   };
 
   return (
-    <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500}>
+    <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500} >
       <Box p={2} width={window.innerWidth < 600 ? '100%' : 500} height={window.innerWidth < 600 ? 700 : '100%'} style={{ overflowY:'auto', backgroundColor: '#f1eeee', borderRadius: '8px' }}>
         <Box display="flex" justifyContent="space-between" backgroundColor="primary.main" p={0.5} style={{ justifyContent: 'center', borderRadius: '5px', color:'white' }}>
           <Typography variant="h6" style={{ textAlign: 'center' }}>Detalles de la Cita</Typography>
@@ -254,7 +254,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
               </>
             ) : (
               <Box display="flex" justifyContent="space-between">
-                <Typography variant="body1"><strong>Fecha:</strong> {event.start.toLocaleDateString()}</Typography>
+                <Typography variant="body1"><strong>Fecha:</strong> {event.start ? event.start.toLocaleDateString() : ''}</Typography>
                 <Typography variant="body1"><strong>Hora:</strong> {event.hora} hrs.</Typography>
               </Box>
             )}

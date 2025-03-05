@@ -37,6 +37,9 @@
   font-weight: bold;
 }
 
+.drawer-over-modal {
+  z-index: 1301 !important; /* Asegúrate de que el z-index sea mayor que el del Modal */
+}
   
   @media (min-width: 600px) {
     .modal-box {
