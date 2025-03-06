@@ -169,7 +169,7 @@ function HomePage() {
                 required
               />
               <TextField
-                label="Teléfono"
+                label="Celular (Ej: 912345678)"
                 name="telefono"
                 value={formData.telefono}
                 onChange={handleChange}

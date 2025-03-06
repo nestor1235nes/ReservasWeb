@@ -40,7 +40,16 @@ const userSchema = new mongoose.Schema({
     timetable: {
         type: [timetableSchema],
         default: []
-    }
+    },
+
+
+    ///////////Configuracion de wsp/////////////
+    idInstance: {
+        type: String,
+    },
+    apiTokenInstance: {
+        type: String,
+    },
 });
 
 export default mongoose.model('User', userSchema);

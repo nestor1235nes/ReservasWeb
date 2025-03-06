@@ -62,6 +62,11 @@ const PerfilPage = () => {
     descripcion: user.descripcion || "",
     timetable: user.timetable.length > 0 ? user.timetable : [{ fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "" }]
   });
+  const [showInputs, setShowInputs] = useState(false);
+  const [wspData, setWspData] = useState({
+    idInstance: user.idInstance || "",
+    apiTokenInstance: user.apiTokenInstance || ""
+  });
 
   const handleProfileClick = () => {
     navigate('/calendario');
@@ -148,6 +153,29 @@ const PerfilPage = () => {
     return `${newHours}:${newMinutes}`;
   };
 
+  ////////////configuracion de wsp/////////////
+
+  const handleWspChange = (e) => {
+    const { name, value } = e.target;
+    setWspData({
+      ...wspData,
+      [name]: value
+    });
+  };
+
+  const handleWspSave = async () => {
+    await updatePerfil(user.id, wspData);
+    setShowInputs(false);
+  };
+
+  const handleWspCancel = () => {
+    setWspData({
+      idInstance: user.idInstance || "",
+      apiTokenInstance: user.apiTokenInstance || ""
+    });
+    setShowInputs(false);
+  };
+
   if (!user) return <Typography>Cargando perfil...</Typography>;
 
   return (
@@ -204,36 +232,82 @@ const PerfilPage = () => {
                           multiline
                           rows={4}
                         />
-                      </>
-                    ) : (
-                      <>
+                        </>
+                      ) : (
+                        <>
                         <Typography variant="h4" gutterBottom>
                           {user.username}
                         </Typography>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Typography variant="h6" color="textSecondary">
-                            <MasksIcon />
-                            {" " + user.especialidad || " Especialidad no especificada"}
+                          <MasksIcon />
+                          {" " + user.especialidad || " Especialidad no especificada"}
                           </Typography>
                         </Stack>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <MailOutlineIcon />
                           <Typography variant="h6" color="textSecondary">
-                            {user.email}
+                          {user.email}
                           </Typography>
                         </Stack>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <LocalPhoneIcon />
                           <Typography variant="h6" color="textSecondary">
-                            {user.celular || "Sin especificar"}
+                          {user.celular || "Sin especificar"}
                           </Typography>
                         </Stack>
-                      </>
-                    )}
-                </Box>
-            </Stack>
+                        {user.celular && !user.idInstance && (
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography
+                              variant="body2"
+                              style={{ fontStyle: 'italic', textDecoration: 'underline', opacity: 0.7, cursor: 'pointer' }}
+                              onClick={() => setShowInputs(true)}
+                            >
+                              ¿Deseas enviar mensajes automáticos a tus pacientes?
+                            </Typography>
+                          </Stack>
+                        )}
+                        {user.celular && user.idInstance && (
+                          <Typography variant="body2" color="textSecondary">
+                            Mensajes automáticos a través de WhatsApp habilitados.
+                          </Typography>
+                        )}
+                        {showInputs && (
+                          <Box width="100vh" p={1} mt={1}>
+                          <Stack direction="row" alignItems="center" spacing={1}  >
+                            <TextField
+                            label="ID Instance"
+                            name="idInstance"
+                            value={wspData.idInstance}
+                            onChange={handleWspChange}
+                            fullWidth
+                            margin="normal"
+                            sx={{ width: '40%' }}
+                            />
+                            <TextField
+                            label="API Token Instance"
+                            name="apiTokenInstance"
+                            value={wspData.apiTokenInstance}
+                            onChange={handleWspChange}
+                            fullWidth
+                            margin="normal"
+                            sx={{ width: '40%' }}
+                            />
+                            <Button variant="contained" color="primary" onClick={handleWspSave} sx={{ padding: '10px', width: '100px' }}>
+                            Confirmar
+                            </Button>
+                            <Button variant="contained" color="secondary" onClick={handleWspCancel} sx={{ padding: '10px', width: '100px' }}>
+                            Cancelar
+                            </Button>
+                          </Stack>
+                          </Box>
+                        )}
+                        </>
+                      )}
+                    </Box>
+                  </Stack>
 
-            {/* Horario */}
+                  {/* Horario */}
             {editMode && (
               <Box mt={4}>
                 <Typography variant="h6" gutterBottom>

@@ -70,18 +70,22 @@ export const liberarHoras = async (req, res) => {
     const endOfDay = new Date(fecha);
     endOfDay.setHours(23, 59, 59, 999);
 
-    await Reserva.updateMany(
-      {
+    const reservasLiberadas = await Reserva.find({
       profesional: id,
       siguienteCita: { $gte: startOfDay, $lte: endOfDay }
+    }).populate('paciente');
+
+    await Reserva.updateMany(
+      {
+        profesional: id,
+        siguienteCita: { $gte: startOfDay, $lte: endOfDay }
       },
       {
-      $unset: { siguienteCita: "" }
+        $unset: { siguienteCita: "" }
       }
     );
 
-    res.status(200).json({ message: "Horas liberadas correctamente" });
-
+    res.status(200).json({ reservasLiberadas });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

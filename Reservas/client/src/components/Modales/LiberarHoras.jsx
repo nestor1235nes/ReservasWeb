@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
+import sendWhatsAppMessage from '../../sendWhatsAppMessage';
 
 dayjs.locale('es');
 
@@ -26,10 +27,16 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
                 id: user.id,
                 fecha,
             };
-            await liberarHoras(data);
+            const reservasLiberadas = await liberarHoras(data);
             showAlert('success', 'Horas liberadas correctamente');
             fetchReservas();
             onClose();
+
+
+            if(user.idInstance){
+                const message = `Las horas del día ${dayjs(fecha).format('DD/MM/YYYY')} han sido liberadas por motivos personales. Le pedimos por favor que vuelva a registrar una hora en nuestro sitio web www.sitioweb.cl. Disculpe las molestias, Saludos.`;
+                await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user);
+            }
         } catch (error) {
             console.error(error);
             showAlert('error', 'Error al liberar las horas');
@@ -48,7 +55,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
     };
 
     useEffect(() => {
-        if (user && user.timetable) {
+        if (user && user.timetable && user.timetable.length > 0) {
             const dias = user.timetable[0].days;
             setDiasDeTrabajo(dias);
         }
@@ -57,7 +64,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
     return (
         <Modal open={open} onClose={onClose}>
             <Box
-                p={3}
+                p={1}
                 bgcolor="#eeee"
                 borderRadius={2}
                 boxShadow={3}
@@ -65,26 +72,50 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
                 minHeight={window.innerHeight < 600 ? '90%' : 500}
                 overflow="auto"
                 mx="auto"
-                my="1.5%"
+                my="1%"
             >
                 <Box backgroundColor="primary.main" borderRadius={'5px'} color={"white"} p={0.5} mb={0}>
                     <Typography variant="h6" textAlign={'center'} gutterBottom>Liberar Horas</Typography>
                 </Box>
                 
                 <Box backgroundColor="white" borderRadius={'5px'} p={1} mb={0}>
-                    <Box p={1} mb={1}>
+                    <Box p={1} mb={0}>
                         <Typography variant="body1" gutterBottom>
                             Seleccione el día que desea liberar horas
                         </Typography>
                     </Box>
                     <Box p={1} mb={1}>
-                        <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
-                            Nota:
-                            Al liberar las horas de un día, se eliminarán todas las reservas agendadas para ese día, pero debe estar atento si despues un paciente agenda ese dia, ya que las horas estarán liberadas.
-                        </Typography>
-                        <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
-                            Las reservas del dia eliminado no aparecerán en el calendario, pero si en 'Buscar Paciente'. Se sugiere que el profesional se comunique con los pacientes para reagendar las citas.
-                        </Typography>
+                        {user.idInstance ? (
+                            <Box>
+                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
+                                    ¡Importante!
+                                </Typography>
+                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
+                                    - Se les notificará a través de un mensaje por WhatsApp a cada paciente que se le liberó su hora.
+                                </Typography>
+                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
+                                    - Las reservas del dia eliminado no aparecerán en el calendario, pero si en 'Buscar Paciente'.
+                                </Typography>
+                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
+                                    - Al seleccionar un dia, se eliminarán todas las reservas agendadas para ese día. Deberá estar atento si un paciente agenda nuevamente para ese día, ya que las horas estarán liberadas.
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <Box>
+                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4}}>
+                                    ¡Importante!
+                                </Typography>
+                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4, textDecoration: 'line-through' }}>
+                                    - Se les notificará a través de un mensaje por WhatsApp a cada paciente que se le liberó su hora.
+                                </Typography>
+                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4}}>
+                                    - Las reservas del dia eliminado no aparecerán en el calendario, pero si en 'Buscar Paciente'.
+                                </Typography>
+                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4}}>
+                                    - Al seleccionar un dia, se eliminarán todas las reservas agendadas para ese día. Deberá estar atento si un paciente agenda nuevamente para ese día, ya que las horas estarán liberadas.
+                                </Typography>
+                            </Box>
+                        )}
                     </Box>
                     <LocalizationProvider dateAdapter={AdapterDayjs} locale="es">
                         <StaticDatePicker

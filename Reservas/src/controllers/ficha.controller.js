@@ -31,7 +31,11 @@ export const getPacientes = async (req, res) => {
 export const createPaciente = async (req, res) => {
     const paciente = req.body;
     const newPaciente = new Paciente(paciente);
-    try {
+
+    const celularWithCountryCode = `56${newPaciente.telefono}`;
+    newPaciente.telefono = celularWithCountryCode;
+
+    try {   
         await newPaciente.save();
         res.status(201).json(newPaciente);
     } catch (error) {

@@ -6,7 +6,7 @@ import { createAccessToken } from "../libs/jwt.js";
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable } = req.body;
+    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance } = req.body;
 
     const userFound = await User.findOne({ email });
 
@@ -17,9 +17,8 @@ export const register = async (req, res) => {
 
     // hashing the password
     const passwordHash = await bcrypt.hash(password, 10);
-
+    // adding country code to celular
     // creating the user
-    console.log(req.body);
     const newUser = new User({
       username,
       email,
@@ -29,6 +28,8 @@ export const register = async (req, res) => {
       especialidad,
       descripcion,
       timetable,
+      idInstance,
+      apiTokenInstance,
     });
 
     // saving the user in the database
@@ -54,6 +55,8 @@ export const register = async (req, res) => {
       especialidad: userSaved.especialidad,
       descripcion: userSaved.descripcion,
       timetable: userSaved.timetable,
+      idInstance: userSaved.idInstance,
+      apiTokenInstance: userSaved.apiTokenInstance,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -97,6 +100,8 @@ export const login = async (req, res) => {
       especialidad: userFound.especialidad,
       descripcion: userFound.descripcion,
       timetable: userFound.timetable,
+      idInstance: userFound.idInstance,
+      apiTokenInstance: userFound.apiTokenInstance,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -121,7 +126,9 @@ export const verifyToken = async (req, res) => {
       fotoPerfil: userFound.fotoPerfil,
       especialidad: userFound.especialidad,
       descripcion: userFound.descripcion,
-      timetable: userFound.timetable
+      timetable: userFound.timetable,
+      idInstance: userFound.idInstance,
+      apiTokenInstance: userFound.apiTokenInstance,
     });
   });
 };
@@ -137,8 +144,10 @@ export const logout = async (req, res) => {
 
 export const updatePerfil = async (req, res) => {
   try {
+    if (req.body.celular) {
+      req.body.celular = `56${req.body.celular}`;
+    }
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    console.log(updated);
     res.json(updated);
   }
   catch (error) {
