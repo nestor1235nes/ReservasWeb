@@ -11,3 +11,7 @@ export const updatePerfilRequest = async (id, data) => axios.put(`/auth/${id}`, 
 export const getProfileRequest = async (id) => axios.get(`/auth/${id}`);
 
 export const getAllUsersRequest = async () => axios.get(`/auth`);
+
+export const updateNotificationsRequest = async (id, data) => axios.post(`/auth/notifications/${id}`, data);
+
+export const deleteNotificationsRequest = async (id) => axios.delete(`/auth/notifications/${id}`);

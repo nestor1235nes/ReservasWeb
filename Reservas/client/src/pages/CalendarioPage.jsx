@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { AppBar, Toolbar, Typography, Box, Drawer, Slide, IconButton, Button, Tooltip } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Drawer, Slide, IconButton, Button, Tooltip, Badge, Menu } from '@mui/material';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import es from 'date-fns/locale/es';
 import { useReserva } from '../context/reservaContext';
 import { useAuth } from '../context/authContext';
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import DespliegueEventos from '../components/PanelDespliegue/DespliegueEventos';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -15,9 +15,11 @@ import localizedFormat from 'dayjs/plugin/localizedFormat';
 import 'dayjs/locale/es';
 import BotonFlotante from '../components/PanelDespliegue/BotonFlotante';
 import SinDatos from '../components/Modales/SinDatos';
-
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import VentanaNotificaciones from '../components/VentanaNotificaciones';
 
 dayjs.extend(localizedFormat);
 dayjs.extend(utc);
@@ -43,6 +45,7 @@ export function CalendarioPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
 
   const fetchReservas = async () => {
     const data = await getReservas();
@@ -61,7 +64,6 @@ export function CalendarioPage() {
           ...reserva,
         };
       }
-      
     });
 
     setEvents(transformedEvents);
@@ -78,6 +80,7 @@ export function CalendarioPage() {
   }, [user]);
 
   const handleSelectEvent = (event) => {
+    console.log(event);
     setSelectedEvent(event);
     setOpen(true);
   };
@@ -99,7 +102,14 @@ export function CalendarioPage() {
   const handleLogoutClick = async () => {
     await logout();
     navigate('/login');
-    
+  };
+
+  const handleNotificationClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setAnchorEl(null);
   };
 
   return (
@@ -111,6 +121,13 @@ export function CalendarioPage() {
             <Button color="inherit" onClick={handleProfileClick} startIcon={<AccountCircleIcon />}>
               Perfil
             </Button>
+          </Tooltip>
+          <Tooltip title="Notificaciones" arrow>
+            <IconButton color="inherit" onClick={handleNotificationClick}>
+              <Badge badgeContent={user.notifications.length} color="secondary">
+                {user.notifications.length > 0 ? <NotificationsActiveIcon /> : <NotificationsIcon />}
+              </Badge>
+            </IconButton>
           </Tooltip>
           <Tooltip title="Cerrar sesión" arrow>
             <IconButton color="inherit" onClick={handleLogoutClick}>
@@ -158,6 +175,13 @@ export function CalendarioPage() {
           </Box>
         </Slide>
       </Drawer>
+
+      <VentanaNotificaciones
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleNotificationClose}
+        notifications={user.notifications}
+      />
 
       <BotonFlotante onClick={handleFabClick} fetchReservas={fetchReservas} />
       <SinDatos open={showModal} />

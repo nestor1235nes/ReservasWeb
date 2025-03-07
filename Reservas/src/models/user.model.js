@@ -42,12 +42,20 @@ const userSchema = new mongoose.Schema({
         default: []
     },
 
+    ///Notificaciones
+    notifications: {
+        type: [String],
+        default: []
+    },
 
     ///////////Configuracion de wsp/////////////
     idInstance: {
         type: String,
     },
     apiTokenInstance: {
+        type: String,
+    },
+    defaultMessage: {
         type: String,
     },
 });

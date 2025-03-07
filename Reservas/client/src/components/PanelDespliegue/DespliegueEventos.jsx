@@ -7,6 +7,8 @@ import { useReserva } from '../../context/reservaContext';
 import AgregarPaciente from '../Modales/AgregarPaciente';
 import AgregarSesion from './AgregarSesion';
 import VerHistorial from './VerHistorial';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextareaAutosize } from '@mui/material';
+import sendWhatsAppMessage from '../../sendWhatsAppMessage';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
@@ -16,6 +18,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import 'dayjs/locale/es';
 import ReactQuill from 'react-quill';
+import '../ui/AgregarSesionCSS.css';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -38,6 +41,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
   const [openHistorialModal, setOpenHistorialModal] = useState(false);
   const [diasDeTrabajo, setDiasDeTrabajo] = useState([]);
   const [horasDisponibles, setHorasDisponibles] = useState([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [mensajePaciente, setMensajePaciente] = useState('');
 
   useEffect(() => {
     if (user && user.timetable) {
@@ -68,31 +73,40 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
     setEditableFields((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSaveClick = async () => {
-    try {
-      if (editSection === 'paciente') {
-        await updatePaciente(event.paciente._id, {
-          email: editableFields.email,
-          telefono: editableFields.telefono,
-        });
-        event.paciente.email = editableFields.email;
-        event.paciente.telefono = editableFields.telefono;
-      } else if (editSection === 'cita') {
-        await updateReserva(event.paciente.rut, {
-          siguienteCita: new Date(editableFields.fecha),
-          hora: editableFields.hora,
-          profesional: editableFields.profesional,
-        });
-        event.diaPrimeraCita = new Date(editableFields.fecha);
-        event.hora = editableFields.hora;
-        event.profesional = editableFields.profesional;
+  const handleSaveClick = () => {
+    setOpenDialog(true);
+  };
+
+  const handleDialogClose = async (confirm) => {
+    if (confirm) {
+      try {
+        if (editSection === 'paciente') {
+          await updatePaciente(event.paciente._id, {
+            email: editableFields.email,
+            telefono: editableFields.telefono,
+          });
+          event.paciente.email = editableFields.email;
+          event.paciente.telefono = editableFields.telefono;
+        } else if (editSection === 'cita') {
+          await updateReserva(event.paciente.rut, {
+            siguienteCita: new Date(editableFields.fecha),
+            hora: editableFields.hora,
+            profesional: editableFields.profesional,
+            mensaje: mensajePaciente,
+          });
+          event.diaPrimeraCita = new Date(editableFields.fecha);
+          event.hora = editableFields.hora;
+          event.profesional = editableFields.profesional;
+        }
+        setEditSection(null);
+        fetchReservas();
+
+        sendWhatsAppMessage([event], mensajePaciente, user);
+      } catch (error) {
+        console.error(error);
       }
-      setEditSection(null);
-      fetchReservas();
-      onCloseDespligue();
-    } catch (error) {
-      console.error(error);
     }
+    setOpenDialog(false);
   };
 
   const handleCancelClick = () => {
@@ -132,7 +146,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
 
   return (
     <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500} >
-      <Box p={2} width={window.innerWidth < 600 ? '100%' : 500} height={window.innerWidth < 600 ? 700 : '100%'} style={{ overflowY:'auto', backgroundColor: '#f1eeee', borderRadius: '8px' }}>
+      <Box p={2} width={window.innerWidth < 600 ? '100%' : 500} height={window.innerWidth < 600 ? 700 : '100%'} style={{ overflowY:'auto', backgroundColor: '#f1eeee', borderRadius: '8px', zIndex: 1 }}>
         <Box display="flex" justifyContent="space-between" backgroundColor="primary.main" p={0.5} style={{ justifyContent: 'center', borderRadius: '5px', color:'white' }}>
           <Typography variant="h6" style={{ textAlign: 'center' }}>Detalles de la Cita</Typography>
         </Box>
@@ -146,6 +160,29 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
             </Box>
           )}
         </Box>
+        <Dialog open={openDialog} onClose={() => handleDialogClose(false)} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', zIndex: 9999 }}>
+          <DialogTitle>Mensaje para el Paciente</DialogTitle>
+          <DialogContent>
+            <TextField
+              label="Escribe un mensaje"
+              rows={4}
+              fullWidth
+              margin='normal'
+              multiline
+              name='mensajePaciente'
+              value={mensajePaciente}
+              onChange={(e) => setMensajePaciente(e.target.value)}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => handleDialogClose(true)} sx={{ color: 'white', backgroundColor: 'primary.main' }}>
+              Confirmar
+            </Button>
+            <Button onClick={() => handleDialogClose(false)} sx={{ color: 'white', backgroundColor: 'secondary.main' }}>
+              Cancelar
+            </Button>
+          </DialogActions>
+        </Dialog>
         <Card>
           <CardContent>
             <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -215,42 +252,55 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
             </Box>
             {editSection === 'cita' ? (
               <>
-                <DatePicker
-                  label="Fecha de Cita"
-                  value={editableFields.fecha ? dayjs(editableFields.fecha) : null}
-                  onChange={(newValue) => {
-                    setEditableFields({ ...editableFields, fecha: newValue ? newValue.format('YYYY-MM-DD') : '' });
-                  }}
-                  shouldDisableDate={(date) => {
-                    const dayName = date.format('dddd');
-                    const translatedDays = {
-                      Monday: "Lunes",
-                      Tuesday: "Martes",
-                      Wednesday: "Miércoles",
-                      Thursday: "Jueves",
-                      Friday: "Viernes",
-                      Saturday: "Sábado",
-                      Sunday: "Domingo",
-                    };
-                    const translatedDayName = translatedDays[dayName];
-                    return !diasDeTrabajo.includes(translatedDayName);
-                  }}
-                  renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
-                />
-                <FormControl fullWidth margin="normal">
-                  <InputLabel>Hora de Cita</InputLabel>
-                  <Select
-                    name="hora"
-                    value={editableFields.hora}
-                    onChange={handleFieldChange}
-                  >
-                    {horasDisponibles.map((hora) => (
-                      <MenuItem key={hora} value={hora}>
-                        {hora}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Box display="flex" flexDirection="column" sx={{ zIndex: 9999 }}>
+                  <DatePicker
+                    label="Fecha de Cita"
+                    value={editableFields.fecha ? dayjs(editableFields.fecha) : null}
+                    onChange={(newValue) => {
+                      setEditableFields({ ...editableFields, fecha: newValue ? newValue.format('YYYY-MM-DD') : '' });
+                    }}
+                    shouldDisableDate={(date) => {
+                      const dayName = date.format('dddd');
+                      const translatedDays = {
+                        Monday: "Lunes",
+                        Tuesday: "Martes",
+                        Wednesday: "Miércoles",
+                        Thursday: "Jueves",
+                        Friday: "Viernes",
+                        Saturday: "Sábado",
+                        Sunday: "Domingo",
+                      };
+                      const translatedDayName = translatedDays[dayName];
+                      return !diasDeTrabajo.includes(translatedDayName);
+                    }}
+                    className='modal-over-drawer'
+                    renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
+                    PopperProps={{
+                      sx: { zIndex: 1500 } // Ajusta el zIndex aquí
+                    }}
+                  />
+                  <FormControl fullWidth margin="normal">
+                    <InputLabel>Hora de Cita</InputLabel>
+                    <Select
+                      name="hora"
+                      value={editableFields.hora}
+                      onChange={handleFieldChange}
+                      MenuProps={{
+                        PaperProps: {
+                          style: {
+                            zIndex: 1500, // Ajusta el zIndex aquí
+                          },
+                        },
+                      }}
+                    >
+                      {horasDisponibles.map((hora) => (
+                        <MenuItem key={hora} value={hora}>
+                          {hora}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
               </>
             ) : (
               <Box display="flex" justifyContent="space-between">
@@ -296,6 +346,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
         <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} />
         <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
       </Box>
+      
     </Slide>
   );
 };

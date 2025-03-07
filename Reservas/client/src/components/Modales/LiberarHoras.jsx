@@ -7,6 +7,8 @@ import 'dayjs/locale/es';
 import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
 import sendWhatsAppMessage from '../../sendWhatsAppMessage';
+import { CSSTransition } from 'react-transition-group';
+import '../ui/LiberarHoras.css'; // Import the CSS file for animations
 
 dayjs.locale('es');
 
@@ -16,9 +18,14 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
     const showAlert = useAlert();
     const [diasDeTrabajo, setDiasDeTrabajo] = useState([]);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [showCalendar, setShowCalendar] = useState(true);
+    const [customMessage, setCustomMessage] = useState('');
 
     const handleFechaChange = (newValue) => {
         setFecha(newValue ? newValue.format('YYYY-MM-DD') : '');
+        if (user.idInstance) {
+            setShowCalendar(false);
+        }
     };
 
     const handleLiberarHoras = async () => {
@@ -31,11 +38,23 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
             showAlert('success', 'Horas liberadas correctamente');
             fetchReservas();
             onClose();
-
-
-            if(user.idInstance){
-                const message = `Las horas del día ${dayjs(fecha).format('DD/MM/YYYY')} han sido liberadas por motivos personales. Le pedimos por favor que vuelva a registrar una hora en nuestro sitio web www.sitioweb.cl. Disculpe las molestias, Saludos.`;
-                await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user);
+            console.log(user);
+            if (user.idInstance) {
+                if(user.defaultMessage === '' && customMessage === '') {
+                    showAlert('error', 'No hay mensaje por defecto ni mensaje personalizado. No se enviará mensaje a los pacientes.');
+                    return;
+                }
+                if(customMessage){
+                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, customMessage, user);
+                    showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
+                    return;
+                }
+                else{
+                    const message = user.defaultMessage;
+                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user);
+                    showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
+                    return;
+                }
             }
         } catch (error) {
             console.error(error);
@@ -69,7 +88,8 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
                 borderRadius={2}
                 boxShadow={3}
                 width={window.innerWidth < 600 ? '90%' : 530}
-                minHeight={window.innerHeight < 600 ? '90%' : 500}
+                minHeight={window.innerHeight < 600 ? '90%' : 600}
+                maxheight={window.innerHeight < 600 ? '90%' : 670}
                 overflow="auto"
                 mx="auto"
                 my="1%"
@@ -117,32 +137,57 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
                             </Box>
                         )}
                     </Box>
-                    <LocalizationProvider dateAdapter={AdapterDayjs} locale="es">
-                        <StaticDatePicker
-                            displayStaticWrapperAs="desktop"
-                            label="Fecha"
-                            value={fecha ? dayjs(fecha) : null}
-                            onChange={handleFechaChange}
-                            shouldDisableDate={(date) => {
-                                const dayName = date.format('dddd');
-                                const translatedDays = {
-                                    Monday: "Lunes",
-                                    Tuesday: "Martes",
-                                    Wednesday: "Miércoles",
-                                    Thursday: "Jueves",
-                                    Friday: "Viernes",
-                                    Saturday: "Sábado",
-                                    Sunday: "Domingo",
-                                };
-                                const translatedDayName = translatedDays[dayName];
-                                return !diasDeTrabajo.includes(translatedDayName);
-                            }}
-                            renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
-                        />
-                    </LocalizationProvider>
-                    <Button variant="contained" color="primary" onClick={handleConfirmOpen} fullWidth>
-                        Enviar día
-                    </Button>
+                    <CSSTransition
+                        in={showCalendar}
+                        timeout={300}
+                        classNames="fade"
+                        unmountOnExit
+                    >
+                        <LocalizationProvider dateAdapter={AdapterDayjs} locale="es">
+                            <StaticDatePicker
+                                displayStaticWrapperAs="desktop"
+                                label="Fecha"
+                                value={fecha ? dayjs(fecha) : null}
+                                onChange={handleFechaChange}
+                                shouldDisableDate={(date) => {
+                                    const dayName = date.format('dddd');
+                                    const translatedDays = {
+                                        Monday: "Lunes",
+                                        Tuesday: "Martes",
+                                        Wednesday: "Miércoles",
+                                        Thursday: "Jueves",
+                                        Friday: "Viernes",
+                                        Saturday: "Sábado",
+                                        Sunday: "Domingo",
+                                    };
+                                    const translatedDayName = translatedDays[dayName];
+                                    return !diasDeTrabajo.includes(translatedDayName);
+                                }}
+                                renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
+                            />
+                        </LocalizationProvider>
+                    </CSSTransition>
+                    <CSSTransition
+                        in={!showCalendar}
+                        timeout={300}
+                        classNames="fade"
+                        unmountOnExit
+                    >
+                        <Box>
+                            <TextField
+                                label="Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" 
+                                multiline
+                                rows={8}
+                                value={customMessage}
+                                onChange={(e) => setCustomMessage(e.target.value)}
+                                fullWidth
+                                margin="normal"
+                            />
+                            <Button variant="contained" color="primary" onClick={handleConfirmOpen} fullWidth>
+                                Enviar día
+                            </Button>
+                        </Box>
+                    </CSSTransition>
                 </Box>
                 <Dialog
                     open={confirmOpen}

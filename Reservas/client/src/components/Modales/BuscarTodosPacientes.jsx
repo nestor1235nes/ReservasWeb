@@ -4,6 +4,7 @@ import '../ui/ModalBuscarPaciente.css';
 import { useReserva } from '../../context/reservaContext';
 import MotorBusqueda from '../MotorBusqueda';
 import DespliegueEventos from '../PanelDespliegue/DespliegueEventos';
+import dayjs from 'dayjs';
 
 const BuscarTodosPacientes = ({ open, onClose }) => {
   const { getReservas } = useReserva();
@@ -31,6 +32,17 @@ const BuscarTodosPacientes = ({ open, onClose }) => {
 
   const handleViewFicha = (paciente) => {
     const event = reservas.find(reserva => reserva.paciente.rut === paciente.rut);
+    
+    if(event.siguienteCita){
+      const startDate = dayjs(event.siguienteCita).tz('America/Santiago');
+      const [hours, minutes] = event.hora.split(":").map(Number);
+      const localStartDate = startDate.hour(hours).minute(minutes).second(0).toDate();
+    
+      event.title = paciente.nombre;
+      event.start = localStartDate;
+      event.end = dayjs(localStartDate).add(1, 'hour').toDate();
+    }
+    
     setSelectedEvent(event);
     setDrawerOpen(true);
   };
@@ -75,7 +87,8 @@ const BuscarTodosPacientes = ({ open, onClose }) => {
           anchor={window.innerWidth < 600 ? 'bottom' : 'right'}
           open={drawerOpen}
           onClose={handleCloseDrawer}
-          className="drawer-over-modal"
+          sx={{ zIndex: 1300 }}
+
         >
           <Slide
             direction={window.innerWidth < 600 ? 'down' : 'left'}

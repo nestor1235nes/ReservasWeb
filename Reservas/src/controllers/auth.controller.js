@@ -6,7 +6,7 @@ import { createAccessToken } from "../libs/jwt.js";
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance } = req.body;
+    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance, defaultMessage, notifications } = req.body;
 
     const userFound = await User.findOne({ email });
 
@@ -30,6 +30,8 @@ export const register = async (req, res) => {
       timetable,
       idInstance,
       apiTokenInstance,
+      defaultMessage,
+      notifications
     });
 
     // saving the user in the database
@@ -57,6 +59,8 @@ export const register = async (req, res) => {
       timetable: userSaved.timetable,
       idInstance: userSaved.idInstance,
       apiTokenInstance: userSaved.apiTokenInstance,
+      defaultMessage: userSaved.defaultMessage,
+      notifications: userSaved.notifications
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -102,6 +106,8 @@ export const login = async (req, res) => {
       timetable: userFound.timetable,
       idInstance: userFound.idInstance,
       apiTokenInstance: userFound.apiTokenInstance,
+      defaultMessage: userFound.defaultMessage,
+      notifications: userFound.notifications
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -129,6 +135,8 @@ export const verifyToken = async (req, res) => {
       timetable: userFound.timetable,
       idInstance: userFound.idInstance,
       apiTokenInstance: userFound.apiTokenInstance,
+      defaultMessage: userFound.defaultMessage,
+      notifications: userFound.notifications
     });
   });
 };
@@ -148,6 +156,30 @@ export const updatePerfil = async (req, res) => {
       req.body.celular = `56${req.body.celular}`;
     }
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updated);
+  }
+  catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+}
+
+export const updateNotifications = async (req, res) => {
+  try {
+    console.log("req.body");
+    console.log(req);
+    console.log(req.params);
+    const updated = await User.findByIdAndUpdate(req
+      .params.id, { $push: { notifications: req.body.data } }, { new: true });
+    res.json(updated);
+  }
+  catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+}
+
+export const deleteNotifications = async (req, res) => {
+  try {
+    const updated = await User.findByIdAndUpdate(req.params.id, { notifications: [] }, { new: true });
     res.json(updated);
   }
   catch (error) {
