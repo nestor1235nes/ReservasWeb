@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Stepper, Step, StepLabel, Button, TextField, Typography, Box, Snackbar, Alert } from '@mui/material';
 import { usePaciente } from '../context/pacienteContext';
 import { useReserva } from '../context/reservaContext';
@@ -6,12 +6,13 @@ import { useAuth } from '../context/authContext';
 import '../components/ui/HomePageCSS.css';
 import Rutificador from '../components/Rutificador';
 import BusquedaHoras from '../components/BusquedaHoras';
+import dayjs from 'dayjs';
 
 function HomePage() {
   const [activeStep, setActiveStep] = useState(0);
   const { getPacientePorRut, createPaciente } = usePaciente();
   const { createReserva, updateReserva } = useReserva();
-  const { getAllUsers, obtenerHorasDisponibles } = useAuth();
+  const { getAllUsers, obtenerHorasDisponibles, addNotification } = useAuth();
   const [formData, setFormData] = useState({
     rut: '',
     nombre: '',
@@ -68,8 +69,15 @@ function HomePage() {
   const handleSubmit = async () => {
     try {
       if (pacienteExistente) {
-        await updateReserva(formData.rut, formData);
+        const newData = {
+          ...formData,
+          siguienteCita: formData.diaPrimeraCita
+        };
+        await updateReserva(formData.rut, newData);
         setAlert({ type: 'success', message: 'Reserva actualizada con éxito' });
+        const notificationMessage = `El paciente ${formData.nombre} ha cambiado su hora al día ${dayjs(formData.diaPrimeraCita).format('DD/MM/YYYY')} a las ${formData.hora} hrs.`;
+        console.log(formData);
+        await addNotification(formData.profesional, notificationMessage);
       } else {
         const newData = {
           rut: formData.rut,

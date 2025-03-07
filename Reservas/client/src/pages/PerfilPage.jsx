@@ -63,9 +63,11 @@ const PerfilPage = () => {
     timetable: user.timetable.length > 0 ? user.timetable : [{ fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "" }]
   });
   const [showInputs, setShowInputs] = useState(false);
+  const [showMessageBox, setShowMessageBox] = useState(false);
   const [wspData, setWspData] = useState({
     idInstance: user.idInstance || "",
-    apiTokenInstance: user.apiTokenInstance || ""
+    apiTokenInstance: user.apiTokenInstance || "",
+    defaultMessage: user.defaultMessage || ""
   });
 
   const handleProfileClick = () => {
@@ -176,6 +178,11 @@ const PerfilPage = () => {
     setShowInputs(false);
   };
 
+  const handleMessageBoxSave = async () => {
+    await updatePerfil((user.id || user._id), { defaultMessage: wspData.defaultMessage });
+    setShowMessageBox(false);
+  };
+
   if (!user) return <Typography>Cargando perfil...</Typography>;
 
   return (
@@ -250,6 +257,8 @@ const PerfilPage = () => {
                           {user.email}
                           </Typography>
                         </Stack>
+
+                        
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <LocalPhoneIcon />
                           <Typography variant="h6" color="textSecondary">
@@ -268,9 +277,58 @@ const PerfilPage = () => {
                           </Stack>
                         )}
                         {user.celular && user.idInstance && (
-                          <Typography variant="body2" color="textSecondary">
-                            Mensajes automáticos a través de WhatsApp habilitados.
-                          </Typography>
+                          <Box p={1} sx={{ borderRadius: 2, minWidth:'100%', minHeight:'10vh', backgroundColor: '#f0f0f0', border: '1px solid #ddd', boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)' }}>
+                            <Box display={'flex'} justifyContent={'space-between'} alignItems={'center'}>
+                              <Typography
+                                variant="body2"
+                                style={{ fontStyle: 'italic', textDecoration: 'underline', opacity: 0.7, cursor: 'pointer' }}
+                                onClick={() => setShowMessageBox(true)}
+                              >
+                                Editar mensaje predeterminado
+                              </Typography>
+                            </Box>
+                            {user.defaultMessage && (
+                              <Typography variant="body2" color="textSecondary">
+                                <strong>Mensaje al liberar horas:</strong> {user.defaultMessage}
+                              </Typography>
+                            )}
+                            {!user.defaultMessage && (
+                              <Stack direction="row" alignItems="center" spacing={1}>
+                                <Typography
+                                  variant="body2"
+                                  style={{ fontStyle: 'italic', textDecoration: 'underline', opacity: 0.7, cursor: 'pointer' }}
+                                  onClick={() => setShowMessageBox(true)}
+                                >
+                                  Personaliza tu mensaje predeterminado
+                                </Typography>
+                              </Stack>
+                            )}
+                          </Box>
+                        )}
+                        {showMessageBox && (
+                          <Dialog open={showMessageBox} onClose={() => setShowMessageBox(false)}>
+                            <DialogTitle>Personalizar mensaje predeterminado</DialogTitle>
+                            <DialogContent>
+                              <TextField
+                                label="Mensaje predeterminado"
+                                name="defaultMessage"
+                                value={wspData.defaultMessage}
+                                onChange={handleWspChange}
+                                fullWidth
+                                margin="normal"
+                                multiline
+                                rows={4}
+                              />
+                            </DialogContent>
+                            <DialogActions>
+                              <Button variant="contained" color="primary" onClick={handleMessageBoxSave}>
+                                Guardar
+                              </Button>
+                              <Button variant="contained" color="secondary" onClick={() => setShowMessageBox(false)}>
+                                Cancelar
+                              </Button>
+                            </DialogActions>
+                          </Dialog>
                         )}
                         {showInputs && (
                           <Box width="100vh" p={1} mt={1}>

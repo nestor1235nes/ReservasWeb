@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { createContext, useContext, useState } from "react";
-import { loginRequest, registerRequest, verifyTokenRequest, updatePerfilRequest, getAllUsersRequest } from "../api/auth";
+import { loginRequest, registerRequest, verifyTokenRequest, updatePerfilRequest, getAllUsersRequest, deleteNotificationsRequest } from "../api/auth";
 import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/funcion";
+import { updateNotificationsRequest } from '../api/auth';
 import Cookies from "js-cookie";
 
 const AuthContext = createContext();
@@ -87,6 +88,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const addNotification = async (id, data) => {
+    try {
+        const response = await updateNotificationsRequest(id, { data });
+        return response.data;
+    } catch (error) {
+        console.error(error);
+    }
+  }
+
+  const deleteNotifications = async (id) => {
+    try {
+        const response = await deleteNotificationsRequest(id);
+        setUser(response.data);
+        return response.data;
+    } catch (error) {
+        console.error(error);
+    }
+  }
+
   const getAllUsers = async () => {
     try {
       const res = await getAllUsersRequest();
@@ -124,6 +144,8 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        addNotification,
+        deleteNotifications,
         signup,
         signin,
         logout,
