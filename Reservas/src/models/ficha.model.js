@@ -30,6 +30,7 @@ const ReservasSchema = new mongoose.Schema({
     },
     imagenes: {
         type: [String],
+        default: [],
     },
     historial: {
         type: [[{

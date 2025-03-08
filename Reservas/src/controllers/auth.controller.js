@@ -6,7 +6,7 @@ import { createAccessToken } from "../libs/jwt.js";
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance, defaultMessage, notifications } = req.body;
+    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance, defaultMessage, reminderMessage, notifications } = req.body;
 
     const userFound = await User.findOne({ email });
 
@@ -31,6 +31,7 @@ export const register = async (req, res) => {
       idInstance,
       apiTokenInstance,
       defaultMessage,
+      reminderMessage,
       notifications
     });
 
@@ -60,6 +61,7 @@ export const register = async (req, res) => {
       idInstance: userSaved.idInstance,
       apiTokenInstance: userSaved.apiTokenInstance,
       defaultMessage: userSaved.defaultMessage,
+      reminderMessage: userSaved.reminderMessage,
       notifications: userSaved.notifications
     });
   } catch (error) {
@@ -107,6 +109,7 @@ export const login = async (req, res) => {
       idInstance: userFound.idInstance,
       apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
+      reminderMessage: userFound.reminderMessage,
       notifications: userFound.notifications
     });
   } catch (error) {
@@ -136,6 +139,7 @@ export const verifyToken = async (req, res) => {
       idInstance: userFound.idInstance,
       apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
+      reminderMessage: userFound.reminderMessage,
       notifications: userFound.notifications
     });
   });
@@ -165,9 +169,6 @@ export const updatePerfil = async (req, res) => {
 
 export const updateNotifications = async (req, res) => {
   try {
-    console.log("req.body");
-    console.log(req);
-    console.log(req.params);
     const updated = await User.findByIdAndUpdate(req
       .params.id, { $push: { notifications: req.body.data } }, { new: true });
     res.json(updated);

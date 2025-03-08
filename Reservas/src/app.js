@@ -29,6 +29,7 @@ app.use("/api/", uploadRoutes);
 app.use("/api/", funcionRoutes);
 app.use("/api/", deletePerfilRoutes);
 app.use('/uploads', express.static('uploads'))
+app.use('/imagenesPacientes', express.static('imagenesPacientes'))
 
 if (process.env.NODE_ENV === "production") {
   const path = await import("path");

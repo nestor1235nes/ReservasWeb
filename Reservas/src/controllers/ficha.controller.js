@@ -54,8 +54,7 @@ export const deletePaciente = async (req, res) => {
 
 export const updatePaciente = async (req, res) => {
     try {
-        const updatedPaciente = await Paciente.findByIdAndUpdate
-            (req.params.id, req.body, { new: true });
+        const updatedPaciente = await Paciente.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json(updatedPaciente);
     } catch (error) {
         res.status(404).json({ message: error.message });
@@ -147,7 +146,7 @@ export const updateReserva = async (req, res) => {
             return res.status(404).json({ message: "Reserva not found" });
         }        
 
-
+        
         const datosReserva = {
             diaPrimeraCita: req.body.diaPrimeraCita,
             siguienteCita: req.body.siguienteCita,
@@ -157,6 +156,7 @@ export const updateReserva = async (req, res) => {
             diagnostico: req.body.diagnostico,
             anamnesis: req.body.anamnesis,
             historial: req.body.historial,
+            imagenes: req.body.imagenes,
         }
         await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
 

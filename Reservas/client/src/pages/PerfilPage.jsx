@@ -1,23 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { Tooltip, Avatar, Box, Card, CardContent, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Stack, AppBar, Toolbar, Button, IconButton, TextField, Dialog, DialogActions, DialogContent, DialogTitle, Checkbox, FormControlLabel, MenuItem, Select, InputLabel, FormControl } from "@mui/material";
+import React, { useState } from "react";
+import { Tooltip, Box, Card, CardContent, Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Stack, AppBar, Toolbar, Button, IconButton, TextField, Checkbox, FormControlLabel, MenuItem, Select, InputLabel, FormControl } from "@mui/material";
 import { makeStyles } from "@mui/styles";
 import { useAuth } from "../context/authContext";
 import FotoPerfil from "../components/FotoPerfil";
-import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import MasksIcon from '@mui/icons-material/Masks';
 import LocalPhoneIcon from '@mui/icons-material/LocalPhone';
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import PerfilMensajesAutomatizados from "../components/PerfilMensajesAutomatizados";
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import EditCalendarIcon from '@mui/icons-material/EditCalendar';
 
 const useStyles = makeStyles((theme) => ({
   perfilCard: {
     padding: "20px",
     boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
     minHeight: "90vh",
-    minWidth:"111%",
-    marginLeft:"-5.5%"
+    minWidth: "111%",
+    marginLeft: "-5.5%"
   },
   perfilAvatarContainer: {
     display: "flex",
@@ -55,19 +57,13 @@ const PerfilPage = () => {
   const classes = useStyles();
   const { user, logout, updatePerfil } = useAuth();
   const navigate = useNavigate();
-  const [editMode, setEditMode] = useState(false);
+  const [editProfileMode, setEditProfileMode] = useState(false);
+  const [editTimetableMode, setEditTimetableMode] = useState(false);
   const [formData, setFormData] = useState({
     username: user.username || "",
     celular: user.celular || "",
     descripcion: user.descripcion || "",
     timetable: user.timetable.length > 0 ? user.timetable : [{ fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "" }]
-  });
-  const [showInputs, setShowInputs] = useState(false);
-  const [showMessageBox, setShowMessageBox] = useState(false);
-  const [wspData, setWspData] = useState({
-    idInstance: user.idInstance || "",
-    apiTokenInstance: user.apiTokenInstance || "",
-    defaultMessage: user.defaultMessage || ""
   });
 
   const handleProfileClick = () => {
@@ -79,28 +75,45 @@ const PerfilPage = () => {
     navigate('/login');
   };
 
-  const handleEditClick = () => {
-    setEditMode(true);
+  const handleEditProfileClick = () => {
+    setEditProfileMode(true);
   };
 
-  const handleSaveClick = async () => {
+  const handleEditTimetableClick = () => {
+    setEditTimetableMode(true);
+  };
+
+  const handleSaveProfileClick = async () => {
+    await updatePerfil(user.id, formData);
+    setEditProfileMode(false);
+  };
+
+  const handleSaveTimetableClick = async () => {
     const updatedTimetable = formData.timetable.map(time => {
       const { fromTime, toTime, breakFrom, breakTo, interval, days } = time;
       const times = generateTimes(fromTime, toTime, breakFrom, breakTo, interval);
       return { ...time, times };
     });
     await updatePerfil(user.id, { ...formData, timetable: updatedTimetable });
-    setEditMode(false);
+    setEditTimetableMode(false);
   };
 
-  const handleCancelClick = () => {
+  const handleCancelProfileClick = () => {
     setFormData({
       username: user.username || "",
       celular: user.celular || "",
       descripcion: user.descripcion || "",
       timetable: user.timetable.length > 0 ? user.timetable : [{ fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "" }]
     });
-    setEditMode(false);
+    setEditProfileMode(false);
+  };
+
+  const handleCancelTimetableClick = () => {
+    setFormData({
+      ...formData,
+      timetable: user.timetable.length > 0 ? user.timetable : [{ fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "" }]
+    });
+    setEditTimetableMode(false);
   };
 
   const handleChange = (e) => {
@@ -155,34 +168,6 @@ const PerfilPage = () => {
     return `${newHours}:${newMinutes}`;
   };
 
-  ////////////configuracion de wsp/////////////
-
-  const handleWspChange = (e) => {
-    const { name, value } = e.target;
-    setWspData({
-      ...wspData,
-      [name]: value
-    });
-  };
-
-  const handleWspSave = async () => {
-    await updatePerfil(user.id, wspData);
-    setShowInputs(false);
-  };
-
-  const handleWspCancel = () => {
-    setWspData({
-      idInstance: user.idInstance || "",
-      apiTokenInstance: user.apiTokenInstance || ""
-    });
-    setShowInputs(false);
-  };
-
-  const handleMessageBoxSave = async () => {
-    await updatePerfil((user.id || user._id), { defaultMessage: wspData.defaultMessage });
-    setShowMessageBox(false);
-  };
-
   if (!user) return <Typography>Cargando perfil...</Typography>;
 
   return (
@@ -205,168 +190,99 @@ const PerfilPage = () => {
       <Container style={{ border: "1px solid #ddd", borderRadius: "5px", boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.5)" }}>
         <Card className={classes.perfilCard}>
           <CardContent>
-            {/* Sección de la imagen y datos principales */}
+            {/* Botón de Configurar Perfil */}
+            <Box display="flex" justifyContent="flex-end" mt={-3} mb={0}>
+              {editProfileMode ? (
+                <>
+                  <Button variant="contained" color="primary" onClick={handleSaveProfileClick}>
+                    Guardar
+                  </Button>
+                  <Button variant="contained" color="secondary" onClick={handleCancelProfileClick} style={{ marginLeft: '10px' }}>
+                    Cancelar
+                  </Button>
+                </>
+              ) : (
+                <Button startIcon={ < ManageAccountsIcon/>} variant="contained" color="primary" onClick={handleEditProfileClick}>
+                  Configurar perfil
+                </Button>
+              )}
+            </Box>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
-                <Box className={classes.perfilAvatarContainer}>
-                    <FotoPerfil />
-                </Box>
-                <Box>
-                    {editMode ? (
-                      <>
-                        <TextField
-                          label="Nombre"
-                          name="username"
-                          value={formData.username}
-                          onChange={handleChange}
-                          fullWidth
-                          margin="normal"
-                        />
-                        <TextField
-                          label="Celular"
-                          name="celular"
-                          value={formData.celular}
-                          onChange={handleChange}
-                          fullWidth
-                          margin="normal"
-                        />
-                        <TextField
-                          label="Descripción"
-                          name="descripcion"
-                          value={formData.descripcion}
-                          onChange={handleChange}
-                          fullWidth
-                          margin="normal"
-                          multiline
-                          rows={4}
-                        />
-                        </>
-                      ) : (
-                        <>
+              <Box className={classes.perfilAvatarContainer}>
+                <FotoPerfil />
+              </Box>
+              <Box width="100%">
+                {editProfileMode ? (
+                  <>
+                    <TextField
+                      label="Nombre"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      fullWidth
+                      margin="normal"
+                    />
+                    <TextField
+                      label="Celular"
+                      name="celular"
+                      value={formData.celular}
+                      onChange={handleChange}
+                      fullWidth
+                      margin="normal"
+                    />
+                    <TextField
+                      label="Descripción"
+                      name="descripcion"
+                      value={formData.descripcion}
+                      onChange={handleChange}
+                      fullWidth
+                      margin="normal"
+                      multiline
+                      rows={4}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Box display={'flex'} justifyContent={'space-between'} alignItems={{ xs: 'flex-start', sm: 'center' }} flexDirection={{ xs: 'column', sm: 'row' }}>
+                      <Box>
                         <Typography variant="h4" gutterBottom>
                           {user.username}
                         </Typography>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Typography variant="h6" color="textSecondary">
-                          <MasksIcon />
-                          {" " + user.especialidad || " Especialidad no especificada"}
+                            <MasksIcon />
+                            {" " + user.especialidad || " Especialidad no especificada"}
                           </Typography>
                         </Stack>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <MailOutlineIcon />
                           <Typography variant="h6" color="textSecondary">
-                          {user.email}
+                            {user.email}
                           </Typography>
                         </Stack>
-
-                        
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <LocalPhoneIcon />
                           <Typography variant="h6" color="textSecondary">
-                          {user.celular || "Sin especificar"}
+                            {user.celular || "Sin especificar"}
                           </Typography>
                         </Stack>
-                        {user.celular && !user.idInstance && (
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <Typography
-                              variant="body2"
-                              style={{ fontStyle: 'italic', textDecoration: 'underline', opacity: 0.7, cursor: 'pointer' }}
-                              onClick={() => setShowInputs(true)}
-                            >
-                              ¿Deseas enviar mensajes automáticos a tus pacientes?
-                            </Typography>
-                          </Stack>
-                        )}
-                        {user.celular && user.idInstance && (
-                          <Box p={1} sx={{ borderRadius: 2, minWidth:'100%', minHeight:'10vh', backgroundColor: '#f0f0f0', border: '1px solid #ddd', boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)' }}>
-                            <Box display={'flex'} justifyContent={'space-between'} alignItems={'center'}>
-                              <Typography
-                                variant="body2"
-                                style={{ fontStyle: 'italic', textDecoration: 'underline', opacity: 0.7, cursor: 'pointer' }}
-                                onClick={() => setShowMessageBox(true)}
-                              >
-                                Editar mensaje predeterminado
-                              </Typography>
-                            </Box>
-                            {user.defaultMessage && (
-                              <Typography variant="body2" color="textSecondary">
-                                <strong>Mensaje al liberar horas:</strong> {user.defaultMessage}
-                              </Typography>
-                            )}
-                            {!user.defaultMessage && (
-                              <Stack direction="row" alignItems="center" spacing={1}>
-                                <Typography
-                                  variant="body2"
-                                  style={{ fontStyle: 'italic', textDecoration: 'underline', opacity: 0.7, cursor: 'pointer' }}
-                                  onClick={() => setShowMessageBox(true)}
-                                >
-                                  Personaliza tu mensaje predeterminado
-                                </Typography>
-                              </Stack>
-                            )}
-                          </Box>
-                        )}
-                        {showMessageBox && (
-                          <Dialog open={showMessageBox} onClose={() => setShowMessageBox(false)}>
-                            <DialogTitle>Personalizar mensaje predeterminado</DialogTitle>
-                            <DialogContent>
-                              <TextField
-                                label="Mensaje predeterminado"
-                                name="defaultMessage"
-                                value={wspData.defaultMessage}
-                                onChange={handleWspChange}
-                                fullWidth
-                                margin="normal"
-                                multiline
-                                rows={4}
-                              />
-                            </DialogContent>
-                            <DialogActions>
-                              <Button variant="contained" color="primary" onClick={handleMessageBoxSave}>
-                                Guardar
-                              </Button>
-                              <Button variant="contained" color="secondary" onClick={() => setShowMessageBox(false)}>
-                                Cancelar
-                              </Button>
-                            </DialogActions>
-                          </Dialog>
-                        )}
-                        {showInputs && (
-                          <Box width="100vh" p={1} mt={1}>
-                          <Stack direction="row" alignItems="center" spacing={1}  >
-                            <TextField
-                            label="ID Instance"
-                            name="idInstance"
-                            value={wspData.idInstance}
-                            onChange={handleWspChange}
-                            fullWidth
-                            margin="normal"
-                            sx={{ width: '40%' }}
-                            />
-                            <TextField
-                            label="API Token Instance"
-                            name="apiTokenInstance"
-                            value={wspData.apiTokenInstance}
-                            onChange={handleWspChange}
-                            fullWidth
-                            margin="normal"
-                            sx={{ width: '40%' }}
-                            />
-                            <Button variant="contained" color="primary" onClick={handleWspSave} sx={{ padding: '10px', width: '100px' }}>
-                            Confirmar
-                            </Button>
-                            <Button variant="contained" color="secondary" onClick={handleWspCancel} sx={{ padding: '10px', width: '100px' }}>
-                            Cancelar
-                            </Button>
-                          </Stack>
-                          </Box>
-                        )}
-                        </>
-                      )}
+                      </Box>
+                      <Box sx={{ boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.3)', borderRadius: 2, padding: 2, minWidth: { xs: '100%', sm: '40%' }, minHeight: '300px', maxHeight: '300px', top: 50, position: 'relative', overflow: 'auto', mt: { xs: 2, sm: 0 } }}>
+                        <Typography variant="h6" gutterBottom>
+                          Mi Descripción
+                        </Typography>
+                        <Typography variant="body1" className={classes.perfilDescripcion}>
+                          {user.descripcion || "Sin descripción."}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Stack>
-
-                  {/* Horario */}
-            {editMode && (
+                  </>
+                )}
+              </Box>
+            </Stack>
+            <PerfilMensajesAutomatizados />
+            {/* Horario */}
+            {editTimetableMode && (
               <Box mt={4}>
                 <Typography variant="h6" gutterBottom>
                   Horarios Disponibles:
@@ -462,7 +378,7 @@ const PerfilPage = () => {
 
             <Box mt={4}>
               <Typography variant="h6" gutterBottom>
-                Horas Generadas:
+                Horario de atención
               </Typography>
               <TableContainer component={Paper}>
                 <Table>
@@ -484,27 +400,20 @@ const PerfilPage = () => {
               </TableContainer>
             </Box>
 
-            {/* Descripción */}
-            <Box mt={3}>
-              <Typography variant="body1" className={classes.perfilDescripcion}>
-                {user.descripcion || "Sin descripción."}
-              </Typography>
-            </Box>
-
-            {/* Botones de edición */}
+            {/* Botón de Editar Horario */}
             <Box mt={3} display="flex" justifyContent="flex-end">
-              {editMode ? (
+              {editTimetableMode ? (
                 <>
-                  <Button variant="contained" color="primary" onClick={handleSaveClick}>
+                  <Button variant="contained" color="primary" onClick={handleSaveTimetableClick}>
                     Guardar
                   </Button>
-                  <Button variant="contained" color="secondary" onClick={handleCancelClick} style={{ marginLeft: '10px' }}>
+                  <Button variant="contained" color="secondary" onClick={handleCancelTimetableClick} style={{ marginLeft: '10px' }}>
                     Cancelar
                   </Button>
                 </>
               ) : (
-                <Button variant="contained" color="primary" onClick={handleEditClick}>
-                  Editar
+                <Button startIcon={<EditCalendarIcon />} variant="contained" color="primary" onClick={handleEditTimetableClick}>
+                  Modificar horario
                 </Button>
               )}
             </Box>

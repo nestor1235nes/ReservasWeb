@@ -4,12 +4,12 @@ import { DatePicker } from '@mui/x-date-pickers';
 import { usePaciente } from '../../context/pacienteContext';
 import { useAuth } from '../../context/authContext';
 import { useReserva } from '../../context/reservaContext';
+import { useAlert } from '../../context/AlertContext';
 import AgregarPaciente from '../Modales/AgregarPaciente';
 import AgregarSesion from './AgregarSesion';
 import VerHistorial from './VerHistorial';
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextareaAutosize } from '@mui/material';
 import sendWhatsAppMessage from '../../sendWhatsAppMessage';
-import BrokenImageIcon from '@mui/icons-material/BrokenImage';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckIcon from '@mui/icons-material/Check';
@@ -19,6 +19,7 @@ import timezone from 'dayjs/plugin/timezone';
 import 'dayjs/locale/es';
 import ReactQuill from 'react-quill';
 import '../ui/AgregarSesionCSS.css';
+import MostrarImagenes from '../MostrarImagenes'; // Importar el nuevo componente
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -27,6 +28,7 @@ dayjs.locale('es');
 const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
   const { updatePaciente } = usePaciente();
   const { updateReserva } = useReserva();
+  const showAlert = useAlert();
   const { user, obtenerHorasDisponibles } = useAuth();
   const [editSection, setEditSection] = useState(null);
   const [editableFields, setEditableFields] = useState({
@@ -74,13 +76,28 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
   };
 
   const handleSaveClick = () => {
-    setOpenDialog(true);
+    if (editSection === 'cita') {
+      setOpenDialog(true);
+    } else {
+      handleDialogClose(true);
+    }
   };
 
   const handleDialogClose = async (confirm) => {
     if (confirm) {
       try {
         if (editSection === 'paciente') {
+          if(editableFields.telefono){
+            if(editableFields.telefono[0] !== '9'){
+              showAlert('error', 'El número de teléfono debe comenzar con 9');
+              return;
+            }
+            if(editableFields.telefono.length !== 9){
+              showAlert('error', 'El número de teléfono debe tener 9 dígitos');
+              return;
+            }
+            editableFields.telefono = '56' + editableFields.telefono;
+          }
           await updatePaciente(event.paciente._id, {
             email: editableFields.email,
             telefono: editableFields.telefono,
@@ -97,11 +114,15 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
           event.diaPrimeraCita = new Date(editableFields.fecha);
           event.hora = editableFields.hora;
           event.profesional = editableFields.profesional;
+
+          if(mensajePaciente) {
+            sendWhatsAppMessage([event], mensajePaciente, user);
+          }
         }
         setEditSection(null);
         fetchReservas();
-
-        sendWhatsAppMessage([event], mensajePaciente, user);
+        
+        showAlert('success', 'Cambios guardados correctamente');
       } catch (error) {
         console.error(error);
       }
@@ -150,16 +171,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
         <Box display="flex" justifyContent="space-between" backgroundColor="primary.main" p={0.5} style={{ justifyContent: 'center', borderRadius: '5px', color:'white' }}>
           <Typography variant="h6" style={{ textAlign: 'center' }}>Detalles de la Cita</Typography>
         </Box>
-        <Box display="flex" justifyContent="center" alignItems="center" my={2}>
-          {event.imagenes && event.imagenes.length > 0 ? (
-            <img src={event.imagenes[0]} alt="Imagen del paciente" style={{ maxWidth: '100%', maxHeight: '200px' }} />
-          ) : (
-            <Box display="flex" flexDirection="column" alignItems="center">
-              <BrokenImageIcon style={{ fontSize: 50, opacity:'0.2' }} />
-              <Typography variant="body1">No hay imágenes</Typography>
-            </Box>
-          )}
-        </Box>
+        <MostrarImagenes imagenes={event.imagenes} /> 
         <Dialog open={openDialog} onClose={() => handleDialogClose(false)} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', zIndex: 9999 }}>
           <DialogTitle>Mensaje para el Paciente</DialogTitle>
           <DialogContent>
@@ -210,7 +222,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
             {editSection === 'paciente' ? (
               <>
                 <TextField
-                  label="Celular"
+                  label="Celular (Ej: 912345678)"
                   name="telefono"
                   value={editableFields.telefono}
                   onChange={handleFieldChange}
@@ -346,7 +358,6 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
         <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} />
         <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
       </Box>
-      
     </Slide>
   );
 };

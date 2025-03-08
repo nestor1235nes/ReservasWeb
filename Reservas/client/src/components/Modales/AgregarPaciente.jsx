@@ -9,7 +9,8 @@ import Rutificador from '../Rutificador';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import ProfesionalBusquedaHoras from '../ProfesionalBusquedaHoras';
-import { set } from 'mongoose';
+import ArrastraSeleccionaImagenes from '../ArratraSeleccionaImagenes';
+import axios from 'axios';
 
 const steps = ['Datos del paciente', 'Fecha y hora de la cita', 'Datos de la consulta'];
 
@@ -29,11 +30,13 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
     profesional: user.id,
     hora: '',
     diagnostico: '',
-    anamnesis: ''
+    anamnesis: '',
+    imagenes: []
   });
   const [pacienteExistente, setPacienteExistente] = useState(false);
   const [alert, setAlert] = useState({ type: '', message: '' });
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [files, setFiles] = useState([]);
 
   useEffect(() => {
     if (data) {
@@ -90,15 +93,41 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
     setPatientData({ ...patientData, anamnesis: value });
   };
 
+  const handleImagesSelected = (acceptedFiles) => {
+    setFiles(acceptedFiles); // Almacena las imágenes seleccionadas
+  };
+
   const handleSubmit = async () => {
     try {
+      // 1. Actualizar los datos del paciente (crear o actualizar)
       if (data) {
         await updateReserva(patientData.rut, patientData);
-        fetchReservas();
       } else {
         await createPaciente(patientData);
         await createReserva(patientData.rut, patientData);
       }
+
+      // 2. Subir las imágenes solo si hay archivos seleccionados
+      if (files.length > 0) {
+        const formData = new FormData();
+        formData.append('rut', patientData.rut); // Agrega el rut al FormData
+        files.forEach((file) => {
+          formData.append('files', file); // Agrega cada archivo al FormData
+        });
+
+        console.log(formData);
+
+        const response = await axios.post('/api/imagenesPacientes', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        console.log(response.data.urls);
+        await updateReserva(patientData.rut, { imagenes: response.data.urls });
+      }
+
+      // 4. Mostrar mensaje de éxito y resetear el formulario
+      showAlert('success', 'Paciente registrado correctamente');
       setPatientData({
         nombre: '',
         rut: '',
@@ -108,15 +137,17 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
         siguienteCita: '',
         hora: '',
         diagnostico: '',
-        anamnesis: ''
+        anamnesis: '',
+        imagenes: [],
       });
-      showAlert('success', 'Paciente registrado correctamente');
+      setFiles([]); // Limpiar las imágenes seleccionadas
+      setActiveStep(0);
+      fetchReservas();
+      onClose();
     } catch (error) {
-      console.log(error);
+      console.error('Error al guardar el paciente o subir imágenes:', error);
+      showAlert('error', 'Hubo un error al guardar el paciente o subir las imágenes');
     }
-    setActiveStep(0);
-    fetchReservas();
-    onClose();
   };
 
   const validateStep = () => {
@@ -137,7 +168,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
 
   return (
     <Modal open={open} onClose={onClose}>
-      <Box sx={{ width: '50%', margin: 'auto', marginTop: '5%', padding: '2rem', backgroundColor: 'white' }}>
+      <Box sx={{ width: '50%', margin: 'auto', marginTop: '5%', padding: '2rem', backgroundColor: 'white', minHeight: '80vh', maxHeight: '80vh', overflowY: 'auto' }}>
         <Snackbar
           open={openSnackbar}
           autoHideDuration={4000}
@@ -221,10 +252,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
                 'link', 'image', 'video'
               ]}
             />
-            <Button variant="contained" component="label">
-              Añadir imágenes
-              <input type="file" hidden />
-            </Button>
+            <ArrastraSeleccionaImagenes onImagesSelected={handleImagesSelected} pacienteRut={patientData.rut} />
           </Box>
         )}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>

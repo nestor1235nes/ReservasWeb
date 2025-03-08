@@ -2,11 +2,13 @@ import React, { useState, useRef } from 'react';
 import { Avatar, Tooltip, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, Button, Slider } from '@mui/material';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import { useAuth } from '../context/authContext';
+import { useAlert } from '../context/AlertContext'; 
 import axios from '../api/axios';
 import AvatarEditor from 'react-avatar-editor';
 
 const FotoPerfil = () => {
   const { user, updatePerfil } = useAuth();
+  const showAlert = useAlert();
   const [selectedFile, setSelectedFile] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [scale, setScale] = useState(1);
@@ -42,8 +44,10 @@ const FotoPerfil = () => {
         });
         await updatePerfil(user.id, { fotoPerfil: res.data.url });
         setEditorOpen(false);
+        showAlert('success', 'Foto de perfil actualizada correctamente');
       } catch (error) {
         console.error('Error uploading file:', error);
+        showAlert('error', 'Ocurrió un error al subir la foto de perfil, por favor intenta nuevamente');
       }
     }
   };
