@@ -84,7 +84,7 @@ const PerfilPage = () => {
   };
 
   const handleSaveProfileClick = async () => {
-    await updatePerfil(user.id, formData);
+    await updatePerfil(user.id || user._id, formData);
     setEditProfileMode(false);
   };
 
@@ -94,7 +94,7 @@ const PerfilPage = () => {
       const times = generateTimes(fromTime, toTime, breakFrom, breakTo, interval);
       return { ...time, times };
     });
-    await updatePerfil(user.id, { ...formData, timetable: updatedTimetable });
+    await updatePerfil(user.id || user._id, { ...formData, timetable: updatedTimetable });
     setEditTimetableMode(false);
   };
 
@@ -267,7 +267,7 @@ const PerfilPage = () => {
                           </Typography>
                         </Stack>
                       </Box>
-                      <Box sx={{ boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.3)', borderRadius: 2, padding: 2, minWidth: { xs: '100%', sm: '40%' }, minHeight: '300px', maxHeight: '300px', top: 50, position: 'relative', overflow: 'auto', mt: { xs: 2, sm: 0 } }}>
+                      <Box sx={{ boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.3)', borderRadius: 2, padding: 2, maxWidth: {xs: '100%', sm:'40%'},minWidth: { xs: '100%', sm: '40%' }, minHeight: '300px', maxHeight: '300px', top: 50, position: 'relative', overflow: 'auto', mt: { xs: 2, sm: 0 } }}>
                         <Typography variant="h6" gutterBottom>
                           Mi Descripción
                         </Typography>

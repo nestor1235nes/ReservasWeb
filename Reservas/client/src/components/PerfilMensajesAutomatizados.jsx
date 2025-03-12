@@ -22,7 +22,7 @@ const PerfilMensajesAutomatizados = () => {
   };
 
   const handleWspSave = async () => {
-    await updatePerfil(user.id, wspData);
+    await updatePerfil(user.id || user._id, wspData);
     setShowInputs(false);
   };
 

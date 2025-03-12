@@ -47,9 +47,9 @@ export const PacienteProvider = ({ children }) => {
     }
   }
 
-  const updatePaciente = async (id, paciente) => {
+  const updatePaciente = async (rut, paciente) => {
     try {
-      await updatePacienteRequest(id, paciente);
+      await updatePacienteRequest(rut, paciente);
       getPacientes();
     } catch (error) {
       console.error(error);

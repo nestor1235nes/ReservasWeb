@@ -14,8 +14,8 @@ import axios from 'axios';
 
 const steps = ['Datos del paciente', 'Fecha y hora de la cita', 'Datos de la consulta'];
 
-const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
-  const { createPaciente } = usePaciente();
+const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}) => {
+  const { createPaciente, updatePaciente } = usePaciente();
   const { createReserva, updateReserva, getReserva } = useReserva();
   const { user, obtenerHorasDisponibles } = useAuth();
   const showAlert = useAlert();
@@ -106,7 +106,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
         await createPaciente(patientData);
         await createReserva(patientData.rut, patientData);
       }
-
+  
       // 2. Subir las imágenes solo si hay archivos seleccionados
       if (files.length > 0) {
         const formData = new FormData();
@@ -114,18 +114,43 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} }) => {
         files.forEach((file) => {
           formData.append('files', file); // Agrega cada archivo al FormData
         });
-
-        console.log(formData);
-
+  
         const response = await axios.post('/api/imagenesPacientes', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
-        console.log(response.data.urls);
         await updateReserva(patientData.rut, { imagenes: response.data.urls });
       }
-
+  
+      // 3. Agregar evento a Google Calendar si el usuario está autenticado con Google
+      if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+        const event = {
+          summary: `Cita con ${patientData.nombre}`,
+          description: `Diagnóstico: ${patientData.diagnostico}\nAnamnesis: ${patientData.anamnesis}`,
+          start: {
+            dateTime: `${patientData.siguienteCita}T${patientData.hora}:00`,
+            timeZone: 'America/Santiago',
+          },
+          end: {
+            dateTime: `${patientData.siguienteCita}T${parseInt(patientData.hora.split(':')[0]) + 1}:${patientData.hora.split(':')[1]}:00`,
+            timeZone: 'America/Santiago',
+          },
+        };
+  
+        const request = gapi.client.calendar.events.insert({
+          calendarId: 'primary',
+          resource: event,
+        });
+  
+        request.execute(async (event) => {
+          console.log('Evento creado: ', event.htmlLink);
+          // Almacenar el eventId en la base de datos
+          console.log(event.id);
+          await updatePaciente(patientData.rut, { eventId: event.id });
+        });
+      }
+  
       // 4. Mostrar mensaje de éxito y resetear el formulario
       showAlert('success', 'Paciente registrado correctamente');
       setPatientData({

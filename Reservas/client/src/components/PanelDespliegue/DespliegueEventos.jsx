@@ -25,7 +25,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale('es');
 
-const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
+const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
   const { updatePaciente } = usePaciente();
   const { updateReserva } = useReserva();
   const showAlert = useAlert();
@@ -56,7 +56,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
   useEffect(() => {
     const fetchHorasDisponibles = async () => {
       if (user && editableFields.fecha) {
-        const response = await obtenerHorasDisponibles(user.id, editableFields.fecha);
+        const response = await obtenerHorasDisponibles(user.id || user._id, editableFields.fecha);
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
@@ -76,7 +76,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
   };
 
   const handleSaveClick = () => {
-    if (editSection === 'cita') {
+    if (editSection === 'cita' && user.idInstance) {
       setOpenDialog(true);
     } else {
       handleDialogClose(true);
@@ -85,47 +85,75 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
 
   const handleDialogClose = async (confirm) => {
     if (confirm) {
-      try {
-        if (editSection === 'paciente') {
-          if(editableFields.telefono){
-            if(editableFields.telefono[0] !== '9'){
-              showAlert('error', 'El número de teléfono debe comenzar con 9');
-              return;
-            }
-            if(editableFields.telefono.length !== 9){
-              showAlert('error', 'El número de teléfono debe tener 9 dígitos');
-              return;
-            }
-            editableFields.telefono = '56' + editableFields.telefono;
-          }
-          await updatePaciente(event.paciente._id, {
-            email: editableFields.email,
-            telefono: editableFields.telefono,
-          });
-          event.paciente.email = editableFields.email;
-          event.paciente.telefono = editableFields.telefono;
-        } else if (editSection === 'cita') {
-          await updateReserva(event.paciente.rut, {
-            siguienteCita: new Date(editableFields.fecha),
-            hora: editableFields.hora,
-            profesional: editableFields.profesional,
-            mensaje: mensajePaciente,
-          });
-          event.diaPrimeraCita = new Date(editableFields.fecha);
-          event.hora = editableFields.hora;
-          event.profesional = editableFields.profesional;
+        try {
+            if (editSection === 'paciente') {
+                if (editableFields.telefono) {
+                    if (editableFields.telefono[0] !== '9') {
+                        showAlert('error', 'El número de teléfono debe comenzar con 9');
+                        return;
+                    }
+                    if (editableFields.telefono.length !== 9) {
+                        showAlert('error', 'El número de teléfono debe tener 9 dígitos');
+                        return;
+                    }
+                    editableFields.telefono = '56' + editableFields.telefono;
+                }
+                await updatePaciente(event.paciente._id || event.paciente.id, {
+                    email: editableFields.email,
+                    telefono: editableFields.telefono,
+                });
+                event.paciente.email = editableFields.email;
+                event.paciente.telefono = editableFields.telefono;
+            } else if (editSection === 'cita') {
+                await updateReserva(event.paciente.rut, {
+                    siguienteCita: new Date(editableFields.fecha),
+                    hora: editableFields.hora,
+                    profesional: editableFields.profesional,
+                    mensaje: mensajePaciente,
+                });
+                event.diaPrimeraCita = new Date(editableFields.fecha);
+                event.hora = editableFields.hora;
+                event.profesional = editableFields.profesional;
 
-          if(mensajePaciente) {
-            sendWhatsAppMessage([event], mensajePaciente, user);
-          }
+                if (mensajePaciente) {
+                    sendWhatsAppMessage([event], mensajePaciente, user);
+                }
+
+                if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+                    const calendar = gapi.client.calendar;
+                    const eventToUpdate = {
+                        start: {
+                            dateTime: new Date(editableFields.fecha + 'T' + editableFields.hora + ':00').toISOString(),
+                            timeZone: 'America/Santiago',
+                        },
+                        end: {
+                            dateTime: new Date(editableFields.fecha + 'T' + (parseInt(editableFields.hora.split(':')[0]) + 1) + ':' + editableFields.hora.split(':')[1] + ':00').toISOString(),
+                            timeZone: 'America/Santiago',
+                        },
+                        summary: `Cita con ${event.paciente.nombre}`,
+                        description: event.diagnostico,
+                    };
+                    calendar.events.update({
+                        calendarId: 'primary',
+                        eventId: event.paciente.eventId,
+                        resource: eventToUpdate,
+                    }).execute((response) => {
+                        if (response.error) {
+                            console.error('Error updating event: ', response.error);
+                        } else {
+                            console.log('Event updated: ', response);
+                        }
+                    });
+                }
+            }
+            setEditSection(null);
+            fetchReservas();
+
+            showAlert('success', 'Cambios guardados correctamente');
+        } catch (error) {
+            console.error(error);
+            showAlert('error', 'Error al guardar los cambios');
         }
-        setEditSection(null);
-        fetchReservas();
-        
-        showAlert('success', 'Cambios guardados correctamente');
-      } catch (error) {
-        console.error(error);
-      }
     }
     setOpenDialog(false);
   };
@@ -167,12 +195,12 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
 
   return (
     <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500} >
-      <Box p={2} width={window.innerWidth < 600 ? '100%' : 500} height={window.innerWidth < 600 ? 700 : '100%'} style={{ overflowY:'auto', backgroundColor: '#f1eeee', borderRadius: '8px', zIndex: 1 }}>
+      <Box p={2} width={window.innerWidth < 600 ? '100%' : 500} height={window.innerWidth < 600 ? 700 : '100%'} style={{ overflowY:'auto', backgroundColor: '#f1eeee', borderRadius: '8px' }}>
         <Box display="flex" justifyContent="space-between" backgroundColor="primary.main" p={0.5} style={{ justifyContent: 'center', borderRadius: '5px', color:'white' }}>
           <Typography variant="h6" style={{ textAlign: 'center' }}>Detalles de la Cita</Typography>
         </Box>
         <MostrarImagenes imagenes={event.imagenes} /> 
-        <Dialog open={openDialog} onClose={() => handleDialogClose(false)} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', zIndex: 9999 }}>
+        <Dialog open={openDialog} onClose={() => handleDialogClose(false)} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
           <DialogTitle>Mensaje para el Paciente</DialogTitle>
           <DialogContent>
             <TextField
@@ -264,7 +292,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
             </Box>
             {editSection === 'cita' ? (
               <>
-                <Box display="flex" flexDirection="column" sx={{ zIndex: 9999 }}>
+                <Box display="flex" flexDirection="column">
                   <DatePicker
                     label="Fecha de Cita"
                     value={editableFields.fecha ? dayjs(editableFields.fecha) : null}
@@ -287,9 +315,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
                     }}
                     className='modal-over-drawer'
                     renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
-                    PopperProps={{
-                      sx: { zIndex: 1500 } // Ajusta el zIndex aquí
-                    }}
+
                   />
                   <FormControl fullWidth margin="normal">
                     <InputLabel>Hora de Cita</InputLabel>
@@ -297,13 +323,6 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
                       name="hora"
                       value={editableFields.hora}
                       onChange={handleFieldChange}
-                      MenuProps={{
-                        PaperProps: {
-                          style: {
-                            zIndex: 1500, // Ajusta el zIndex aquí
-                          },
-                        },
-                      }}
                     >
                       {horasDisponibles.map((hora) => (
                         <MenuItem key={hora} value={hora}>
@@ -355,7 +374,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas }) => {
           )}
         </Box>
         <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} />
-        <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} />
+        <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} gapi={gapi} />
         <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
       </Box>
     </Slide>

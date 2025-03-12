@@ -29,6 +29,9 @@ const PacienteSchema = new mongoose.Schema({
         type: Boolean,
         default: true,
     },
+    eventId: {
+        type: String,
+    },
 });
 
 const Paciente = mongoose.model("Paciente", PacienteSchema);

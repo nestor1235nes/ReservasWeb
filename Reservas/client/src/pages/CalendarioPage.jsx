@@ -20,6 +20,8 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import VentanaNotificaciones from '../components/VentanaNotificaciones';
+import { gapi } from 'gapi-script';
+import { initClient } from '../googleCalendarConfig';
 
 dayjs.extend(localizedFormat);
 dayjs.extend(utc);
@@ -79,8 +81,14 @@ export function CalendarioPage() {
     }
   }, [user]);
 
+  useEffect(() => {
+      const initGapi = async () => {
+        await gapi.load('client:auth2', initClient);
+      };
+      initGapi();
+    }, []);
+
   const handleSelectEvent = (event) => {
-    console.log(event);
     setSelectedEvent(event);
     setOpen(true);
   };
@@ -171,7 +179,7 @@ export function CalendarioPage() {
           timeout={500}
         >
           <Box>
-            <DespliegueEventos event={selectedEvent} onClose={handleCloseDrawer} fetchReservas={fetchReservas} />
+            <DespliegueEventos event={selectedEvent} onClose={handleCloseDrawer} fetchReservas={fetchReservas} gapi={gapi} />
           </Box>
         </Slide>
       </Drawer>
@@ -183,7 +191,7 @@ export function CalendarioPage() {
         notifications={user.notifications}
       />
 
-      <BotonFlotante onClick={handleFabClick} fetchReservas={fetchReservas} />
+      <BotonFlotante onClick={handleFabClick} fetchReservas={fetchReservas} gapi={gapi} />
       <SinDatos open={showModal} />
     </Box>
   );

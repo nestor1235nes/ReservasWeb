@@ -8,11 +8,11 @@ import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
 import sendWhatsAppMessage from '../../sendWhatsAppMessage';
 import { CSSTransition } from 'react-transition-group';
-import '../ui/LiberarHoras.css'; // Import the CSS file for animations
+import '../ui/LiberarHoras.css';
 
 dayjs.locale('es');
 
-const LiberarHoras = ({ open, onClose, fetchReservas }) => {
+const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const [fecha, setFecha] = useState('');
     const { user, liberarHoras } = useAuth();
     const showAlert = useAlert();
@@ -23,15 +23,13 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
 
     const handleFechaChange = (newValue) => {
         setFecha(newValue ? newValue.format('YYYY-MM-DD') : '');
-        if (user.idInstance) {
-            setShowCalendar(false);
-        }
+        setShowCalendar(false);
     };
 
     const handleLiberarHoras = async () => {
         try {
             const data = {
-                id: user.id,
+                id: user.id || user._id,
                 fecha,
             };
             const reservasLiberadas = await liberarHoras(data);
@@ -39,6 +37,29 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
             fetchReservas();
             onClose();
             console.log(user);
+    
+            // Eliminar eventos en Google Calendar
+            
+            if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+                for (const reserva of reservasLiberadas.reservasLiberadas) {
+                    if (reserva.paciente.eventId) {
+                        console.log(reserva);
+                        const request = gapi.client.calendar.events.delete({
+                            calendarId: 'primary',
+                            eventId: reserva.paciente.eventId,
+                        });
+    
+                        request.execute((response) => {
+                            if (response.error) {
+                                console.error('Error deleting event: ', response.error);
+                            } else {
+                                console.log('Event deleted: ', reserva.paciente.eventId);
+                            }
+                        });
+                    }
+                }
+            }
+    
             if (user.idInstance) {
                 if(user.defaultMessage === '' && customMessage === '') {
                     showAlert('error', 'No hay mensaje por defecto ni mensaje personalizado. No se enviará mensaje a los pacientes.');
@@ -175,13 +196,14 @@ const LiberarHoras = ({ open, onClose, fetchReservas }) => {
                     >
                         <Box>
                             <TextField
-                                label="Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" 
+                                label={user.idInstance ? "Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" : "Sin autorización"}
                                 multiline
                                 rows={8}
                                 value={customMessage}
                                 onChange={(e) => setCustomMessage(e.target.value)}
                                 fullWidth
                                 margin="normal"
+                                disabled={!user.idInstance}
                             />
                             <Button variant="contained" color="primary" onClick={handleConfirmOpen} fullWidth>
                                 Enviar día

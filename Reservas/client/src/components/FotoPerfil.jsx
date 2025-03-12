@@ -42,7 +42,7 @@ const FotoPerfil = () => {
             'Content-Type': 'multipart/form-data',
           },
         });
-        await updatePerfil(user.id, { fotoPerfil: res.data.url });
+        await updatePerfil(user.id || user._id, { fotoPerfil: res.data.url });
         setEditorOpen(false);
         showAlert('success', 'Foto de perfil actualizada correctamente');
       } catch (error) {

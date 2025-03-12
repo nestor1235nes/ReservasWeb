@@ -1,8 +1,50 @@
 import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { TOKEN_SECRET } from "../config.js";
+import { TOKEN_SECRET, CLIENT_ID } from "../config.js";
 import { createAccessToken } from "../libs/jwt.js";
+import { OAuth2Client } from 'google-auth-library';
+
+const client = new OAuth2Client(CLIENT_ID);
+
+export const googleAuth = async (req, res) => {
+  const { token } = req.body;
+
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: CLIENT_ID,
+    });
+    const { name, email } = ticket.getPayload();
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = new User({
+        username: name,
+        email,
+        password: await bcrypt.hash(email + TOKEN_SECRET, 10), // Generate a password hash
+      });
+      await user.save();
+    }
+
+    const accessToken = await createAccessToken({ id: user._id });
+
+    res.cookie("token", accessToken, {
+      httpOnly: process.env.NODE_ENV !== "development",
+      secure: true,
+      sameSite: "none",
+    });
+
+    res.json({
+      id: user._id,
+      username: user.username,
+      email: user.email,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 export const register = async (req, res) => {
   try {

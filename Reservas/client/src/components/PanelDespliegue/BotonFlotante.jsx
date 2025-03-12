@@ -9,7 +9,7 @@ import BuscarTodosPacientes from '../Modales/BuscarTodosPacientes';
 import LiberarHoras from '../Modales/LiberarHoras';
 
 
-const BotonFlotante = ({ onClick, fetchReservas }) => {
+const BotonFlotante = ({ onClick, fetchReservas, gapi }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [openAgregarPacienteSin, setOpenAgregarPacienteSin] = useState(false);
   const [openBuscarTodosLosPacientes, setOpenBuscarTodosLosPacientes] = useState(false);
@@ -66,9 +66,9 @@ const BotonFlotante = ({ onClick, fetchReservas }) => {
           <ListItemText primary="Liberar horas" />
         </MenuItem>
       </Menu>
-      <AgregarPaciente open={openAgregarPacienteSin} onClose={() => setOpenAgregarPacienteSin(false)} fetchReservas={fetchReservas}/>
+      <AgregarPaciente open={openAgregarPacienteSin} onClose={() => setOpenAgregarPacienteSin(false)} fetchReservas={fetchReservas} gapi={gapi}/>
       <BuscarTodosPacientes open={openBuscarTodosLosPacientes} onClose={() => setOpenBuscarTodosLosPacientes(false)} />
-      <LiberarHoras open={openLiberarHoras} onClose={() => setOpenLiberarHoras(false)} fetchReservas={fetchReservas} />
+      <LiberarHoras open={openLiberarHoras} onClose={() => setOpenLiberarHoras(false)} fetchReservas={fetchReservas} gapi={gapi} />
     </>
   );
 };

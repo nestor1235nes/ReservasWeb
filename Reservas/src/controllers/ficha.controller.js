@@ -54,7 +54,12 @@ export const deletePaciente = async (req, res) => {
 
 export const updatePaciente = async (req, res) => {
     try {
-        const updatedPaciente = await Paciente.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        console.log(req.params.rut);
+        const paciente = await Paciente.findOne({ rut: req.params.rut });
+        if (!paciente) {
+            return res.status(404).json({ message: "Paciente not found" });
+        }
+        const updatedPaciente = await Paciente.findByIdAndUpdate(paciente._id, req.body, { new: true });
         res.json(updatedPaciente);
     } catch (error) {
         res.status(404).json({ message: error.message });
@@ -112,6 +117,7 @@ export const createReserva = async (req, res) => {
             diagnostico: req.body.diagnostico,
             anamnesis: req.body.anamnesis,
             historial: req.body.historial,
+            eventId: req.body.eventId,
         });
 
         await nuevaReserva.save();
@@ -157,6 +163,7 @@ export const updateReserva = async (req, res) => {
             anamnesis: req.body.anamnesis,
             historial: req.body.historial,
             imagenes: req.body.imagenes,
+            eventId: req.body.eventId,
         }
         await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
 

@@ -5,6 +5,8 @@ import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, Typography, TextField, Button, Box, Alert } from "@mui/material";
 import { loginSchema } from "../schemas/auth";
+import { gapi } from 'gapi-script';
+import { handleAuthClick } from '../googleCalendarConfig';
 
 export function LoginPage() {
   const {
@@ -24,6 +26,22 @@ export function LoginPage() {
       navigate("/calendario");
     }
   }, [isAuthenticated]);
+
+  const handleGoogleLogin = async () => {
+    const profile = await handleAuthClick();
+    const response = await fetch('/api/auth/google-auth', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token: gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token }),
+    });
+    const data = await response.json();
+    console.log(data);
+    if (data.id) {
+      window.location.reload(); // Actualizar la página después de la autenticación
+    }
+  };
 
   return (
     <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
@@ -60,6 +78,9 @@ export function LoginPage() {
               Iniciar sesión
             </Button>
           </form>
+          <Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleGoogleLogin}>
+            Iniciar sesión con Google
+          </Button>
           <Typography variant="body2" align="center" sx={{ mt: 2 }}>
             ¿No tienes una cuenta? <Link to="/register" style={{ color: '#1976d2' }}>Regístrate</Link>
           </Typography>

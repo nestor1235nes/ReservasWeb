@@ -16,12 +16,13 @@ import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
+
 dayjs.extend(localizedFormat);
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale('es')
 
-const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas }) => {
+const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi }) => {
   const [sesionData, setSesionData] = useState('');
   const [fecha, setFecha] = useState('');
   const [ultimaFecha, setUltimaFecha] = useState('');
@@ -37,13 +38,14 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas }) => {
   useEffect(() => {
     const fetchHorasDisponibles = async () => {
       if (fecha) {
-        const response = await obtenerHorasDisponibles(user.id, fecha);
+        const response = await obtenerHorasDisponibles(user.id || user._id, fecha);
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
     };
     fetchHorasDisponibles();
-  }, [fecha, user.id, obtenerHorasDisponibles]);
+  }, [fecha, user.id || user._id, obtenerHorasDisponibles]);
+
 
   const handleSesionChange = (value) => {
     setSesionData(value);
@@ -77,8 +79,39 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas }) => {
         siguienteCita: fecha,
         hora: hora,
       };
-
+  
       await addHistorial(paciente.rut, data);
+  
+      if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+        const event = {
+          summary: 'Sesión con ' + paciente.nombre,
+          description: sesionData,
+          start: {
+            dateTime: dayjs(fecha + 'T' + hora).toISOString(),
+            timeZone: 'America/Santiago',
+          },
+          end: {
+            dateTime: dayjs(fecha + 'T' + (parseInt(hora.split(':')[0]) + 1) + ':' + hora.split(':')[1]).toISOString(),
+            timeZone: 'America/Santiago',
+          },
+        };
+  
+        const request = gapi.client.calendar.events.update({
+          calendarId: 'primary',
+          eventId: paciente.eventId, // Assuming you have the eventId stored in paciente object
+          resource: event,
+        });
+  
+        request.execute((event) => {
+          if (event.error) {
+            console.error('Error updating event: ', event.error);
+            showAlert('error', 'Error al actualizar la sesión en Google Calendar');
+          } else {
+            showAlert('success', 'Sesión actualizada correctamente en Google Calendar');
+          }
+        });
+      }
+  
       showAlert('success', 'Sesión agregada correctamente');
     }
     catch (error) {

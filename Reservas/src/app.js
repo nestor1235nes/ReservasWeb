@@ -22,6 +22,12 @@ app.use(express.json());
 app.use(morgan("dev"));
 app.use(cookieParser());
 
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/", reservaRoutes);
 app.use("/api/", fichaRoutes);

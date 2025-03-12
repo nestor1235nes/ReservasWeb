@@ -16,6 +16,6 @@ router.get("/ficha", auth, getPacientes);
 router.get("/ficha/:id", getPaciente);
 router.post("/ficha", createPaciente);
 router.delete("/ficha/:id", deletePaciente);
-router.put("/ficha/:id", updatePaciente);
+router.put("/ficha/:rut", updatePaciente);
 
 export default router;

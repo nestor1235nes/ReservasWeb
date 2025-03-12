@@ -12,6 +12,9 @@ import PerfilPage from "./pages/PerfilPage";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { useEffect } from 'react';
+import { gapi } from 'gapi-script';
+import { initClient } from './googleCalendarConfig';
 
 const theme = createTheme({
   palette: {
@@ -34,6 +37,13 @@ const theme = createTheme({
 });
 
 function App() {
+  useEffect(() => {
+    function start() {
+      gapi.load('client:auth2', initClient);
+    }
+    start();
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
