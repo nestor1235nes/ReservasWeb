@@ -1,55 +1,33 @@
 import mongoose from "mongoose";
 
-const timetableSchema = new mongoose.Schema({
-    days: {
-        type: [String],
-    },
-    times: {
-        type: [String],
-    }
-}, { _id: false });
-
-const userSchema = new mongoose.Schema({
-    username: {
+const SucursalSchema = new mongoose.Schema({
+    ///////////////Datos de la sucursal/////////////
+    nombre: {
         type: String,
         required: true,
-        trim: true,
     },
-    email: {
-        type: String,
-        required: true,
-        trim: true,
-        unique: true,
+    administrador: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
     },
-    password: {
+    direccion: {
         type: String,
-        required: true,
     },
     celular: {
         type: String,
-    },
-    fotoPerfil: {
+    }, 
+    telefono: {
         type: String,
     },
-    especialidad: {
+    email: {
         type: String,
     },
+    empleados: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+    }],
     descripcion: {
         type: String,
-    },
-    timetable: {
-        type: [timetableSchema],
-        default: []
-    },
-    sucursal: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Sucursal',
-    },
-    
-    ///Notificaciones
-    notifications: {
-        type: [String],
-        default: []
     },
 
     ///////////Configuracion de wsp/////////////
@@ -68,4 +46,6 @@ const userSchema = new mongoose.Schema({
     },
 });
 
-export default mongoose.model('User', userSchema);
+const Sucursal = mongoose.model("Sucursal", SucursalSchema);
+
+export default Sucursal;

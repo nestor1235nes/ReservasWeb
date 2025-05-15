@@ -1,5 +1,6 @@
 import Paciente from "../models/paciente.model.js";
 import Reserva from "../models/ficha.model.js";
+import Sucursal from "../models/sucursal.model.js";
 
 export const getPacientePorRut = async (req, res) => {
     try {
@@ -107,6 +108,8 @@ export const createReserva = async (req, res) => {
             return res.status(404).json({ message: "Paciente not found" });
         }
 
+        const sucursal = await Sucursal.findOne({ profesional: req.body.profesional });
+
         const nuevaReserva = new Reserva({
             paciente: paciente._id,
             diaPrimeraCita: req.body.diaPrimeraCita,
@@ -119,6 +122,13 @@ export const createReserva = async (req, res) => {
             historial: req.body.historial,
             eventId: req.body.eventId,
         });
+
+        console.log(nuevaReserva);
+
+        if(sucursal){
+            console.log(sucursal);
+            nuevaReserva.sucursal = sucursal._id;
+        }
 
         await nuevaReserva.save();
 

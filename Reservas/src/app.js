@@ -8,6 +8,7 @@ import fichaRoutes from './routes/ficha.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import funcionRoutes from './routes/funciones.routes.js';
 import deletePerfilRoutes from './routes/deletePerfil.routes.js';
+import sucursalRoutes from './routes/sucursal.routes.js';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api/", fichaRoutes);
 app.use("/api/", uploadRoutes);
 app.use("/api/", funcionRoutes);
 app.use("/api/", deletePerfilRoutes);
+app.use("/api/", sucursalRoutes);
 app.use('/uploads', express.static('uploads'))
 app.use('/imagenesPacientes', express.static('imagenesPacientes'))
 

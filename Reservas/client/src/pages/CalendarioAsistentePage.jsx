@@ -4,7 +4,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { AppBar, Toolbar, Typography, Box, Drawer, Slide, IconButton, Button, Tooltip, Badge, Menu } from '@mui/material';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import es from 'date-fns/locale/es';
-import { useReserva } from '../context/reservaContext';
+import { useSucursal } from '../context/sucursalContext';
 import { useAuth } from '../context/authContext';
 import { useNavigate } from "react-router-dom";
 import DespliegueEventos from '../components/PanelDespliegue/DespliegueEventos';
@@ -38,11 +38,11 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-export function CalendarioPage() {
+const CalendarioAsistentePage = () => {
   const [reservas, setReservas] = useState([]);
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const { getReservas } = useReserva();
+  const { getReservasSucursal } = useSucursal();
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -50,7 +50,7 @@ export function CalendarioPage() {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const fetchReservas = async () => {
-    const data = await getReservas();
+    const data = await getReservasSucursal(user.sucursal);
     setReservas(data);
 
     const transformedEvents = data.map(reserva => {
@@ -195,6 +195,6 @@ export function CalendarioPage() {
       <SinDatos open={showModal} />
     </Box>
   );
-}
+};
 
-export default CalendarioPage;
+export default CalendarioAsistentePage;

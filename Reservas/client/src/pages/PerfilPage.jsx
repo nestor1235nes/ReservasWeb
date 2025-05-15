@@ -63,9 +63,11 @@ const PerfilPage = () => {
     username: user.username || "",
     celular: user.celular || "",
     descripcion: user.descripcion || "",
+    especialidad: user.especialidad || "",
     timetable: user.timetable.length > 0 ? user.timetable : [{ fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "" }]
   });
 
+  console.log(formData);
   const handleProfileClick = () => {
     navigate('/calendario');
   };
@@ -222,6 +224,16 @@ const PerfilPage = () => {
                       fullWidth
                       margin="normal"
                     />
+                    {(user.especialidad !== 'ASISTENTE' && user.especialidad !== 'SECRETARIO') && (
+                      <TextField
+                        label="Especialidad"
+                        name="especialidad"
+                        value={formData.especialidad}
+                        onChange={handleChange}
+                        fullWidth
+                        margin="normal"
+                      />
+                    )}
                     <TextField
                       label="Celular"
                       name="celular"

@@ -1,14 +1,16 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/authContext";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/authContext"; // Importa useAuth
 import { PacienteProvider } from "./context/pacienteContext";
 import { ReservaProvider } from "./context/reservaContext";
 import { AlertProvider } from './context/AlertContext';
-import { ProtectedRoute } from "./routes";
+import { ProtectedRoute, CalendarioRoute } from "./routes";
 import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import { LoginPage } from "./pages/LoginPage";
 import { CalendarioPage } from "./pages/CalendarioPage";
+import { SucursalProvider } from "./context/sucursalContext";
 import PerfilPage from "./pages/PerfilPage";
+import CalendarioAsistentePage from "./pages/CalendarioAsistentePage";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
@@ -37,6 +39,7 @@ const theme = createTheme({
 });
 
 function App() {
+
   useEffect(() => {
     function start() {
       gapi.load('client:auth2', initClient);
@@ -47,27 +50,30 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <AuthProvider>
-          <AlertProvider>
-            <PacienteProvider>
-              <ReservaProvider>
-                <BrowserRouter>
-                  <main className="container content-container mx-auto px-10 md:px-0">
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/login" element={<LoginPage />} />
-                      <Route path="/register" element={<RegisterPage />} />
-                      <Route element={<ProtectedRoute />}>
-                        <Route path="/calendario" element={<CalendarioPage />} />
-                        <Route path="/perfil" element={<PerfilPage />} />
-                      </Route>
-                    </Routes>
-                  </main>
-                </BrowserRouter>
-              </ReservaProvider>
-            </PacienteProvider>
-          </AlertProvider>
-        </AuthProvider>
+        <SucursalProvider>
+          <AuthProvider>
+            <AlertProvider>
+              <PacienteProvider>
+                <ReservaProvider>
+                  <BrowserRouter>
+                    <main className="container content-container mx-auto px-10 md:px-0">
+                      <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/register" element={<RegisterPage />} />
+                        <Route element={<ProtectedRoute />}>
+                          {/* Verifica la especialidad del usuario */}
+                          <Route path="/calendario" element={<CalendarioRoute />} />
+                          <Route path="/perfil" element={<PerfilPage />} />
+                        </Route>
+                      </Routes>
+                    </main>
+                  </BrowserRouter>
+                </ReservaProvider>
+              </PacienteProvider>
+            </AlertProvider>
+          </AuthProvider>
+        </SucursalProvider>
       </LocalizationProvider>
     </ThemeProvider>
   );

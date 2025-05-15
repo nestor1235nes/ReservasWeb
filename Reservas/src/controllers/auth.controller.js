@@ -48,7 +48,7 @@ export const googleAuth = async (req, res) => {
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance, defaultMessage, reminderMessage, notifications } = req.body;
+    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance, defaultMessage, reminderMessage, notifications, sucursal } = req.body;
 
     const userFound = await User.findOne({ email });
 
@@ -74,10 +74,14 @@ export const register = async (req, res) => {
       apiTokenInstance,
       defaultMessage,
       reminderMessage,
-      notifications
+      notifications,
+      sucursal
     });
 
     // saving the user in the database
+    if(newUser.especialidad){
+      newUser.especialidad = newUser.especialidad.toUpperCase();
+    }
     const userSaved = await newUser.save();
 
     // create access token
@@ -104,7 +108,8 @@ export const register = async (req, res) => {
       apiTokenInstance: userSaved.apiTokenInstance,
       defaultMessage: userSaved.defaultMessage,
       reminderMessage: userSaved.reminderMessage,
-      notifications: userSaved.notifications
+      notifications: userSaved.notifications,
+      sucursal: userSaved.sucursal
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -152,7 +157,8 @@ export const login = async (req, res) => {
       apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
-      notifications: userFound.notifications
+      notifications: userFound.notifications,
+      sucursal: userFound.sucursal
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -182,7 +188,8 @@ export const verifyToken = async (req, res) => {
       apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
-      notifications: userFound.notifications
+      notifications: userFound.notifications,
+      sucursal: userFound.sucursal
     });
   });
 };
@@ -200,6 +207,9 @@ export const updatePerfil = async (req, res) => {
   try {
     if (req.body.celular) {
       req.body.celular = `56${req.body.celular}`;
+    }
+    if (req.body.especialidad) {
+      req.body.especialidad = req.body.especialidad.toUpperCase();
     }
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);

@@ -1,9 +1,9 @@
 import { useAuth } from "../context/authContext";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, Typography, TextField, Button, Box, Alert } from "@mui/material";
+import { Card, CardContent, Typography, TextField, Button, Box, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@mui/material";
 import { loginSchema } from "../schemas/auth";
 import { gapi } from 'gapi-script';
 import { handleAuthClick } from '../googleCalendarConfig';
@@ -18,6 +18,7 @@ export function LoginPage() {
   });
   const { signin, errors: loginErrors, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
   const onSubmit = (data) => signin(data);
 
@@ -41,6 +42,19 @@ export function LoginPage() {
     if (data.id) {
       window.location.reload(); // Actualizar la página después de la autenticación
     }
+  };
+
+  const handleClickOpen = () => {
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  const handleConfirm = () => {
+    handleClose();
+    handleGoogleLogin();
   };
 
   return (
@@ -78,7 +92,7 @@ export function LoginPage() {
               Iniciar sesión
             </Button>
           </form>
-          <Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleGoogleLogin}>
+          <Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleClickOpen}>
             Iniciar sesión con Google
           </Button>
           <Typography variant="body2" align="center" sx={{ mt: 2 }}>
@@ -86,6 +100,22 @@ export function LoginPage() {
           </Typography>
         </CardContent>
       </Card>
+      <Dialog open={open} onClose={handleClose}>
+        <DialogTitle>Confirmación</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Al conectarte a Google, se sincronizará con Google Calendar, ¿estás seguro de continuar?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} sx={{ backgroundColor:'secondary.main', color: 'white' }}>
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirm} sx={{ backgroundColor:'primary.main', color: 'white' }}>
+            Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
