@@ -22,13 +22,14 @@ const BotonFlotante = ({ onClick, fetchReservas, gapi }) => {
   const { user } = useAuth();
 
   useEffect(() => {
+    if (!user || !user.id) return; // <-- Evita el error si user no está listo
     const fetchEsAdmin = async () => {
       const res = await esAdmin(user.id);
       setSucursal(res);
       console.log(res);
     }
     fetchEsAdmin();
-  }, [user.id, esAdmin]);
+  }, [user, esAdmin]);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);

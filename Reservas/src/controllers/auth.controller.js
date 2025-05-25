@@ -68,6 +68,8 @@ export const register = async (req, res) => {
       celular,
       fotoPerfil,
       especialidad,
+      especialidad_principal,
+      experiencia,
       descripcion,
       timetable,
       idInstance,
@@ -75,7 +77,9 @@ export const register = async (req, res) => {
       defaultMessage,
       reminderMessage,
       notifications,
-      sucursal
+      sucursal,
+      cita_presencial: false,
+      cita_virtual: false,
     });
 
     // saving the user in the database
@@ -102,6 +106,8 @@ export const register = async (req, res) => {
       celular: userSaved.celular,
       fotoPerfil: userSaved.fotoPerfil,
       especialidad: userSaved.especialidad,
+      especialidad_principal: userSaved.especialidad_principal,
+      experiencia: userSaved.experiencia,
       descripcion: userSaved.descripcion,
       timetable: userSaved.timetable,
       idInstance: userSaved.idInstance,
@@ -109,7 +115,9 @@ export const register = async (req, res) => {
       defaultMessage: userSaved.defaultMessage,
       reminderMessage: userSaved.reminderMessage,
       notifications: userSaved.notifications,
-      sucursal: userSaved.sucursal
+      sucursal: userSaved.sucursal,
+      cita_presencial: userSaved.cita_presencial,
+      cita_virtual: userSaved.cita_virtual
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -151,6 +159,8 @@ export const login = async (req, res) => {
       celular: userFound.celular,
       fotoPerfil: userFound.fotoPerfil,
       especialidad: userFound.especialidad,
+      especialidad_principal: userFound.especialidad_principal,
+      experiencia: userFound.experiencia,
       descripcion: userFound.descripcion,
       timetable: userFound.timetable,
       idInstance: userFound.idInstance,
@@ -158,7 +168,10 @@ export const login = async (req, res) => {
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
       notifications: userFound.notifications,
-      sucursal: userFound.sucursal
+      sucursal: userFound.sucursal,
+      cita_presencial: userFound.cita_presencial,
+      cita_virtual: userFound.cita_virtual
+
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -182,6 +195,8 @@ export const verifyToken = async (req, res) => {
       celular: userFound.celular,
       fotoPerfil: userFound.fotoPerfil,
       especialidad: userFound.especialidad,
+      especialidad_principal: userFound.especialidad_principal,
+      experiencia: userFound.experiencia,
       descripcion: userFound.descripcion,
       timetable: userFound.timetable,
       idInstance: userFound.idInstance,
@@ -189,7 +204,9 @@ export const verifyToken = async (req, res) => {
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
       notifications: userFound.notifications,
-      sucursal: userFound.sucursal
+      sucursal: userFound.sucursal,
+      cita_presencial: userFound.cita_presencial,
+      cita_virtual: userFound.cita_virtual
     });
   });
 };
@@ -206,10 +223,39 @@ export const logout = async (req, res) => {
 export const updatePerfil = async (req, res) => {
   try {
     if (req.body.celular) {
-      req.body.celular = `56${req.body.celular}`;
+      let celular = req.body.celular.toString().replace(/\D/g, ''); // elimina todo lo que no sea dígito
+      // Si el número comienza con '56' y tiene 11 dígitos, está correcto
+      if (/^56\d{9}$/.test(celular)) {
+        req.body.celular = celular;
+      } else {
+        // Elimina cualquier 0 inicial o prefijo internacional
+        if (celular.startsWith('569')) {
+          celular = celular.slice(0, 11); // ya está bien, pero por si acaso
+        } else if (celular.startsWith('56')) {
+          celular = '569' + celular.slice(2);
+        } else if (celular.startsWith('69') && celular.length === 10) {
+          celular = '569' + celular.slice(2);
+        } else if (celular.startsWith('9') && celular.length === 9) {
+          celular = '56' + celular;
+        } else if (celular.length === 8) {
+          celular = '569' + celular;
+        } else {
+          // Si no cumple ningún caso, intenta forzar el formato
+          celular = celular.replace(/^0+/, ''); // elimina ceros iniciales
+          if (celular.length === 9 && celular.startsWith('9')) {
+            celular = '56' + celular;
+          } else if (celular.length === 8) {
+            celular = '569' + celular;
+          }
+        }
+        req.body.celular = celular;
+      }
     }
     if (req.body.especialidad) {
       req.body.especialidad = req.body.especialidad.toUpperCase();
+    }
+    if (req.body.especialidad_principal) {
+      req.body.especialidad_principal = req.body.especialidad_principal.toUpperCase();
     }
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);

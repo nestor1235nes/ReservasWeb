@@ -126,7 +126,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                         </Typography>
                     </Box>
                     <Box p={1} mb={1}>
-                        {user.idInstance ? (
+                        {(user && user.idInstance) ? (
                             <Box>
                                 <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
                                     ¡Importante!
@@ -196,14 +196,14 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                     >
                         <Box>
                             <TextField
-                                label={user.idInstance ? "Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" : "Sin autorización"}
+                                label={(user && user.idInstance) ? "Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" : "Sin autorización"}
                                 multiline
                                 rows={8}
                                 value={customMessage}
                                 onChange={(e) => setCustomMessage(e.target.value)}
                                 fullWidth
                                 margin="normal"
-                                disabled={!user.idInstance}
+                                disabled={!(user && user.idInstance)}
                             />
                             <Button variant="contained" color="primary" onClick={handleConfirmOpen} fullWidth>
                                 Enviar día

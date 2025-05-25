@@ -1,44 +1,41 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/authContext"; // Importa useAuth
+import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { AuthProvider } from "./context/authContext";
 import { PacienteProvider } from "./context/pacienteContext";
 import { ReservaProvider } from "./context/reservaContext";
 import { AlertProvider } from './context/AlertContext';
-import { ProtectedRoute, CalendarioRoute } from "./routes";
-import HomePage from "./pages/HomePage";
-import RegisterPage from "./pages/RegisterPage";
-import { LoginPage } from "./pages/LoginPage";
-import { CalendarioPage } from "./pages/CalendarioPage";
 import { SucursalProvider } from "./context/sucursalContext";
-import PerfilPage from "./pages/PerfilPage";
-import CalendarioAsistentePage from "./pages/CalendarioAsistentePage";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { useEffect } from 'react';
+import { createTheme, ThemeProvider, CssBaseline, Box, IconButton, Drawer, useMediaQuery } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import { gapi } from 'gapi-script';
 import { initClient } from './googleCalendarConfig';
+import CalendarioPage from "./pages/CalendarioPage";
+import SlideBar from "./components/SlideBar";
+import TodayPage from "./pages/TodayPage";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import { ProtectedRoute, CalendarioRoute } from "./routes";
+import { PerfilPage } from "./pages/PerfilPage";
+
 
 const theme = createTheme({
   palette: {
-    primary: {
-      main: '#3f51b5',
-    },
-    secondary: {
-      main: '#f50057',
-    },
+    primary: { main: '#3f51b5' },
+    secondary: { main: '#f50057' },
   },
   components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-        },
-      },
-    },
+    MuiButton: { styleOverrides: { root: { textTransform: 'none' } } },
   },
 });
 
-function App() {
+function AppContent() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [selectedMenu, setSelectedMenu] = useState('Día Actual');
+  const isMobile = useMediaQuery('(max-width:600px)');
+  const location = useLocation();
 
   useEffect(() => {
     function start() {
@@ -47,16 +44,67 @@ function App() {
     start();
   }, []);
 
+  // Oculta sidebar y drawer en la ruta base "/"
+  const hideSidebar = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/register";
+
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <SucursalProvider>
           <AuthProvider>
             <AlertProvider>
               <PacienteProvider>
                 <ReservaProvider>
-                  <BrowserRouter>
-                    <main className="container content-container mx-auto px-10 md:px-0">
+                  <Box display="flex" bgcolor="#e9f5f9" minHeight="100vh">
+                    {/* Sidebar Desktop */}
+                    {!hideSidebar && (
+                      <Box
+                        sx={{
+                          display: { xs: 'none', sm: 'block' },
+                          width: 240,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <SlideBar
+                          selected={selectedMenu}
+                          onSelect={(menu) => setSelectedMenu(menu)}
+                        />
+                      </Box>
+                    )}
+                    {/* Sidebar Mobile (Drawer) */}
+                    {!hideSidebar && (
+                      <Drawer
+                        variant="temporary"
+                        open={mobileOpen}
+                        onClose={() => setMobileOpen(false)}
+                        ModalProps={{ keepMounted: true }}
+                        sx={{
+                          display: { xs: 'block', sm: 'none' },
+                          '& .MuiDrawer-paper': { width: 240 },
+                        }}
+                      >
+                        <SlideBar
+                          selected={selectedMenu}
+                          onSelect={(menu) => {
+                            setSelectedMenu(menu);
+                            setMobileOpen(false);
+                          }}
+                        />
+                      </Drawer>
+                    )}
+                    {/* Main Content */}
+                    <Box flexGrow={1} p={{ xs: 1, sm: 3 }}>
+                      {!hideSidebar && isMobile && (
+                        <IconButton
+                          color="inherit"
+                          edge="start"
+                          onClick={() => setMobileOpen(true)}
+                          sx={{ display: { sm: 'none' }, mb: 2 }}
+                        >
+                          <MenuIcon />
+                        </IconButton>
+                      )}
                       <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/login" element={<LoginPage />} />
@@ -64,11 +112,13 @@ function App() {
                         <Route element={<ProtectedRoute />}>
                           {/* Verifica la especialidad del usuario */}
                           <Route path="/calendario" element={<CalendarioRoute />} />
+                          <Route path="/hoy" element={<TodayPage />} />
                           <Route path="/perfil" element={<PerfilPage />} />
                         </Route>
+                        {/* Agrega aquí más rutas si lo necesitas */}
                       </Routes>
-                    </main>
-                  </BrowserRouter>
+                    </Box>
+                  </Box>
                 </ReservaProvider>
               </PacienteProvider>
             </AlertProvider>
@@ -76,6 +126,17 @@ function App() {
         </SucursalProvider>
       </LocalizationProvider>
     </ThemeProvider>
+  );
+}
+
+                        
+
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 

@@ -10,7 +10,7 @@ import RegisterSucursal from "../components/Surcursales/RegisterSurcursal";
 import { gapi } from 'gapi-script';
 import { handleAuthClick } from '../googleCalendarConfig';
 
-function RegisterPage() {
+export function RegisterPage() {
   const { signup, errors: registerErrors, isAuthenticated, updatePerfil } = useAuth();
   const { getSucursales, updateSucursal } = useSucursal();
   const showAlert = useAlert();

@@ -122,28 +122,6 @@ export function CalendarioPage() {
 
   return (
     <Box display="flex" flexDirection="column" height="100vh" backgroundColor="white">
-      <AppBar position="static" style={{ borderEndEndRadius: '5px', borderEndStartRadius: '5px' }}>
-        <Toolbar>
-          <Typography variant="h6" style={{ flexGrow: 1 }}>Calendario</Typography>
-          <Tooltip title="Ver mi Perfil" arrow>
-            <Button color="inherit" onClick={handleProfileClick} startIcon={<AccountCircleIcon />}>
-              Perfil
-            </Button>
-          </Tooltip>
-          <Tooltip title="Notificaciones" arrow>
-            <IconButton color="inherit" onClick={handleNotificationClick}>
-              <Badge badgeContent={user.notifications.length} color="secondary">
-                {user.notifications.length > 0 ? <NotificationsActiveIcon /> : <NotificationsIcon />}
-              </Badge>
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Cerrar sesión" arrow>
-            <IconButton color="inherit" onClick={handleLogoutClick}>
-              <ExitToAppIcon />
-            </IconButton>
-          </Tooltip>
-        </Toolbar>
-      </AppBar>
       <Box flex="1" display="flex" justifyContent="center" alignItems="center" p={2}>
         <Calendar
           localizer={localizer}
@@ -188,7 +166,7 @@ export function CalendarioPage() {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleNotificationClose}
-        notifications={user.notifications}
+        notifications={user?.notifications || []}
       />
 
       <BotonFlotante onClick={handleFabClick} fetchReservas={fetchReservas} gapi={gapi} />

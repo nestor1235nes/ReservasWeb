@@ -34,6 +34,12 @@ const userSchema = new mongoose.Schema({
     especialidad: {
         type: String,
     },
+    especialidad_principal: {
+        type: String,
+    },
+    experiencia: {
+        type: String,
+    },
     descripcion: {
         type: String,
     },
@@ -45,12 +51,24 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sucursal',
     },
+
+    ///////////Configuracion de la cuenta/////////////
+    cita_presencial: {
+        type: Boolean,
+        default: false,
+    },
+    cita_virtual: {
+        type: Boolean,
+        default: false,
+    },
     
     ///Notificaciones
     notifications: {
         type: [String],
         default: []
     },
+
+
 
     ///////////Configuracion de wsp/////////////
     idInstance: {

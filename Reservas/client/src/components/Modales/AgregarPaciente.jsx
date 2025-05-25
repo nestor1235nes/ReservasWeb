@@ -27,7 +27,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     email: '',
     diaPrimeraCita: dayjs().format('YYYY-MM-DD'),
     siguienteCita: '',
-    profesional: user.id,
+    profesional: '', // Inicializa vacío
     hora: '',
     diagnostico: '',
     anamnesis: '',
@@ -37,6 +37,12 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
   const [alert, setAlert] = useState({ type: '', message: '' });
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [files, setFiles] = useState([]);
+
+  useEffect(() => {
+    if (user && user.id) {
+      setPatientData(prev => ({ ...prev, profesional: user.id }));
+    }
+  }, [user]);
 
   useEffect(() => {
     if (data) {
