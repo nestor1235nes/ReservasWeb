@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { AppBar, Toolbar, Typography, Box, Drawer, Slide, IconButton, Button, Tooltip, Badge, Menu } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Drawer, Slide, Stack } from '@mui/material';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import es from 'date-fns/locale/es';
 import { useReserva } from '../context/reservaContext';
@@ -122,6 +122,11 @@ export function CalendarioPage() {
 
   return (
     <Box display="flex" flexDirection="column" height="100vh" backgroundColor="white">
+      <Stack p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
+        <Typography variant="h5" fontWeight={700} color="white">
+          Calendario
+        </Typography>
+      </Stack>
       <Box flex="1" display="flex" justifyContent="center" alignItems="center" p={2}>
         <Calendar
           localizer={localizer}

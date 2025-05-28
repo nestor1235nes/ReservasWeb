@@ -25,28 +25,31 @@ export const obtenerHorasDisponibles = async (req, res) => {
       return res.status(400).json({ message: "Profesional no encontrado" });
     }
 
-    // Crear un rango de fechas para el día especificado
+    // Día de la semana en español
+    const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+    const diaSemana = dias[new Date(fecha).getDay()];
+
+    // Filtra solo los bloques que atienden ese día
+    const bloquesDia = profesional.timetable.filter(b => b.days.includes(diaSemana));
+
+    // Junta todos los times de los bloques de ese día
+    let horas = bloquesDia.flatMap(b => b.times);
+
+    // Buscar reservas dentro del rango de fechas
     const startOfDay = new Date(fecha);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(fecha);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Buscar reservas dentro del rango de fechas
     const reservas = await Reserva.find({
       profesional: id,
       siguienteCita: { $gte: startOfDay, $lte: endOfDay }
     });
 
-    if (reservas.length === 0) {
-      const times = profesional.timetable.map(slot => slot.times).flat();
-      return res.status(200).json({ times });
-    }
-    const reservedTimes = reservas.map(reserva => reserva.hora); // Asumiendo que la hora está almacenada en el campo 'hora'
+    const reservedTimes = reservas.map(reserva => reserva.hora);
 
-    const availableTimes = profesional.timetable
-      .map(slot => slot.times)
-      .flat()
-      .filter(time => !reservedTimes.includes(time));
+    // Filtra las horas ya reservadas
+    const availableTimes = horas.filter(time => !reservedTimes.includes(time));
 
     return res.status(200).json({ times: availableTimes });
   } catch (error) {

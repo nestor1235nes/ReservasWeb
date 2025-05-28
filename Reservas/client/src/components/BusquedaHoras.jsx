@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 
 const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDisponibles }) => {
   const [diasDeTrabajo, setDiasDeTrabajo] = useState([]);
+  console.log(diasDeTrabajo);
   const [horasDisponibles, setHorasDisponibles] = useState([]);
 
   useEffect(() => {
@@ -19,16 +20,21 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
   }, [formData.profesional, formData.diaPrimeraCita, obtenerHorasDisponibles]);
 
   const handleProfesionalChange = (e) => {
-    const profesionalId = e.target.value;
-    setFormData({ ...formData, profesional: profesionalId });
+  const profesionalId = e.target.value;
+  setFormData({ ...formData, profesional: profesionalId });
 
-    const profesionalSeleccionado = profesionales.find((prof) => prof._id === profesionalId);
+  const profesionalSeleccionado = profesionales.find((prof) => prof._id === profesionalId);
 
-    if (profesionalSeleccionado && profesionalSeleccionado.timetable) {
-      const dias = profesionalSeleccionado.timetable[0].days;
-      setDiasDeTrabajo(dias);
-    }
-  };
+  if (profesionalSeleccionado && profesionalSeleccionado.timetable) {
+    // Junta todos los días de todos los bloques y elimina duplicados
+    const dias = [
+      ...new Set(
+        profesionalSeleccionado.timetable.flatMap((bloque) => bloque.days || [])
+      ),
+    ];
+    setDiasDeTrabajo(dias);
+  }
+};
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

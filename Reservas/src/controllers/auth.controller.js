@@ -48,7 +48,7 @@ export const googleAuth = async (req, res) => {
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance, defaultMessage, reminderMessage, notifications, sucursal } = req.body;
+    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance, defaultMessage, reminderMessage, notifications, sucursal, especialidad_principal, experiencia } = req.body;
 
     const userFound = await User.findOne({ email });
 
@@ -262,6 +262,25 @@ export const updatePerfil = async (req, res) => {
   }
   catch (error) {
     res.status(404).json({ message: error.message });
+  }
+}
+
+export const deleteBloqueHorario = async (req, res) => {
+  try {
+    const { id, index } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const idx = parseInt(index, 10);
+    if (isNaN(idx) || idx < 0 || idx >= user.timetable.length) {
+      return res.status(400).json({ message: "Índice inválido" });
+    }
+
+    user.timetable.splice(idx, 1); // Elimina el bloque en la posición indicada
+    const updatedUser = await user.findByIdAndUpdate(user._id, { timetable: user.timetable }, { new: true });
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 }
 

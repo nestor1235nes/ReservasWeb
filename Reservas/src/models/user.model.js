@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
 
 const timetableSchema = new mongoose.Schema({
-    days: {
-        type: [String],
-    },
-    times: {
-        type: [String],
-    }
+    days: [String],
+    times: [String],
+    fromTime: { type: String, default: "" },
+    toTime: { type: String, default: "" },
+    interval: { type: Number, default: 30 },
+    breakFrom: { type: String, default: "" },
+    breakTo: { type: String, default: "" }
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({

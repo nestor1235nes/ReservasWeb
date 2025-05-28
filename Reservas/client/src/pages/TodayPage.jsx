@@ -198,13 +198,10 @@ export default function TodayPage() {
         px={isMobile ? 0 : 0}
         py={isMobile ? 0 : 0}
       >
-        <Stack direction={isMobile ? "column" : "row"} justifyContent="space-between" alignItems={isMobile ? "stretch" : "center"} spacing={2} bgcolor="#2596be" p={2} borderRadius={1}>
+        <Stack direction={isMobile ? "column" : "row"} justifyContent="space-between" alignItems={isMobile ? "stretch" : "center"} spacing={2} p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
           <Typography variant="h5" fontWeight={700} color="white">
             Citas del día: {dayjs().locale("es").format("dddd, D [de] MMMM [de] YYYY")}
           </Typography>
-          <Button variant="contained" sx={{background:'white', color:'black'}} startIcon={<AddIcon />}>
-            Nueva Cita
-          </Button>
         </Stack>
         <Card>
           <CardHeader

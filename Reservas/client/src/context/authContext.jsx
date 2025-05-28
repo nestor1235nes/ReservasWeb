@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createContext, useContext, useState } from "react";
-import { loginRequest, registerRequest, verifyTokenRequest, updatePerfilRequest, getAllUsersRequest, deleteNotificationsRequest } from "../api/auth";
+import { loginRequest, registerRequest, verifyTokenRequest, updatePerfilRequest, getAllUsersRequest, deleteNotificationsRequest, deleteBloqueHorarioRequest } from "../api/auth";
 import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/funcion";
 import { updateNotificationsRequest } from '../api/auth';
 import Cookies from "js-cookie";
@@ -64,6 +64,16 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await updatePerfilRequest(id, data);
       setUser(res.data);
+    } catch (error) {
+      console.log(error);
+      setErrors(error.response.data.message);
+    }
+  }
+
+  const deleteBloqueHorario = async (id, fecha) => {
+    try {
+      const res = await deleteBloqueHorarioRequest(id, fecha);
+      return res.data;
     } catch (error) {
       console.log(error);
       setErrors(error.response.data.message);
@@ -154,6 +164,7 @@ export const AuthProvider = ({ children }) => {
         errors,
         loading,
         updatePerfil,
+        deleteBloqueHorario,
         obtenerHorasDisponibles,
         getAllUsers,
         liberarHoras,
