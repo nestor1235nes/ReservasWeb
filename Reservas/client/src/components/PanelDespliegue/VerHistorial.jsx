@@ -30,7 +30,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
 
   const stickyHeaderStyles = {
     position: 'sticky',
-    backgroundColor: 'primary.main',
+    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
     color: 'white',
     top: 0,
     left: -10,
@@ -129,7 +129,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
     <Modal open={open} onClose={handleClose} className="modal-over-drawer">
       <Box
         p={3}
-        bgcolor="#f1eeee"
+        bgcolor="#e3f2fd"
         borderRadius={2}
         boxShadow={3}
         width={window.innerWidth < 600 ? '90%' : 530}
@@ -156,7 +156,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
             <Box className="modal-footer" display="flex" justifyContent="center">
               <Button
                 variant="contained"
-                color="primary"
+                sx={{ backgroundColor: '#2596be', color: 'white', boxShadow: '0 0 5px 0 rgba(0,0,0,0.2)' }}
                 startIcon={<ArrowBackIcon />}
                 onClick={handleBackToHistorial}
               >
@@ -199,7 +199,11 @@ const VerHistorial = ({ open, onClose, paciente }) => {
             </Box>
             <List>
               {historial.map((sesion, index) => (
-                <ListItem key={index} sx={{ display: 'flex', justifyContent: 'space-between', boxShadow: 5, borderRadius: 1, my: 1, backgroundColor: "white" }}>
+                <ListItem key={index} sx={{ display: 'flex', justifyContent: 'space-between', boxShadow: 5, borderRadius: 1, my: 1, backgroundColor: "white", border: "2px solid #e3f2fd",
+                      "&:hover": {
+                        boxShadow: 3,
+                        borderColor: "#2596be",
+                      }, }}>
                   {selectingPDF && (
                     <FormControlLabel
                       control={

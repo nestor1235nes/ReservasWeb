@@ -22,7 +22,7 @@ router.post("/google-auth", googleAuth);
 router.get("/verify", verifyToken);
 router.post("/logout", verifyToken, logout);
 router.put("/:id", updatePerfil);
-router.put("/:id/timetable/:bloque", deleteBloqueHorario);
+router.put("/:id/timetable/:index", deleteBloqueHorario);
 router.post("/notifications/:id", updateNotifications);
 router.delete("/notifications/:id", deleteNotifications);
 router.get("/", getAllProfiles);

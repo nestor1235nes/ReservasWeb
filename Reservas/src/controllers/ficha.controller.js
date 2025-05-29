@@ -60,6 +60,31 @@ export const updatePaciente = async (req, res) => {
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
+
+        // Normalizar el teléfono al formato 569XXXXXXXX
+        let telefono = req.body.telefono || '';
+        telefono = telefono.replace(/\D/g, ''); // Solo números
+
+        // Si ya empieza con 569 y tiene 11 dígitos, lo dejamos igual
+        if (telefono.length === 11 && telefono.startsWith('569')) {
+            // ok
+        } else {
+            // Si tiene 9 dígitos (ej: 912345678), le agregamos 569 adelante
+            if (telefono.length === 9 && telefono.startsWith('9')) {
+                telefono = '569' + telefono;
+            }
+            // Si tiene 8 dígitos (ej: 12345678), le agregamos 5699 adelante
+            else if (telefono.length === 8) {
+                telefono = '5699' + telefono;
+            }
+            // Si no cumple, lo dejamos vacío o puedes manejarlo como prefieras
+            else if (!telefono.startsWith('569')) {
+                telefono = '';
+            }
+        }
+
+        req.body.telefono = telefono;
+
         const updatedPaciente = await Paciente.findByIdAndUpdate(paciente._id, req.body, { new: true });
         res.json(updatedPaciente);
     } catch (error) {

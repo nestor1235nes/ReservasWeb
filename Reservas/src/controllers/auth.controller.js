@@ -271,13 +271,14 @@ export const deleteBloqueHorario = async (req, res) => {
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const idx = parseInt(index, 10);
-    if (isNaN(idx) || idx < 0 || idx >= user.timetable.length) {
-      return res.status(400).json({ message: "Índice inválido" });
+    if (index === undefined || index === null) {
+      return res.status(400).json({ message: "Index is required" });
     }
-
-    user.timetable.splice(idx, 1); // Elimina el bloque en la posición indicada
-    const updatedUser = await user.findByIdAndUpdate(user._id, { timetable: user.timetable }, { new: true });
+    if (index < 0 || index >= user.timetable.length) {
+      return res.status(400).json({ message: "Index out of bounds" });
+    }
+    user.timetable.splice(index, 1);
+    const updatedUser = await user.save();
     res.json(updatedUser);
   } catch (error) {
     res.status(500).json({ message: error.message });

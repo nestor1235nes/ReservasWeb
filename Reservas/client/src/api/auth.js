@@ -8,7 +8,7 @@ export const verifyTokenRequest = async () => axios.get(`/auth/verify`);
 
 export const updatePerfilRequest = async (id, data) => axios.put(`/auth/${id}`, data);
 
-export const deleteBloqueHorarioRequest = async (id, bloque) => axios.put(`/auth/${id}/timetable/${bloque}`);
+export const deleteBloqueHorarioRequest = async (id, index) => axios.put(`/auth/${id}/timetable/${index}`);
 
 export const getProfileRequest = async (id) => axios.get(`/auth/${id}`);
 

@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./context/authContext";
 import CalendarioPage from "./pages/CalendarioPage";
+import TodayPage from "./pages/TodayPage";
 import CalendarioAsistentePage from "./pages/CalendarioAsistentePage";
 
 export const ProtectedRoute = () => {
@@ -18,5 +19,5 @@ export const CalendarioRoute = () => {
   if(user.especialidad === "ASISTENTE" || user.especialidad === "SECRETARIO"){
     return <CalendarioAsistentePage />;
   }
-  return <CalendarioPage />;
+  return <TodayPage />;
 }

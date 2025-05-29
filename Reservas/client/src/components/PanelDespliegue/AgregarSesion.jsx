@@ -136,7 +136,12 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi }) 
 
   useEffect(() => {
     if (user && user.timetable) {
-      const dias = user.timetable[0].days;
+      // Unifica todos los días de todos los bloques de horario
+      const dias = Array.from(
+        new Set(
+          user.timetable.flatMap(bloque => bloque.days)
+        )
+      );
       setDiasDeTrabajo(dias);
     }
   }, [user]);
@@ -147,7 +152,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi }) 
     <Modal open={open} onClose={handleClose} className="modal-over-drawer">
       <Box
         p={3}
-        bgcolor="#eeee"
+        bgcolor="#e3f2fd"
         borderRadius={2}
         boxShadow={3}
         width={window.innerWidth < 600 ? '90%' : 530}
@@ -160,7 +165,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi }) 
       >
         {activeStep === 0 ? (
           <> 
-            <Box backgroundColor="primary.main" borderRadius={'5px'} color={"white"} p={0.5} mb={0}>
+            <Box borderRadius={'5px'} p={0.5} mb={0} sx={{ background:'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)', color:'white'}}>
               <Typography variant="h6" style={{textAlign:'center'}} gutterBottom>Agregar Sesión</Typography>
             </Box>
             <Box backgroundColor="white" borderRadius={'5px'} p={1} mb={0}>
@@ -197,7 +202,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi }) 
           </>
         ) : (
           <>
-            <Box backgroundColor="primary.main" borderRadius={'5px'} color={"white"} p={0.5} mb={0}>
+            <Box borderRadius={'5px'} p={0.5} mb={0} sx={{ background:'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)', color:'white'}}>
               <Typography variant="h6" textAlign={'center'} gutterBottom>Agendar Nueva Cita</Typography>
             </Box>
             <Box backgroundColor="white" borderRadius={'5px'} p={1} mb={0}>

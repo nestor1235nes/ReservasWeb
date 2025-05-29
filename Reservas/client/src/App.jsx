@@ -17,6 +17,7 @@ import TodayPage from "./pages/TodayPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import PatientsPage from "./pages/PatientsPage";
 import { ProtectedRoute, CalendarioRoute } from "./routes";
 import { PerfilPage } from "./pages/PerfilPage";
 
@@ -111,9 +112,10 @@ function AppContent() {
                         <Route path="/register" element={<RegisterPage />} />
                         <Route element={<ProtectedRoute />}>
                           {/* Verifica la especialidad del usuario */}
-                          <Route path="/calendario" element={<CalendarioRoute />} />
+                          <Route path="/calendario" element={<CalendarioPage />} />
                           <Route path="/hoy" element={<TodayPage />} />
                           <Route path="/perfil" element={<PerfilPage />} />
+                          <Route path="/pacientes" element={<PatientsPage />} />
                         </Route>
                         {/* Agrega aquí más rutas si lo necesitas */}
                       </Routes>

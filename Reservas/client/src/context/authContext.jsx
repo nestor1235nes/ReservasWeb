@@ -70,9 +70,9 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const deleteBloqueHorario = async (id, fecha) => {
+  const deleteBloqueHorario = async (id, index) => {
     try {
-      const res = await deleteBloqueHorarioRequest(id, fecha);
+      const res = await deleteBloqueHorarioRequest(id, index);
       return res.data;
     } catch (error) {
       console.log(error);
