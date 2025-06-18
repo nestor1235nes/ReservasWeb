@@ -22,8 +22,12 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
 
   useEffect(() => {
     if (user && user.timetable) {
-      const dias = user.timetable[0].days;
-      setDiasDeTrabajo(dias);
+      // Consolidar todos los días de todos los bloques de horario
+      const todosLosDias = user.timetable.flatMap(bloque => bloque.days);
+      // Eliminar duplicados usando Set
+      const diasUnicos = [...new Set(todosLosDias)];
+      setDiasDeTrabajo(diasUnicos);
+      console.log('Días de trabajo:', diasUnicos); // Debug
     }
   }, [user]);
 
@@ -51,6 +55,7 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
             Sunday: "Domingo",
           };
           const translatedDayName = translatedDays[dayName];
+          console.log('Validando día:', translatedDayName, 'en:', diasDeTrabajo); // Debug
           return !diasDeTrabajo.includes(translatedDayName);
         }}
         renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}

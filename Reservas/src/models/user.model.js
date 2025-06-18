@@ -10,6 +10,24 @@ const timetableSchema = new mongoose.Schema({
     breakTo: { type: String, default: "" }
 }, { _id: false });
 
+const serviciosSchema = new mongoose.Schema({
+    tipo: {
+        type: String,
+    },
+    duracion: {
+        type: String,
+    },
+    precio: {
+        type: String,
+    },
+    modalidad: {
+        type: String,
+    },
+    descripcion: {
+        type: String,
+    },
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
     username: {
         type: String,
@@ -41,9 +59,6 @@ const userSchema = new mongoose.Schema({
     experiencia: {
         type: String,
     },
-    descripcion: {
-        type: String,
-    },
     timetable: {
         type: [timetableSchema],
         default: []
@@ -62,7 +77,13 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
-    
+    descripcion: {
+        type: String,
+    },
+    servicios: {
+        type: [serviciosSchema],
+        default: []
+    },
     ///Notificaciones
     notifications: {
         type: [String],

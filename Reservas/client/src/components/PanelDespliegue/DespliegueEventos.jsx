@@ -3,7 +3,7 @@ import {
   Box, Typography, IconButton, Slide, Button, TextField, Card, CardContent, CardHeader,
   FormControl, InputLabel, Select, MenuItem, Divider, Chip, Stack, Tooltip
 } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { usePaciente } from '../../context/pacienteContext';
 import { useAuth } from '../../context/authContext';
 import { useReserva } from '../../context/reservaContext';
@@ -30,9 +30,10 @@ import 'dayjs/locale/es';
 import ReactQuill from 'react-quill';
 import '../ui/AgregarSesionCSS.css';
 import MostrarImagenes from '../MostrarImagenes';
+import localeData from 'dayjs/plugin/localeData';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
-dayjs.extend(utc);
-dayjs.extend(timezone);
+dayjs.extend(localeData);
 dayjs.locale('es');
 
 function getInitialDate(event) {
@@ -51,9 +52,10 @@ function getInitialHour(event) {
 
 const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
   const { updatePaciente } = usePaciente();
-  const { updateReserva } = useReserva();
+  const { updateReserva, getFeriados } = useReserva();
   const showAlert = useAlert();
   const { user, obtenerHorasDisponibles } = useAuth();
+
 
 
   // Inicialización robusta de fecha y hora
@@ -73,6 +75,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
   const [horasDisponibles, setHorasDisponibles] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [mensajePaciente, setMensajePaciente] = useState('');
+  const [feriados, setFeriados] = useState([]);
+
 
   useEffect(() => {
     if (user && user.timetable) {
@@ -93,8 +97,11 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
+      const feriados = await getFeriados();
+      setFeriados(feriados.data);
     };
     fetchHorasDisponibles();
+    
   }, [user, editableFields.fecha, obtenerHorasDisponibles]);
 
   useEffect(() => {
@@ -129,18 +136,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
     if (confirm) {
       try {
         if (editSection === 'paciente') {
-          if (editableFields.telefono) {
-            if (editableFields.telefono[0] !== '9') {
-              showAlert('error', 'El número de teléfono debe comenzar con 9');
-              return;
-            }
-            if (editableFields.telefono.length !== 9) {
-              showAlert('error', 'El número de teléfono debe tener 9 dígitos');
-              return;
-            }
-            editableFields.telefono = '56' + editableFields.telefono;
-          }
-          await updatePaciente(event.paciente._id || event.paciente.id, {
+          await updatePaciente(event.paciente._id, { // Cambiar de rut a _id
             email: editableFields.email,
             telefono: editableFields.telefono,
           });
@@ -210,6 +206,11 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
     setEditSection(null);
   };
 
+  // Traducción de días en inglés a español para comparación
+  const diasSemana = [
+    'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'
+  ];
+
   // Modal handlers
   const handleOpenModal = () => setOpenModal(true);
   const handleCloseModal = () => setOpenModal(false);
@@ -219,304 +220,300 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
   const handleCloseHistorialModal = () => setOpenHistorialModal(false);
 
   return (
-    <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500}>
-      <Box
-        p={2}
-        width={window.innerWidth < 600 ? '100%' : 500}
-        maxHeight={window.innerWidth < 600 ? 800 : '100%'}
-        sx={{
-          overflowY: 'auto',
-          background: 'linear-gradient(135deg, #f1f7fa 60%, #e3f2fd 100%)',
-          borderRadius: 3,
-          boxShadow: 4,
-          position: 'relative'
-        }}
-      >
-        {/* Encabezado */}
+    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
+      <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500}>
         <Box
-          display="flex"
-          alignItems="center"
-          gap={1}
+          p={2}
+          width={window.innerWidth < 600 ? '100%' : 500}
+          maxHeight={window.innerWidth < 600 ? 800 : '100%'}
           sx={{
-            background: 'linear-gradient(90deg, #2596be 60%, #21cbe6 100%)',
-            color: 'white',
-            borderRadius: 2,
-            px: 2,
-            py: 1,
-            mb: 2,
-            boxShadow: 2
+            overflowY: 'auto',
+            background: 'linear-gradient(135deg, #f1f7fa 60%, #e3f2fd 100%)',
+            borderRadius: 3,
+            boxShadow: 4,
+            position: 'relative'
           }}
         >
-          <CalendarTodayIcon sx={{ mr: 1 }} />
-          <Typography variant="h6" fontWeight={700} flex={1}>
-            Detalles de la Cita
-          </Typography>
-          <Tooltip title="Cerrar">
-            <IconButton onClick={onClose} sx={{ color: 'white' }}>
-              <CloseIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
+          {/* Encabezado */}
+          <Box
+            display="flex"
+            alignItems="center"
+            gap={1}
+            sx={{
+              background: 'linear-gradient(90deg, #2596be 60%, #21cbe6 100%)',
+              color: 'white',
+              borderRadius: 2,
+              px: 2,
+              py: 1,
+              mb: 2,
+              boxShadow: 2
+            }}
+          >
+            <CalendarTodayIcon sx={{ mr: 1 }} />
+            <Typography variant="h6" fontWeight={700} flex={1}>
+              Detalles de la Cita
+            </Typography>
+            <Tooltip title="Cerrar">
+              <IconButton onClick={onClose} sx={{ color: 'white' }}>
+                <CloseIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
 
-        {/* Imágenes asociadas */}
-        <Box mb={2}>
-          <MostrarImagenes imagenes={event.imagenes} />
-        </Box>
+          {/* Imágenes asociadas */}
+          <Box mb={2}>
+            <MostrarImagenes imagenes={event.imagenes} />
+          </Box>
 
-        {/* Modal mensaje paciente */}
-        <Dialog open={openDialog} onClose={() => handleDialogClose(false)}>
-          <DialogTitle>Mensaje para el Paciente</DialogTitle>
-          <DialogContent>
-            <TextField
-              label="Escribe un mensaje"
-              rows={4}
-              fullWidth
-              margin="normal"
-              multiline
-              name="mensajePaciente"
-              value={mensajePaciente}
-              onChange={(e) => setMensajePaciente(e.target.value)}
+          {/* Modal mensaje paciente */}
+          <Dialog open={openDialog} onClose={() => handleDialogClose(false)}>
+            <DialogTitle>Mensaje para el Paciente</DialogTitle>
+            <DialogContent>
+              <TextField
+                label="Escribe un mensaje"
+                rows={4}
+                fullWidth
+                margin="normal"
+                multiline
+                name="mensajePaciente"
+                value={mensajePaciente}
+                onChange={(e) => setMensajePaciente(e.target.value)}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => handleDialogClose(true)} variant="contained" color="primary">
+                Confirmar
+              </Button>
+              <Button onClick={() => handleDialogClose(false)} variant="outlined" color="secondary">
+                Cancelar
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Datos del paciente */}
+          <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
+            <CardHeader
+              avatar={<PersonIcon sx={{color:'#2596be'}} />}
+              title={<Typography variant="h6" fontWeight={600}>Datos del paciente</Typography>}
+              action={
+                editSection === 'paciente' ? (
+                  <Box display="flex" gap={1}>
+                    <Tooltip title="Guardar">
+                      <IconButton onClick={handleSaveClick} sx={{ bgcolor: '#82e0aa', color: 'black' }}>
+                        <CheckIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Cancelar">
+                      <IconButton onClick={handleCancelClick} sx={{ bgcolor: '#f1948a', color: 'black' }}>
+                        <CloseIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                ) : (
+                  <Tooltip title="Editar datos del paciente">
+                    <IconButton onClick={() => handleEditClick('paciente')}>
+                      <EditIcon />
+                    </IconButton>
+                  </Tooltip>
+                )
+              }
+              sx={{ pb: 0 }}
             />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => handleDialogClose(true)} variant="contained" color="primary">
-              Confirmar
-            </Button>
-            <Button onClick={() => handleDialogClose(false)} variant="outlined" color="secondary">
-              Cancelar
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Datos del paciente */}
-        <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
-          <CardHeader
-            avatar={<PersonIcon sx={{color:'#2596be'}} />}
-            title={<Typography variant="h6" fontWeight={600}>Datos del paciente</Typography>}
-            action={
-              editSection === 'paciente' ? (
-                <Box display="flex" gap={1}>
-                  <Tooltip title="Guardar">
-                    <IconButton onClick={handleSaveClick} sx={{ bgcolor: '#82e0aa', color: 'black' }}>
-                      <CheckIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Cancelar">
-                    <IconButton onClick={handleCancelClick} sx={{ bgcolor: '#f1948a', color: 'black' }}>
-                      <CloseIcon />
-                    </IconButton>
-                  </Tooltip>
+            <CardContent sx={{ pt: 1 }}>
+              <Stack spacing={1}>
+                <Typography variant="body1"><strong>Nombre:</strong> {event.paciente.nombre}</Typography>
+                <Box display="flex" gap={2}>
+                  <Typography variant="body1"><strong>Rut:</strong> {event.paciente.rut}</Typography>
+                  <Typography variant="body1"><strong>Celular:</strong> {event.paciente.telefono}</Typography>
                 </Box>
-              ) : (
-                <Tooltip title="Editar datos del paciente">
-                  <IconButton onClick={() => handleEditClick('paciente')}>
-                    <EditIcon />
-                  </IconButton>
-                </Tooltip>
-              )
-            }
-            sx={{ pb: 0 }}
-          />
-          <CardContent sx={{ pt: 1 }}>
-            <Stack spacing={1}>
-              <Typography variant="body1"><strong>Nombre:</strong> {event.paciente.nombre}</Typography>
-              <Box display="flex" gap={2}>
-                <Typography variant="body1"><strong>Rut:</strong> {event.paciente.rut}</Typography>
-                <Typography variant="body1"><strong>Celular:</strong> {event.paciente.telefono}</Typography>
-              </Box>
-              {editSection === 'paciente' ? (
-                <>
-                  <TextField
-                    label="Celular (Ej: 912345678)"
-                    name="telefono"
-                    value={editableFields.telefono}
-                    onChange={handleFieldChange}
-                    fullWidth
-                    margin="dense"
+                {editSection === 'paciente' ? (
+                  <>
+                    <TextField
+                      label="Celular (Ej: 912345678)"
+                      name="telefono"
+                      value={editableFields.telefono}
+                      onChange={handleFieldChange}
+                      fullWidth
+                      margin="dense"
+                    />
+                    <TextField
+                      label="E-mail"
+                      name="email"
+                      value={editableFields.email}
+                      onChange={handleFieldChange}
+                      fullWidth
+                      margin="dense"
+                    />
+                  </>
+                ) : (
+                  <Typography variant="body1"><strong>E-mail:</strong> {event.paciente.email}</Typography>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+
+          {/* Detalles de la cita */}
+          <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
+            <CardHeader
+              avatar={<ManageAccountsIcon sx={{color:'#2596be'}} />}
+              title={<Typography variant="h6" fontWeight={600}>Detalles de la cita</Typography>}
+              action={
+                editSection === 'cita' ? (
+                  <Box display="flex" gap={1}>
+                    <Tooltip title="Guardar">
+                      <IconButton onClick={handleSaveClick} sx={{ bgcolor: '#82e0aa', color: 'black' }}>
+                        <CheckIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Cancelar">
+                      <IconButton onClick={handleCancelClick} sx={{ bgcolor: '#f1948a', color: 'black' }}>
+                        <CloseIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                ) : (
+                  <Tooltip title="Editar cita">
+                    <IconButton onClick={() => handleEditClick('cita')}>
+                      <EditIcon />
+                    </IconButton>
+                  </Tooltip>
+                )
+              }
+              sx={{ pb: 0 }}
+            />
+            <CardContent sx={{ pt: 1 }}>
+              {editSection === 'cita' ? (
+                <Stack spacing={2}>
+                  <DatePicker
+                    label="Fecha de Cita"
+                    value={editableFields.fecha ? dayjs(editableFields.fecha) : null}
+                    onChange={(newValue) => {
+                      setEditableFields({ ...editableFields, fecha: newValue ? newValue.format('YYYY-MM-DD') : '' });
+                    }}
+                    shouldDisableDate={(date) => {
+                      const dayName = diasSemana[date.day()];
+                      // Verifica si el día no es de trabajo
+                      const noTrabaja = !diasDeTrabajo.includes(dayName);
+                      // Verifica si la fecha está en feriados (usando f.date)
+                      const esFeriado = feriados.some(f => f.date && dayjs(f.date).isSame(date, 'day'));
+                      return noTrabaja || esFeriado;
+                    }}
+                    renderInput={(params) => <TextField {...params} fullWidth margin="dense" required />}
                   />
-                  <TextField
-                    label="E-mail"
-                    name="email"
-                    value={editableFields.email}
-                    onChange={handleFieldChange}
-                    fullWidth
-                    margin="dense"
-                  />
-                </>
+                  <FormControl fullWidth margin="dense">
+                    <InputLabel>Hora de Cita</InputLabel>
+                    <Select
+                      name="hora"
+                      value={editableFields.hora}
+                      onChange={handleFieldChange}
+                    >
+                      {horasDisponibles.map((hora) => (
+                        <MenuItem key={hora} value={hora}>{hora}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
               ) : (
-                <Typography variant="body1"><strong>E-mail:</strong> {event.paciente.email}</Typography>
+                <Stack spacing={1}>
+                  <Box display="flex" gap={2}>
+                    <Typography variant="body1"><strong>Fecha:</strong> {event.start ? dayjs(event.start).format('DD/MM/YYYY') : ''}</Typography>
+                    <Typography variant="body1"><strong>Hora:</strong> {getInitialHour(event)} hrs.</Typography>
+                  </Box>
+                  <Typography variant="body1"><strong>Profesional:</strong> {event.profesional.username}</Typography>
+                </Stack>
               )}
-            </Stack>
-          </CardContent>
-        </Card>
+              <Divider sx={{ my: 2 }} />
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Chip icon={<HistoryEduIcon />} label={`N° Sesiones: ${event.historial.length}`} color="primary" variant="outlined" />
+                <Chip label={event.diagnostico || "Primera cita del paciente"} color={event.diagnostico ? "success" : "warning"} variant="outlined" />
+              </Stack>
+            </CardContent>
+          </Card>
 
-        {/* Detalles de la cita */}
-        <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
-          <CardHeader
-            avatar={<ManageAccountsIcon sx={{color:'#2596be'}} />}
-            title={<Typography variant="h6" fontWeight={600}>Detalles de la cita</Typography>}
-            action={
-              editSection === 'cita' ? (
-                <Box display="flex" gap={1}>
-                  <Tooltip title="Guardar">
-                    <IconButton onClick={handleSaveClick} sx={{ bgcolor: '#82e0aa', color: 'black' }}>
-                      <CheckIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Cancelar">
-                    <IconButton onClick={handleCancelClick} sx={{ bgcolor: '#f1948a', color: 'black' }}>
-                      <CloseIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              ) : (
-                <Tooltip title="Editar cita">
-                  <IconButton onClick={() => handleEditClick('cita')}>
-                    <EditIcon />
-                  </IconButton>
-                </Tooltip>
-              )
-            }
-            sx={{ pb: 0 }}
-          />
-          <CardContent sx={{ pt: 1 }}>
-            {editSection === 'cita' ? (
-              <Stack spacing={2}>
-                <DatePicker
-                  label="Fecha de Cita"
-                  value={editableFields.fecha ? dayjs(editableFields.fecha) : null}
-                  onChange={(newValue) => {
-                    setEditableFields({ ...editableFields, fecha: newValue ? newValue.format('YYYY-MM-DD') : '' });
-                  }}
-                  shouldDisableDate={(date) => {
-                    const dayName = date.format('dddd');
-                    const translatedDays = {
-                      Monday: "Lunes",
-                      Tuesday: "Martes",
-                      Wednesday: "Miércoles",
-                      Thursday: "Jueves",
-                      Friday: "Viernes",
-                      Saturday: "Sábado",
-                      Sunday: "Domingo",
-                    };
-                    const translatedDayName = translatedDays[dayName];
-                    return !diasDeTrabajo.includes(translatedDayName);
-                  }}
-                  renderInput={(params) => <TextField {...params} fullWidth margin="dense" required />}
-                />
-                <FormControl fullWidth margin="dense">
-                  <InputLabel>Hora de Cita</InputLabel>
-                  <Select
-                    name="hora"
-                    value={editableFields.hora}
-                    onChange={handleFieldChange}
-                  >
-                    {horasDisponibles.map((hora) => (
-                      <MenuItem key={hora} value={hora}>{hora}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+          {/* Anamnesis */}
+          <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
+            <CardHeader
+              avatar={<ListAltIcon sx={{color:'#2596be'}} />}
+              title={<Typography variant="h6" fontWeight={600}>Anamnesis</Typography>}
+              sx={{ pb: 0 }}
+            />
+            <CardContent sx={{ pt: 1 }}>
+              <Box
+                sx={{
+                  background: '#f8fafd',
+                  borderRadius: 2,
+                  minHeight: 120,
+                  boxShadow: '0 0 5px 0 rgba(0,0,0,0.05)',
+                  p: 1
+                }}
+              >
+                <ReactQuill value={event.anamnesis} readOnly theme="bubble" />
+              </Box>
+            </CardContent>
+          </Card>
+
+          {/* Acciones flotantes */}
+          <Box
+            sx={{
+              position: 'sticky',
+              bottom: 0,
+              left: 0,
+              width: '100%',
+              background: 'rgba(255,255,255,0.95)',
+              borderRadius: 2,
+              boxShadow: 3,
+              mt: 2,
+              p: 2,
+              zIndex: 10
+            }}
+          >
+            {event.historial.length === 0 && !event.diagnostico ? (
+              <Stack spacing={1} alignItems="center">
+                <Typography variant="body2" color="textSecondary">
+                  Nota: Es la primera cita con este paciente
+                </Typography>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<AddCircleOutlineIcon />}
+                  onClick={handleOpenModal}
+                  sx={{ fontWeight: 600, backgroundColor: '#2596be', color: 'white' }}
+                >
+                  Registrar Ficha
+                </Button>
               </Stack>
             ) : (
-              <Stack spacing={1}>
-                <Box display="flex" gap={2}>
-                  <Typography variant="body1"><strong>Fecha:</strong> {event.start ? dayjs(event.start).format('DD/MM/YYYY') : ''}</Typography>
-                  <Typography variant="body1"><strong>Hora:</strong> {getInitialHour(event)} hrs.</Typography>
-                </Box>
-                <Typography variant="body1"><strong>Profesional:</strong> {event.profesional.username}</Typography>
+              <Stack direction="row" spacing={2}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<AddCircleOutlineIcon />}
+                  onClick={handleOpenSesionModal}
+                  sx={{ fontWeight: 600, backgroundColor: '#2596be', color: 'white'  }}
+                >
+                  Agregar Sesión
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  fullWidth
+                  startIcon={<HistoryEduIcon />}
+                  onClick={handleOpenHistorialModal}
+                  sx={{ fontWeight: 600 }}
+                >
+                  Ver historial
+                </Button>
               </Stack>
             )}
-            <Divider sx={{ my: 2 }} />
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Chip icon={<HistoryEduIcon />} label={`N° Sesiones: ${event.historial.length}`} color="primary" variant="outlined" />
-              <Chip label={event.diagnostico || "Primera cita del paciente"} color={event.diagnostico ? "success" : "warning"} variant="outlined" />
-            </Stack>
-          </CardContent>
-        </Card>
+          </Box>
 
-        {/* Anamnesis */}
-        <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
-          <CardHeader
-            avatar={<ListAltIcon sx={{color:'#2596be'}} />}
-            title={<Typography variant="h6" fontWeight={600}>Anamnesis</Typography>}
-            sx={{ pb: 0 }}
-          />
-          <CardContent sx={{ pt: 1 }}>
-            <Box
-              sx={{
-                background: '#f8fafd',
-                borderRadius: 2,
-                minHeight: 120,
-                boxShadow: '0 0 5px 0 rgba(0,0,0,0.05)',
-                p: 1
-              }}
-            >
-              <ReactQuill value={event.anamnesis} readOnly theme="bubble" />
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Acciones flotantes */}
-        <Box
-          sx={{
-            position: 'sticky',
-            bottom: 0,
-            left: 0,
-            width: '100%',
-            background: 'rgba(255,255,255,0.95)',
-            borderRadius: 2,
-            boxShadow: 3,
-            mt: 2,
-            p: 2,
-            zIndex: 10
-          }}
-        >
-          {event.historial.length === 0 && !event.diagnostico ? (
-            <Stack spacing={1} alignItems="center">
-              <Typography variant="body2" color="textSecondary">
-                Nota: Es la primera cita con este paciente
-              </Typography>
-              <Button
-                variant="contained"
-                fullWidth
-                startIcon={<AddCircleOutlineIcon />}
-                onClick={handleOpenModal}
-                sx={{ fontWeight: 600, backgroundColor: '#2596be', color: 'white' }}
-              >
-                Registrar Ficha
-              </Button>
-            </Stack>
-          ) : (
-            <Stack direction="row" spacing={2}>
-              <Button
-                variant="contained"
-                fullWidth
-                startIcon={<AddCircleOutlineIcon />}
-                onClick={handleOpenSesionModal}
-                sx={{ fontWeight: 600, backgroundColor: '#2596be', color: 'white'  }}
-              >
-                Agregar Sesión
-              </Button>
-              <Button
-                variant="contained"
-                color="secondary"
-                fullWidth
-                startIcon={<HistoryEduIcon />}
-                onClick={handleOpenHistorialModal}
-                sx={{ fontWeight: 600 }}
-              >
-                Ver historial
-              </Button>
-            </Stack>
-          )}
+          {/* Modales */}
+          <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} />
+          <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} gapi={gapi} />
+          <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
         </Box>
-
-        {/* Modales */}
-        <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} />
-        <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} gapi={gapi} />
-        <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
-      </Box>
-    </Slide>
+      </Slide>
+    </LocalizationProvider>
   );
 };
 

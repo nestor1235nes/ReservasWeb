@@ -1,33 +1,63 @@
 import mongoose from "mongoose";
 
+const contactoSchema = new mongoose.Schema({
+    celulares: {
+        type: [String],
+        default: [],
+    },
+    telefonos: {
+        type: [String],
+        default: [],
+    },
+    email: {
+        type: String,    
+    },
+    instagram: {
+        type: String,
+        default: "",
+    },
+    facebook: {
+        type: String,
+        default: "",
+    },
+    twitter: {
+        type: String,
+        default: "",
+    },
+    linkedin: {
+        type: String,
+        default: "",
+    },
+}, { _id: false });
+
+
 const SucursalSchema = new mongoose.Schema({
     ///////////////Datos de la sucursal/////////////
     nombre: {
         type: String,
         required: true,
     },
-    administrador: {
-        type: mongoose.Schema.Types.ObjectId,
+    administradores: {
+        type: [mongoose.Schema.Types.ObjectId],
+        ref: "User",
+    },
+    profesionales: {
+        type: [mongoose.Schema.Types.ObjectId],
+        ref: "User",
+    },
+    asistentes: {
+        type: [mongoose.Schema.Types.ObjectId],
         ref: "User",
     },
     direccion: {
         type: String,
     },
-    celular: {
-        type: String,
-    }, 
-    telefono: {
-        type: String,
-    },
-    email: {
-        type: String,
-    },
-    empleados: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-    }],
+    
     descripcion: {
         type: String,
+    },
+    contacto: {
+        type: contactoSchema,
     },
 
     ///////////Configuracion de wsp/////////////

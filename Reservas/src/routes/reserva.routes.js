@@ -7,8 +7,9 @@ import {
     updateReserva,
     getHistorial,
     addHistorial,
+    
 } from "../controllers/ficha.controller.js";
-import { obtenerPacientesSinSesiones } from "../controllers/funciones.controller.js";
+import { obtenerPacientesSinSesiones, getFeriados } from "../controllers/funciones.controller.js";
 import { auth } from "../middlewares/auth.middleware.js"; // Importa el middleware de autenticación
 
 const router = Router();
@@ -23,5 +24,6 @@ router.post("/reserva/:rut/historial", auth, addHistorial); // Aplica el middlew
 
 ////////////////////// Funciones //////////////////////
 router.get("/pacientes-sin-sesiones", auth, obtenerPacientesSinSesiones); // Aplica el middleware de autenticación
+router.get('/feriados', getFeriados);
 
 export default router;

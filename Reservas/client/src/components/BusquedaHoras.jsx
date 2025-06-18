@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { FormControl, InputLabel, Select, MenuItem, TextField } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import localeData from 'dayjs/plugin/localeData';
+import { useReserva } from '../context/reservaContext';
+
+dayjs.extend(localeData);
+dayjs.locale('es');
 
 const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDisponibles }) => {
   const [diasDeTrabajo, setDiasDeTrabajo] = useState([]);
-  console.log(diasDeTrabajo);
   const [horasDisponibles, setHorasDisponibles] = useState([]);
+  const [feriados, setFeriados] = useState([]);
+  const { getFeriados } = useReserva();
+
 
   useEffect(() => {
     const fetchHorasDisponibles = async () => {
@@ -15,33 +24,41 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
+      const feriados = await getFeriados();
+      setFeriados(feriados.data);
+      console.log('Feriados:', feriados.data);  
     };
     fetchHorasDisponibles();
   }, [formData.profesional, formData.diaPrimeraCita, obtenerHorasDisponibles]);
 
   const handleProfesionalChange = (e) => {
-  const profesionalId = e.target.value;
-  setFormData({ ...formData, profesional: profesionalId });
+    const profesionalId = e.target.value;
+    setFormData({ ...formData, profesional: profesionalId });
 
-  const profesionalSeleccionado = profesionales.find((prof) => prof._id === profesionalId);
+    const profesionalSeleccionado = profesionales.find((prof) => prof._id === profesionalId);
 
-  if (profesionalSeleccionado && profesionalSeleccionado.timetable) {
-    // Junta todos los días de todos los bloques y elimina duplicados
-    const dias = [
-      ...new Set(
-        profesionalSeleccionado.timetable.flatMap((bloque) => bloque.days || [])
-      ),
-    ];
-    setDiasDeTrabajo(dias);
-  }
-};
+    if (profesionalSeleccionado && profesionalSeleccionado.timetable) {
+      // Junta todos los días de todos los bloques y elimina duplicados
+      const dias = [
+        ...new Set(
+          profesionalSeleccionado.timetable.flatMap((bloque) => bloque.days || [])
+        ),
+      ];
+      setDiasDeTrabajo(dias);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Traducción de días en inglés a español para comparación
+  const diasSemana = [
+    'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'
+  ];
+
   return (
-    <div>
+    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
       <FormControl fullWidth margin="normal">
         <InputLabel>Profesional</InputLabel>
         <Select
@@ -63,18 +80,12 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
           setFormData({ ...formData, diaPrimeraCita: newValue ? newValue.format('YYYY-MM-DD') : '' });
         }}
         shouldDisableDate={(date) => {
-          const dayName = date.format('dddd');
-          const translatedDays = {
-            Monday: "Lunes",
-            Tuesday: "Martes",
-            Wednesday: "Miércoles",
-            Thursday: "Jueves",
-            Friday: "Viernes",
-            Saturday: "Sábado",
-            Sunday: "Domingo",
-          };
-          const translatedDayName = translatedDays[dayName];
-          return !diasDeTrabajo.includes(translatedDayName);
+          const dayName = diasSemana[date.day()];
+          // Verifica si el día no es de trabajo
+          const noTrabaja = !diasDeTrabajo.includes(dayName);
+          // Verifica si la fecha está en feriados (usando f.date)
+          const esFeriado = feriados.some(f => f.date && dayjs(f.date).isSame(date, 'day'));
+          return noTrabaja || esFeriado;
         }}
         renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
       />
@@ -100,7 +111,7 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
         fullWidth
         margin="normal"
       />
-    </div>
+    </LocalizationProvider>
   );
 };
 

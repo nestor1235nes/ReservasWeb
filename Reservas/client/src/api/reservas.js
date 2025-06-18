@@ -11,3 +11,4 @@ export const addHistorialRequest = async (rut, data) => axios.post(`/api/reserva
 // Funciones
 
 export const obtenerPacientesSinSesionesRequest = async () => axios.get(`/api/pacientes-sin-sesiones`);
+export const getFeriadosRequest = async (year, country) => axios.get(`/api/feriados`, { params: { year, country } });

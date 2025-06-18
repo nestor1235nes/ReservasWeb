@@ -1,6 +1,7 @@
 import Paciente from "../models/paciente.model.js";
 import Reserva from "../models/ficha.model.js";
 import User from "../models/user.model.js";
+import axios from "axios";
 
 /////////////// Obtener todos los pacientes con hora previa y sin sesiones ///////////////
 
@@ -93,3 +94,15 @@ export const liberarHoras = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 }
+
+
+//////////////////// Obtener feriados ////////////////////
+export const getFeriados = async (req, res) => {
+  const { year = new Date().getFullYear(), country = "CL" } = req.query;
+  try {
+    const response = await axios.get(`https://api.boostr.cl/holidays?year=${year}&country=${country}`);
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({ message: "Error obteniendo feriados" });
+  }
+};

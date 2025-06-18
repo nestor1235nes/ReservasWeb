@@ -7,6 +7,36 @@ import { OAuth2Client } from 'google-auth-library';
 
 const client = new OAuth2Client(CLIENT_ID);
 
+// Función helper para normalizar el teléfono al formato 569XXXXXXXX
+const normalizarTelefono = (telefono) => {
+  if (!telefono) return '';
+  
+  let tel = telefono.toString().replace(/\D/g, ''); // Solo números
+  
+  // Si ya está en formato correcto (569XXXXXXXX), lo dejamos
+  if (tel.length === 11 && tel.startsWith('569')) {
+    return tel;
+  }
+  
+  // Si tiene 9 dígitos y empieza con 9 (912345678), agregamos 56
+  if (tel.length === 9 && tel.startsWith('9')) {
+    return '56' + tel;
+  }
+  
+  // Si tiene 8 dígitos (12345678), agregamos 569
+  if (tel.length === 8) {
+    return '569' + tel;
+  }
+  
+  // Si empieza con 56 pero no con 569, lo corregimos
+  if (tel.startsWith('56') && !tel.startsWith('569')) {
+    return '569' + tel.slice(2);
+  }
+  
+  // Si no cumple ningún caso, lo dejamos vacío
+  return '';
+};
+
 export const googleAuth = async (req, res) => {
   const { token } = req.body;
 
@@ -23,7 +53,7 @@ export const googleAuth = async (req, res) => {
       user = new User({
         username: name,
         email,
-        password: await bcrypt.hash(email + TOKEN_SECRET, 10), // Generate a password hash
+        password: await bcrypt.hash(email + TOKEN_SECRET, 10),
       });
       await user.save();
     }
@@ -48,7 +78,27 @@ export const googleAuth = async (req, res) => {
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password, celular, fotoPerfil, especialidad, descripcion, timetable, idInstance, apiTokenInstance, defaultMessage, reminderMessage, notifications, sucursal, especialidad_principal, experiencia } = req.body;
+    const { 
+      username, 
+      email, 
+      password, 
+      celular, 
+      fotoPerfil, 
+      especialidad, 
+      especialidad_principal,
+      experiencia,
+      descripcion, 
+      timetable, 
+      sucursal,
+      cita_presencial,
+      cita_virtual,
+      servicios,
+      notifications,
+      idInstance, 
+      apiTokenInstance, 
+      defaultMessage, 
+      reminderMessage
+    } = req.body;
 
     const userFound = await User.findOne({ email });
 
@@ -57,38 +107,38 @@ export const register = async (req, res) => {
         message: ["The email is already in use"],
       });
 
-    // hashing the password
+    // Hashing the password
     const passwordHash = await bcrypt.hash(password, 10);
-    // adding country code to celular
-    // creating the user
+
+    // Normalizar teléfono
+    const telefonoNormalizado = normalizarTelefono(celular);
+
+    // Creating the user
     const newUser = new User({
       username,
       email,
       password: passwordHash,
-      celular,
+      celular: telefonoNormalizado,
       fotoPerfil,
-      especialidad,
-      especialidad_principal,
+      especialidad: especialidad ? especialidad.toUpperCase() : '',
+      especialidad_principal: especialidad_principal ? especialidad_principal.toUpperCase() : '',
       experiencia,
       descripcion,
-      timetable,
+      timetable: timetable || [],
+      sucursal,
+      cita_presencial: cita_presencial || false,
+      cita_virtual: cita_virtual || false,
+      servicios: servicios || [],
+      notifications: notifications || [],
       idInstance,
       apiTokenInstance,
       defaultMessage,
       reminderMessage,
-      notifications,
-      sucursal,
-      cita_presencial: false,
-      cita_virtual: false,
     });
 
-    // saving the user in the database
-    if(newUser.especialidad){
-      newUser.especialidad = newUser.especialidad.toUpperCase();
-    }
     const userSaved = await newUser.save();
 
-    // create access token
+    // Create access token
     const token = await createAccessToken({
       id: userSaved._id,
     });
@@ -110,14 +160,15 @@ export const register = async (req, res) => {
       experiencia: userSaved.experiencia,
       descripcion: userSaved.descripcion,
       timetable: userSaved.timetable,
+      sucursal: userSaved.sucursal,
+      cita_presencial: userSaved.cita_presencial,
+      cita_virtual: userSaved.cita_virtual,
+      servicios: userSaved.servicios,
+      notifications: userSaved.notifications,
       idInstance: userSaved.idInstance,
       apiTokenInstance: userSaved.apiTokenInstance,
       defaultMessage: userSaved.defaultMessage,
       reminderMessage: userSaved.reminderMessage,
-      notifications: userSaved.notifications,
-      sucursal: userSaved.sucursal,
-      cita_presencial: userSaved.cita_presencial,
-      cita_virtual: userSaved.cita_virtual
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -127,7 +178,7 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const userFound = await User.findOne({ email });
+    const userFound = await User.findOne({ email }).populate('sucursal');
 
     if (!userFound)
       return res.status(400).json({
@@ -163,15 +214,15 @@ export const login = async (req, res) => {
       experiencia: userFound.experiencia,
       descripcion: userFound.descripcion,
       timetable: userFound.timetable,
+      sucursal: userFound.sucursal,
+      cita_presencial: userFound.cita_presencial,
+      cita_virtual: userFound.cita_virtual,
+      servicios: userFound.servicios,
+      notifications: userFound.notifications,
       idInstance: userFound.idInstance,
       apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
-      notifications: userFound.notifications,
-      sucursal: userFound.sucursal,
-      cita_presencial: userFound.cita_presencial,
-      cita_virtual: userFound.cita_virtual
-
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -185,7 +236,7 @@ export const verifyToken = async (req, res) => {
   jwt.verify(token, TOKEN_SECRET, async (error, user) => {
     if (error) return res.sendStatus(401);
 
-    const userFound = await User.findById(user.id);
+    const userFound = await User.findById(user.id).populate('sucursal');
     if (!userFound) return res.sendStatus(401);
 
     return res.json({
@@ -199,14 +250,15 @@ export const verifyToken = async (req, res) => {
       experiencia: userFound.experiencia,
       descripcion: userFound.descripcion,
       timetable: userFound.timetable,
+      sucursal: userFound.sucursal,
+      cita_presencial: userFound.cita_presencial,
+      cita_virtual: userFound.cita_virtual,
+      servicios: userFound.servicios,
+      notifications: userFound.notifications,
       idInstance: userFound.idInstance,
       apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
-      notifications: userFound.notifications,
-      sucursal: userFound.sucursal,
-      cita_presencial: userFound.cita_presencial,
-      cita_virtual: userFound.cita_virtual
     });
   });
 };
@@ -222,48 +274,25 @@ export const logout = async (req, res) => {
 
 export const updatePerfil = async (req, res) => {
   try {
+    // Normalizar teléfono si se proporciona
     if (req.body.celular) {
-      let celular = req.body.celular.toString().replace(/\D/g, ''); // elimina todo lo que no sea dígito
-      // Si el número comienza con '56' y tiene 11 dígitos, está correcto
-      if (/^56\d{9}$/.test(celular)) {
-        req.body.celular = celular;
-      } else {
-        // Elimina cualquier 0 inicial o prefijo internacional
-        if (celular.startsWith('569')) {
-          celular = celular.slice(0, 11); // ya está bien, pero por si acaso
-        } else if (celular.startsWith('56')) {
-          celular = '569' + celular.slice(2);
-        } else if (celular.startsWith('69') && celular.length === 10) {
-          celular = '569' + celular.slice(2);
-        } else if (celular.startsWith('9') && celular.length === 9) {
-          celular = '56' + celular;
-        } else if (celular.length === 8) {
-          celular = '569' + celular;
-        } else {
-          // Si no cumple ningún caso, intenta forzar el formato
-          celular = celular.replace(/^0+/, ''); // elimina ceros iniciales
-          if (celular.length === 9 && celular.startsWith('9')) {
-            celular = '56' + celular;
-          } else if (celular.length === 8) {
-            celular = '569' + celular;
-          }
-        }
-        req.body.celular = celular;
-      }
+      req.body.celular = normalizarTelefono(req.body.celular);
     }
+
+    // Convertir especialidades a mayúsculas
     if (req.body.especialidad) {
       req.body.especialidad = req.body.especialidad.toUpperCase();
     }
     if (req.body.especialidad_principal) {
       req.body.especialidad_principal = req.body.especialidad_principal.toUpperCase();
     }
-    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+
+    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('sucursal');
     res.json(updated);
-  }
-  catch (error) {
+  } catch (error) {
     res.status(404).json({ message: error.message });
   }
-}
+};
 
 export const deleteBloqueHorario = async (req, res) => {
   try {
@@ -277,40 +306,115 @@ export const deleteBloqueHorario = async (req, res) => {
     if (index < 0 || index >= user.timetable.length) {
       return res.status(400).json({ message: "Index out of bounds" });
     }
+    
     user.timetable.splice(index, 1);
     const updatedUser = await user.save();
     res.json(updatedUser);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-}
+};
+
+export const addServicio = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tipo, duracion, precio, modalidad, descripcion } = req.body;
+    
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const nuevoServicio = {
+      tipo,
+      duracion,
+      precio,
+      modalidad,
+      descripcion
+    };
+
+    user.servicios.push(nuevoServicio);
+    const updatedUser = await user.save();
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteServicio = async (req, res) => {
+  try {
+    const { id, index } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (index === undefined || index === null) {
+      return res.status(400).json({ message: "Index is required" });
+    }
+    if (index < 0 || index >= user.servicios.length) {
+      return res.status(400).json({ message: "Index out of bounds" });
+    }
+    
+    user.servicios.splice(index, 1);
+    const updatedUser = await user.save();
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 export const updateNotifications = async (req, res) => {
   try {
-    const updated = await User.findByIdAndUpdate(req
-      .params.id, { $push: { notifications: req.body.data } }, { new: true });
+    const updated = await User.findByIdAndUpdate(
+      req.params.id, 
+      { $push: { notifications: req.body.data } }, 
+      { new: true }
+    );
     res.json(updated);
-  }
-  catch (error) {
+  } catch (error) {
     res.status(404).json({ message: error.message });
   }
-}
+};
 
 export const deleteNotifications = async (req, res) => {
   try {
-    const updated = await User.findByIdAndUpdate(req.params.id, { notifications: [] }, { new: true });
+    const updated = await User.findByIdAndUpdate(
+      req.params.id, 
+      { notifications: [] }, 
+      { new: true }
+    );
     res.json(updated);
-  }
-  catch (error) {
+  } catch (error) {
     res.status(404).json({ message: error.message });
   }
-}
+};
 
 export const getAllProfiles = async (req, res) => {
   try {
-    const users = await User.find();
+    const users = await User.find().populate('sucursal');
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-}
+};
+
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).populate('sucursal');
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateConfiguracion = async (req, res) => {
+  try {
+    const { cita_presencial, cita_virtual } = req.body;
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      { cita_presencial, cita_virtual },
+      { new: true }
+    );
+    res.json(updated);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};

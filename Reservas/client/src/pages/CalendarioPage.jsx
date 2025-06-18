@@ -42,12 +42,13 @@ export function CalendarioPage() {
   const [reservas, setReservas] = useState([]);
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const { getReservas } = useReserva();
+  const { getReservas, getFeriados } = useReserva();
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [feriados, setFeriados] = useState([]);
 
   const fetchReservas = async () => {
     const data = await getReservas();
@@ -66,7 +67,11 @@ export function CalendarioPage() {
           ...reserva,
         };
       }
+
     });
+
+    const feriados = await getFeriados();
+    setFeriados(feriados.data);
 
     setEvents(transformedEvents);
   };
@@ -120,8 +125,30 @@ export function CalendarioPage() {
     setAnchorEl(null);
   };
 
+  const feriadosSet = new Set(
+    feriados
+      ?.filter(f => f.date) // Asegúrate que cada feriado tenga la propiedad 'date'
+      .map(f => dayjs(f.date).format("YYYY-MM-DD"))
+  );
+
+  // Esta función se usa para cambiar el estilo de los días feriados
+  const dayPropGetter = (date) => {
+    const dateStr = dayjs(date).format("YYYY-MM-DD");
+    if (feriadosSet.has(dateStr)) {
+      return {
+        style: {
+          backgroundColor: "#fbb4b5",
+          color: "#b71c1c",
+          cursor: "not-allowed",
+        },
+        className: "feriado-day"
+      };
+    }
+    return {};
+  };
+
   return (
-    <Box display="flex" flexDirection="column" height="100vh" backgroundColor="white">
+    <Box display="flex" flexDirection="column" height="100%" backgroundColor="white">
       <Stack p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
         <Typography variant="h5" fontWeight={700} color="white">
           Calendario
@@ -144,6 +171,7 @@ export function CalendarioPage() {
             day: "Día"
           }}
           onSelectEvent={handleSelectEvent}
+          dayPropGetter={dayPropGetter}
           min={new Date(0, 0, 0, 8, 0, 0)}  // Limitar a las 8:00 AM
           max={new Date(0, 0, 0, 21, 0, 0)}
         />
@@ -173,8 +201,6 @@ export function CalendarioPage() {
         onClose={handleNotificationClose}
         notifications={user?.notifications || []}
       />
-
-      <BotonFlotante onClick={handleFabClick} fetchReservas={fetchReservas} gapi={gapi} />
       <SinDatos open={showModal} />
     </Box>
   );

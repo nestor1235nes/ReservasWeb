@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from "react";
-import { getHistorialRequest, getReservaRequest, getReservasRequest, updateReservaRequest, deleteReservaRequest, createReservaRequest, addHistorialRequest, obtenerPacientesSinSesionesRequest } from "../api/reservas";
+import { getHistorialRequest, getReservaRequest, getReservasRequest, updateReservaRequest, deleteReservaRequest, createReservaRequest, addHistorialRequest, obtenerPacientesSinSesionesRequest, getFeriadosRequest } from "../api/reservas";
 
 const ReservaContext = createContext();
 
@@ -87,8 +87,18 @@ export const ReservaProvider = ({ children }) => {
     }
   }
 
+  const getFeriados = async (year, country) => {
+    try {
+      const response = await getFeriadosRequest(year, country);
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+
   return (
-    <ReservaContext.Provider value={{getReservas, getReserva, createReserva, deleteReserva, updateReserva, getHistorial, addHistorial, pacientesSinSesiones }}>
+    <ReservaContext.Provider value={{getReservas, getReserva, createReserva, deleteReserva, updateReserva, getHistorial, addHistorial, pacientesSinSesiones, getFeriados }}>
       {children}
     </ReservaContext.Provider>
   );

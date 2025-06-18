@@ -2,6 +2,36 @@ import Paciente from "../models/paciente.model.js";
 import Reserva from "../models/ficha.model.js";
 import Sucursal from "../models/sucursal.model.js";
 
+// Función helper para normalizar el teléfono al formato 569XXXXXXXX
+const normalizarTelefono = (telefono) => {
+  if (!telefono) return '';
+  
+  let tel = telefono.toString().replace(/\D/g, ''); // Solo números
+  
+  // Si ya está en formato correcto (569XXXXXXXX), lo dejamos
+  if (tel.length === 11 && tel.startsWith('569')) {
+    return tel;
+  }
+  
+  // Si tiene 9 dígitos y empieza con 9 (912345678), agregamos 56
+  if (tel.length === 9 && tel.startsWith('9')) {
+    return '56' + tel;
+  }
+  
+  // Si tiene 8 dígitos (12345678), agregamos 569
+  if (tel.length === 8) {
+    return '569' + tel;
+  }
+  
+  // Si empieza con 56 pero no con 569, lo corregimos
+  if (tel.startsWith('56') && !tel.startsWith('569')) {
+    return '569' + tel.slice(2);
+  }
+  
+  // Si no cumple ningún caso, lo dejamos vacío
+  return '';
+};
+
 export const getPacientePorRut = async (req, res) => {
     try {
         const paciente = await Paciente.findOne({ rut: req.params.rut });
@@ -30,19 +60,36 @@ export const getPacientes = async (req, res) => {
 }
 
 export const createPaciente = async (req, res) => {
-    const paciente = req.body;
-    const newPaciente = new Paciente(paciente);
+    try {
+        const { nombre, rut, telefono, direccion, edad, email, estado, eventId } = req.body;
 
-    const celularWithCountryCode = `56${newPaciente.telefono}`;
-    newPaciente.telefono = celularWithCountryCode;
+        // Verificar si el paciente ya existe
+        const pacienteExistente = await Paciente.findOne({ rut });
+        if (pacienteExistente) {
+            return res.status(400).json({ message: "El paciente con este RUT ya existe" });
+        }
 
-    try {   
-        await newPaciente.save();
-        res.status(201).json(newPaciente);
+        // Normalizar teléfono
+        const telefonoNormalizado = normalizarTelefono(telefono);
+
+        const newPaciente = new Paciente({
+            nombre,
+            rut,
+            telefono: telefonoNormalizado,
+            direccion,
+            edad,
+            email,
+            estado: estado || "Pendiente",
+            eventId
+            // No inicializar comportamiento aquí, se queda como array vacío por defecto
+        });
+
+        const pacienteGuardado = await newPaciente.save();
+        res.status(201).json(pacienteGuardado);
     } catch (error) {
-        res.status(409).json({ message: error.message });
+        res.status(500).json({ message: error.message });
     }
-}
+};
 
 export const deletePaciente = async (req, res) => {
     try {
@@ -55,40 +102,30 @@ export const deletePaciente = async (req, res) => {
 
 export const updatePaciente = async (req, res) => {
     try {
-        console.log(req.params.rut);
-        const paciente = await Paciente.findOne({ rut: req.params.rut });
+        console.log('Parámetro recibido:', req.params.id); // Cambié de rut a id
+        
+        // Buscar por ID en lugar de RUT
+        const paciente = await Paciente.findById(req.params.id);
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
 
-        // Normalizar el teléfono al formato 569XXXXXXXX
-        let telefono = req.body.telefono || '';
-        telefono = telefono.replace(/\D/g, ''); // Solo números
-
-        // Si ya empieza con 569 y tiene 11 dígitos, lo dejamos igual
-        if (telefono.length === 11 && telefono.startsWith('569')) {
-            // ok
-        } else {
-            // Si tiene 9 dígitos (ej: 912345678), le agregamos 569 adelante
-            if (telefono.length === 9 && telefono.startsWith('9')) {
-                telefono = '569' + telefono;
-            }
-            // Si tiene 8 dígitos (ej: 12345678), le agregamos 5699 adelante
-            else if (telefono.length === 8) {
-                telefono = '5699' + telefono;
-            }
-            // Si no cumple, lo dejamos vacío o puedes manejarlo como prefieras
-            else if (!telefono.startsWith('569')) {
-                telefono = '';
-            }
+        // Normalizar el teléfono
+        if (req.body.telefono) {
+            const telefonoNormalizado = normalizarTelefono(req.body.telefono);
+            req.body.telefono = telefonoNormalizado;
         }
 
-        req.body.telefono = telefono;
-
-        const updatedPaciente = await Paciente.findByIdAndUpdate(paciente._id, req.body, { new: true });
+        const updatedPaciente = await Paciente.findByIdAndUpdate(
+            req.params.id, 
+            req.body, 
+            { new: true }
+        );
+        
         res.json(updatedPaciente);
     } catch (error) {
-        res.status(404).json({ message: error.message });
+        console.error('Error actualizando paciente:', error);
+        res.status(500).json({ message: error.message });
     }
 }
 
