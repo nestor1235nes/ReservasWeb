@@ -1,9 +1,20 @@
 import { useEffect } from "react";
 import { createContext, useContext, useState } from "react";
-import { loginRequest, registerRequest, verifyTokenRequest, updatePerfilRequest, getAllUsersRequest, deleteNotificationsRequest, deleteBloqueHorarioRequest } from "../api/auth";
+import { 
+  loginRequest, 
+  registerRequest, 
+  verifyTokenRequest, 
+  updatePerfilRequest, 
+  getAllUsersRequest, 
+  deleteNotificationsRequest, 
+  deleteBloqueHorarioRequest, 
+  registerUserOnlyRequest,
+  deleteUserRequest
+ } from "../api/auth";
 import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/funcion";
 import { updateNotificationsRequest } from '../api/auth';
 import Cookies from "js-cookie";
+import { esAdminRequest, esAsistenteRequest } from "../api/sucursales"; 
 
 const AuthContext = createContext();
 
@@ -18,6 +29,9 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [esAdminSucursal, setEsAdminSucursal] = useState(false);
+  const [esAsistente, setEsAsistente] = useState(false);
+
 
   // clear errors after 5 seconds
   useEffect(() => {
@@ -128,6 +142,52 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const checkEsAdmin = async (userId) => {
+    try {
+      const res = await esAdminRequest(userId);
+      setEsAdminSucursal(res.data.esAdmin === true || Array.isArray(res.data));
+    } catch (e) {
+      setEsAdminSucursal(false);
+    }
+  };
+
+  const checkEsAsistente = async (userId) => {
+    try {
+      const res = await esAsistenteRequest(userId);
+      setEsAsistente(res.data.esAsistente === true || Array.isArray(res.data));
+    } catch (e) {
+      setEsAsistente(false);
+    }
+  }
+
+  const registerUserOnly = async (user) => {
+    try {
+      const res = await registerUserOnlyRequest(user);
+      return res.data;
+    } catch (error) {
+      setErrors(error.response.data.message);
+      throw error;
+    }
+  };
+
+  const deleteUser = async (id) => {
+    try {
+      const res = await deleteUserRequest(id);
+      return res.data;
+    }
+    catch (error) {
+      console.log(error.response.data);
+      setErrors(error.response.data.message);
+    }
+  };
+
+  useEffect(() => {
+    if (user && user.id) {
+      checkEsAdmin(user.id);
+      checkEsAsistente(user.id);
+    }
+  }, [user]);
+
   useEffect(() => {
     const checkLogin = async () => {
       const cookies = Cookies.get();
@@ -168,6 +228,13 @@ export const AuthProvider = ({ children }) => {
         obtenerHorasDisponibles,
         getAllUsers,
         liberarHoras,
+        checkEsAdmin,
+        esAdminSucursal,
+        registerUserOnly,
+        deleteUser,
+        checkEsAsistente,
+        esAsistente,
+
       }}
     >
       {children}

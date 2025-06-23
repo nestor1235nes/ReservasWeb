@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import {
-  Box, Card, CardContent, CardHeader, Typography, Tabs, Tab, Button, Stack, TextField, Select, MenuItem, InputLabel, FormControl, Checkbox, FormControlLabel, Paper, Divider, Chip, Switch as MuiSwitch, IconButton
+  Modal, Box, Card, CardContent, CardHeader, Typography, Tabs, Tab, Button, Stack, TextField, Select, MenuItem, InputLabel, FormControl, Checkbox, FormControlLabel, Paper, Divider, Chip, Switch as MuiSwitch, IconButton
 } from "@mui/material";
 import { useAuth } from "../context/authContext";
+import { useSucursal } from "../context/sucursalContext";
 import FotoPerfil from "../components/FotoPerfil";
 import PerfilMensajesAutomatizados from "../components/PerfilMensajesAutomatizados";
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
@@ -15,11 +16,13 @@ import PlaceIcon from '@mui/icons-material/Place';
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ScheduleIcon from "@mui/icons-material/Schedule";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import Tooltip from '@mui/material/Tooltip';
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import ModalPerfilProfesional from '../components/Surcursales/ModalPerfilProfesional';
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const intervals = [10, 15, 30, 60];
@@ -285,10 +288,18 @@ const ScheduleEditor = ({ schedule, index, onChange, onSave, onCancel }) => {
 export function PerfilPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { user, updatePerfil, deleteBloqueHorario } = useAuth();
+  const { user, updatePerfil, deleteBloqueHorario, esAdminSucursal } = useAuth();
   const [tab, setTab] = useState(0);
   const [editProfileMode, setEditProfileMode] = useState(false);
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
+  const { agregarProfesional, quitarProfesional } = useSucursal();
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const handleOpenPerfil = (profesional) => {
+    setProfesionalSeleccionado(profesional);
+    setModalOpen(true);
+  };
+
 
   // Estado inicial normalizado
   const [formData, setFormData] = useState({
@@ -301,13 +312,28 @@ export function PerfilPage() {
     cita_presencial: user.cita_presencial || false,
     cita_virtual: user.cita_virtual || false,
     email: user.email || "",
-    timetable: normalizeTimetable(user.timetable)
+    timetable: normalizeTimetable(user.timetable),
+    adminAtiendePersonas: user.adminAtiendePersonas || false
   });
 
   // Handlers
   const handleEditProfileClick = () => setEditProfileMode(true);
   const handleSaveProfileClick = async () => {
+    // Detecta si cambió el valor del switch
+    const prevValue = user.adminAtiendePersonas || false;
+    const newValue = formData.adminAtiendePersonas || false;
+
     await updatePerfil(user.id || user._id, formData);
+
+    // Solo si es admin y cambió el valor, actualiza la sucursal
+    if (esAdminSucursal && user.sucursal && user.id && prevValue !== newValue) {
+      if (newValue) {
+        await agregarProfesional(user.sucursal._id, user.id);
+      } else {
+        await quitarProfesional(user.sucursal._id, user.id);
+      }
+    }
+
     setEditProfileMode(false);
   };
   const handleCancelProfileClick = () => {
@@ -444,7 +470,7 @@ export function PerfilPage() {
           Mi Perfil Profesional
         </Typography>
         <Box display="flex" gap={1} flexWrap="wrap">
-          <Button variant="contained" sx={{ background: 'white', color: 'black' }}>
+          <Button variant="contained" sx={{ background: 'white', color: 'black' }} onClick={() => setModalOpen(true)}>
             Vista previa
           </Button>
           {editProfileMode ? (
@@ -621,6 +647,27 @@ export function PerfilPage() {
                   />
                 </FormControl>
               </Stack>
+              {esAdminSucursal && (
+                <FormControlLabel
+                  control={
+                    <MuiSwitch
+                      checked={!!formData.adminAtiendePersonas}
+                      onChange={e =>
+                        setFormData({ ...formData, adminAtiendePersonas: e.target.checked })
+                      }
+                      disabled={!editProfileMode}
+                    />
+                  }
+                  label={
+                    <Box display="flex" alignItems="center">
+                      Como administrador atenderé personas
+                      <Tooltip title="Se sugiere actualizar la página si cambias este parámetro y necesitas volver a cambiarlo" arrow>
+                        <HelpOutlineIcon fontSize="small" sx={{ ml: 1, color: 'grey.600', cursor: 'pointer' }} />
+                      </Tooltip>
+                    </Box>
+                  }
+                />
+              )}
             </CardContent>
           </Card>
           <Card 
@@ -683,7 +730,7 @@ export function PerfilPage() {
                 <Box display="flex" alignItems="center" gap={1}>
                   <EditCalendarIcon sx={{color:'#2596be'}} />
                   <Typography variant="h5" fontWeight={600}>
-                    Gestión de Horarios
+                    Gestión de Horarios de Atención
                   </Typography>
                 </Box>
               }
@@ -829,6 +876,21 @@ export function PerfilPage() {
           </CardContent>
         </Card>
       )}
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        aria-labelledby="modal-perfil-profesional"
+        aria-describedby="modal-detalle-profesional"
+      >
+        <Box>
+          <ModalPerfilProfesional
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            profesional={user}
+          />
+        </Box>
+      </Modal>
 
       <Box mt={4}>
         <PerfilMensajesAutomatizados />

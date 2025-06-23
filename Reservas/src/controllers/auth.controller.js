@@ -1,4 +1,5 @@
 import User from "../models/user.model.js";
+import Sucursal from "../models/sucursal.model.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { TOKEN_SECRET, CLIENT_ID } from "../config.js";
@@ -97,7 +98,10 @@ export const register = async (req, res) => {
       idInstance, 
       apiTokenInstance, 
       defaultMessage, 
-      reminderMessage
+      reminderMessage,
+      direccion,
+      pacientes,
+      adminAtiendePersonas,
     } = req.body;
 
     const userFound = await User.findOne({ email });
@@ -134,6 +138,9 @@ export const register = async (req, res) => {
       apiTokenInstance,
       defaultMessage,
       reminderMessage,
+      direccion,
+      pacientes,
+      adminAtiendePersonas,
     });
 
     const userSaved = await newUser.save();
@@ -169,9 +176,48 @@ export const register = async (req, res) => {
       apiTokenInstance: userSaved.apiTokenInstance,
       defaultMessage: userSaved.defaultMessage,
       reminderMessage: userSaved.reminderMessage,
+      direccion: userSaved.direccion,
+      pacientes: userSaved.pacientes,
+      adminAtiendePersonas: userSaved.adminAtiendePersonas,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const registerUserOnly = async (req, res) => {
+  try {
+    const { username, email, password, especialidad } = req.body;
+    const userFound = await User.findOne({ email });
+    if (userFound) {
+      throw new Error("The email is already in use");
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    
+    // nombre en mayúsculas
+    const usernameUpperCase = username ? username.toUpperCase() : '';
+    // especialidad en mayúsculas
+    const especialidadUpperCase = especialidad ? especialidad.toUpperCase() : '';
+    const newUser = new User({
+      username: usernameUpperCase,
+      email,
+      password: passwordHash,
+      especialidad: especialidadUpperCase || '',
+    });
+
+    const userSaved = await newUser.save();
+
+    res.json({
+      id: userSaved._id,
+      username: userSaved.username,
+      email: userSaved.email,
+      especialidad: userSaved.especialidad,
+    });
+    return userSaved;
+
+  } catch (error) {
+    throw new Error(error.message);
   }
 };
 
@@ -223,6 +269,10 @@ export const login = async (req, res) => {
       apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
+      direccion: userFound.direccion,
+      pacientes: userFound.pacientes,
+      adminAtiendePersonas: userFound.adminAtiendePersonas,
+
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -259,6 +309,9 @@ export const verifyToken = async (req, res) => {
       apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
+      direccion: userFound.direccion,
+      pacientes: userFound.pacientes,
+      adminAtiendePersonas: userFound.adminAtiendePersonas,
     });
   });
 };
@@ -388,8 +441,44 @@ export const deleteNotifications = async (req, res) => {
 
 export const getAllProfiles = async (req, res) => {
   try {
+    // Traer todas las sucursales
+    const sucursales = await Sucursal.find();
+
+    // Construir sets de IDs de administradores, asistentes y profesionales
+    const adminIds = new Set(sucursales.flatMap(s => s.administradores.map(id => id.toString())));
+    const asistenteIds = new Set(sucursales.flatMap(s => s.asistentes.map(id => id.toString())));
+    const profesionalesIds = new Set(sucursales.flatMap(s => s.profesionales.map(id => id.toString())));
+
+    // Traer todos los usuarios
     const users = await User.find().populate('sucursal');
-    res.json(users);
+
+    // Filtrar:
+    // - Independientes (sin sucursal)
+    // - O que estén en profesionales de alguna sucursal
+    // - Excluir admins siempre y cuando no esten en profesionales
+    // - y asistentes
+    const filtrados = users.filter(user => {
+      const isIndependiente = !user.sucursal;
+      const isProfesional = profesionalesIds.has(user._id.toString());
+      const isAdmin = adminIds.has(user._id.toString());
+      const isAsistente = asistenteIds.has(user._id.toString());
+
+      // Si es independiente, lo incluimos
+      if (isIndependiente) return true;
+
+      // Si es profesional, lo incluimos
+      if (isProfesional) return true;
+
+      // Si es admin o asistente, lo excluimos a menos que sea profesional
+      if (isAdmin || isAsistente) {
+        return isProfesional;
+      }
+
+      // Si no es ni independiente, ni profesional, ni admin/asistente, lo excluimos
+      return false;
+    });
+
+    res.status(200).json(filtrados);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -418,3 +507,14 @@ export const updateConfiguracion = async (req, res) => {
     res.status(404).json({ message: error.message });
   }
 };
+
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByIdAndDelete(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}

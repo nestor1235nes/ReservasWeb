@@ -5,3 +5,4 @@ export const getPacientesRequest = async () => axios.get(`/api/ficha/`);
 export const getPacienteRequest = async (id) => axios.get(`/api/ficha/${id}`);
 export const createPacienteRequest = async (paciente) => axios.post(`/api/ficha`, paciente);
 export const updatePacienteRequest = async (id, paciente) => axios.put(`/api/ficha/${id}`, paciente); // Cambiar de rut a id
+export const getPacientesUsuarioRequest = async () => axios.get(`/api/pacientes-usuario`);

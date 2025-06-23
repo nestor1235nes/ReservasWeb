@@ -37,19 +37,28 @@ function RegisterEmpresa() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-        if(formData.celular.length !== 9){
-            setRegisterErrors(["El celular debe tener 9 dígitos"]);
-        } else {
-            try {
-                formData.celular = "56" + formData.celular;
-                await createSucursal(formData);
-                showAlert("success", "Empresa registrada correctamente");
-                navigate("/register?type=admin");
-            } catch (error) {
-                setRegisterErrors(["Error al registrar la empresa"]);
-                showAlert("error", "Error al registrar la empresa");
+      if(formData.celular.length !== 9){
+        setRegisterErrors(["El celular debe tener 9 dígitos"]);
+      } else {
+        try {
+          const sucursalData = {
+            nombre: formData.nombre,
+            direccion: formData.direccion,
+            descripcion: formData.descripcion,
+            contacto: {
+              celulares: [formData.celular],
+              telefonos: formData.telefono ? [formData.telefono] : [],
+              email: formData.email,
             }
+          };
+          await createSucursal(sucursalData);
+          showAlert("success", "Empresa registrada correctamente");
+          navigate("/register?type=admin");
+        } catch (error) {
+          setRegisterErrors(["Error al registrar la empresa"]);
+          showAlert("error", "Error al registrar la empresa");
         }
+      }
     }
   };
 

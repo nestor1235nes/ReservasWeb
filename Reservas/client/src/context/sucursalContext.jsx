@@ -1,5 +1,19 @@
 import { createContext, useContext } from "react";
-import { getSucursalesRequest, getSucursalRequest, createSucursalRequest, deleteSucursalRequest, updateSucursalRequest, getReservasSucursalRequest, esAdminRequest } from "../api/sucursales";
+import { 
+  getSucursalesRequest, 
+  getSucursalRequest, 
+  createSucursalRequest, 
+  deleteSucursalRequest, 
+  updateSucursalRequest, 
+  getReservasSucursalRequest, 
+  esAdminRequest,
+  agregarAsistenteRequest,
+  eliminarAsistenteRequest,
+  getAsistentesSucursalRequest,
+  agregarProfesionalRequest,
+  getProfesionalesSucursalRequest,
+  quitarProfesionalRequest
+ } from "../api/sucursales";
 
 const SucursalContext = createContext();
 
@@ -19,9 +33,9 @@ export const SucursalProvider = ({ children }) => {
     }
   }
 
-  const getSucursal = async (id) => {
+  const getSucursal = async () => {
     try {
-      const response = await getSucursalRequest(id);
+      const response = await getSucursalRequest();
       return response.data;
     } catch (error) {
       console.error(error);
@@ -64,6 +78,15 @@ export const SucursalProvider = ({ children }) => {
     }
   }
 
+  const getAsistentesSucursal = async (id) => {
+    try {
+      const response = await getAsistentesSucursalRequest(id);
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   const esAdmin = async (id) => {
     try {
       const response = await esAdminRequest(id);
@@ -71,6 +94,51 @@ export const SucursalProvider = ({ children }) => {
     } catch (error) {
       console.error(error);
       return null;
+    }
+  }
+
+  const agregarAsistente = async (sucursalId, asistenteId) => {
+    try {
+      await agregarAsistenteRequest(sucursalId, asistenteId);
+      getSucursales();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const eliminarAsistente = async (sucursalId, asistenteId) => {
+    try {
+      await eliminarAsistenteRequest(sucursalId, asistenteId);
+      getSucursales();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const agregarProfesional = async (sucursalId, profesionalId) => {
+    try {
+      await agregarProfesionalRequest(sucursalId, profesionalId);
+      getSucursales();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  const quitarProfesional = async (sucursalId, profesionalId) => {
+    try {
+      await quitarProfesionalRequest(sucursalId, profesionalId);
+      getSucursales();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const getProfesionalesSucursal = async (sucursalId) => {
+    try {
+      const response = await getProfesionalesSucursalRequest(sucursalId);
+      return response.data;
+    } catch (error) {
+      console.error(error);
     }
   }
 
@@ -83,6 +151,12 @@ export const SucursalProvider = ({ children }) => {
         getReservasSucursal, 
         deleteSucursal,
         esAdmin,
+        agregarAsistente,
+        eliminarAsistente,
+        getAsistentesSucursal,
+        agregarProfesional,
+        getProfesionalesSucursal,
+        quitarProfesional
         }}>
       {children}
     </SucursalContext.Provider>

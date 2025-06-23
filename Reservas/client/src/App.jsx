@@ -18,8 +18,10 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import PatientsPage from "./pages/PatientsPage";
-import { ProtectedRoute, CalendarioRoute } from "./routes";
+import { ProtectedRoute } from "./routes";
 import { PerfilPage } from "./pages/PerfilPage";
+import GestionarAsistentes from "./pages/Sucursales/GestionarAsistentes";
+import GestionarProfesionales from "./pages/Sucursales/GestionarProfesionales";
 
 
 const theme = createTheme({
@@ -111,11 +113,12 @@ function AppContent() {
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
                         <Route element={<ProtectedRoute />}>
-                          {/* Verifica la especialidad del usuario */}
                           <Route path="/calendario" element={<CalendarioPage />} />
                           <Route path="/hoy" element={<TodayPage />} />
                           <Route path="/perfil" element={<PerfilPage />} />
                           <Route path="/pacientes" element={<PatientsPage />} />
+                          <Route path="/sucursal/asistentes" element={<GestionarAsistentes />} />
+                          <Route path="/sucursal/profesionales" element={<GestionarProfesionales />} />
                         </Route>
                         {/* Agrega aquí más rutas si lo necesitas */}
                       </Routes>

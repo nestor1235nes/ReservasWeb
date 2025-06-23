@@ -32,7 +32,10 @@ const ReservasSchema = new mongoose.Schema({
         type: [String],
         default: [],
     },
-    sucursal:{
+    modalidad: {
+        type: String,
+    },
+    sucursal: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sucursal',
     },
@@ -43,6 +46,14 @@ const ReservasSchema = new mongoose.Schema({
             },
             notas: {
                 type: String,
+            },
+            sucursal:{
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Sucursal',
+            },
+            profesional: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
             },
         }]],
         default: [],

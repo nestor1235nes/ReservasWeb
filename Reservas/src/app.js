@@ -35,7 +35,7 @@ app.use("/api/", fichaRoutes);
 app.use("/api/", uploadRoutes);
 app.use("/api/", funcionRoutes);
 app.use("/api/", deletePerfilRoutes);
-app.use("/api/", sucursalRoutes);
+app.use("/api", sucursalRoutes);
 app.use('/uploads', express.static('uploads'))
 app.use('/imagenesPacientes', express.static('imagenesPacientes'))
 

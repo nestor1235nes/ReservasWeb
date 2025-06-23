@@ -22,6 +22,7 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import VentanaNotificaciones from '../components/VentanaNotificaciones';
 import { gapi } from 'gapi-script';
 import { initClient } from '../googleCalendarConfig';
+import { useSucursal } from '../context/sucursalContext';
 
 dayjs.extend(localizedFormat);
 dayjs.extend(utc);
@@ -43,31 +44,52 @@ export function CalendarioPage() {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const { getReservas, getFeriados } = useReserva();
-  const { logout, user } = useAuth();
+  const { getReservasSucursal } = useSucursal();
+  const { logout, user, esAsistente } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [feriados, setFeriados] = useState([]);
+  const interval = user?.timetable?.[0]?.interval || 60; // valor por defecto 60 minutos
 
   const fetchReservas = async () => {
-    const data = await getReservas();
+    let data = [];
+    if (esAsistente && user?.sucursal?._id) {
+      // Si es asistente, obtiene reservas de la sucursal
+      data = await getReservasSucursal(user.sucursal._id);
+    } else {
+      // Si no, obtiene reservas propias
+      data = await getReservas();
+    }
     setReservas(data);
 
     const transformedEvents = data.map(reserva => {
-      if(reserva.siguienteCita){
-        const startDate = dayjs(reserva.siguienteCita).tz('America/Santiago');
+      if (reserva.siguienteCita) {
+        let localStartDate;
         const [hours, minutes] = reserva.hora.split(":").map(Number);
-        const localStartDate = startDate.hour(hours).minute(minutes).second(0).toDate();
-      
+
+        if (reserva.siguienteCita.endsWith('Z') && reserva.siguienteCita.includes('T00:00:00')) {
+          // Caso especial: fecha UTC a medianoche, construir fecha local
+          const dateOnly = reserva.siguienteCita.slice(0, 10); // "YYYY-MM-DD"
+          localStartDate = dayjs(`${dateOnly}T${reserva.hora}:00`).toDate();
+        } else if (reserva.siguienteCita.endsWith('Z')) {
+          // Si viene en UTC pero no es medianoche, ajustar zona
+          let startDate = dayjs(reserva.siguienteCita).utc().tz('America/Santiago');
+          localStartDate = startDate.hour(hours).minute(minutes).second(0).toDate();
+        } else {
+          // Fecha local
+          let startDate = dayjs(reserva.siguienteCita);
+          localStartDate = startDate.hour(hours).minute(minutes).second(0).toDate();
+        }
+
         return {
           title: reserva.paciente.nombre,
           start: localStartDate,
-          end: dayjs(localStartDate).add(1, 'hour').toDate(),
+          end: dayjs(localStartDate).add(interval, 'minute').toDate(),
           ...reserva,
         };
       }
-
     });
 
     const feriados = await getFeriados();
@@ -77,8 +99,10 @@ export function CalendarioPage() {
   };
 
   useEffect(() => {
-    fetchReservas();
-  }, []);
+    if (user) {
+      fetchReservas();
+    }
+  }, [user, getReservas]);
 
   useEffect(() => {
     if (user && (!user.timetable || user.timetable.length === 0)) {
@@ -190,7 +214,7 @@ export function CalendarioPage() {
           timeout={500}
         >
           <Box>
-            <DespliegueEventos event={selectedEvent} onClose={handleCloseDrawer} fetchReservas={fetchReservas} gapi={gapi} />
+            <DespliegueEventos event={selectedEvent} onClose={handleCloseDrawer} fetchReservas={fetchReservas} gapi={gapi} esAsistente={esAsistente} />
           </Box>
         </Slide>
       </Drawer>
@@ -201,7 +225,9 @@ export function CalendarioPage() {
         onClose={handleNotificationClose}
         notifications={user?.notifications || []}
       />
-      <SinDatos open={showModal} />
+      {!esAsistente && (
+        <SinDatos open={showModal} />)
+        }
     </Box>
   );
 }

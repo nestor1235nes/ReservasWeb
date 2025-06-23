@@ -35,12 +35,11 @@ const SinDatos = ({ open }) => {
         <Typography id="modal-description" variant="body1" gutterBottom>
           Por favor, actualice su horario para continuar utilizando la aplicación.
         </Typography>
-        <Button variant="contained" color="primary" onClick={handleRedirect}>
+        <Button variant="contained" sx={{background:'#2596be', color:'white'}} onClick={handleRedirect}>
           Actualizar Datos
         </Button>
       </Box>
     </Modal>
   );
 };
-
 export default SinDatos;

@@ -6,6 +6,7 @@ import {
     deletePaciente,
     updatePaciente,
     getPacientePorRut,
+    getPacientesUsuario
 } from "../controllers/ficha.controller.js";
 import { auth } from "../middlewares/auth.middleware.js";
 
@@ -17,5 +18,6 @@ router.get("/ficha/:id", getPaciente);
 router.post("/ficha", createPaciente);
 router.delete("/ficha/:id", deletePaciente);
 router.put("/ficha/:id", updatePaciente); // Cambiar de :rut a :id
+router.get("/pacientes-usuario", auth, getPacientesUsuario);
 
 export default router;

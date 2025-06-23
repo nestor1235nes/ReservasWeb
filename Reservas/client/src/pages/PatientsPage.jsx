@@ -32,10 +32,13 @@ import { useReserva } from "../context/reservaContext";
 import DespliegueEventos from "../components/PanelDespliegue/DespliegueEventos";
 import AgregarPaciente from "../components/Modales/AgregarPaciente";
 import dayjs from "dayjs";
+import { useAuth } from "../context/authContext";
+
 
 export default function PatientsPage() {
-  const { getPacientes } = usePaciente();
+  const { getPacientes, getPacientesUsuario } = usePaciente();
   const { getReservas } = useReserva();
+  const { esAsistente } = useAuth();
   const [pacientes, setPacientes] = useState([]);
   const [reservas, setReservas] = useState([]);
   const [search, setSearch] = useState("");
@@ -52,10 +55,12 @@ export default function PatientsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const pacientesData = await getPacientes();
+
+      const pacientesData = await getPacientesUsuario();
       setPacientes(pacientesData || []);
       const reservasData = await getReservas();
       setReservas(reservasData || []);
+      console.log("Pacientes y reservas cargados:", reservasData);
     };
     fetchData();
   }, [getPacientes, getReservas]);
@@ -172,7 +177,7 @@ export default function PatientsPage() {
             sx={{
               minWidth: 110,
               backgroundColor: "white",
-              color: "black",
+              color: "#2596be",
               width: isMobile ? "100%" : "auto",
               mt: isMobile ? 1 : 0,
             }}
@@ -323,6 +328,7 @@ export default function PatientsPage() {
                 onClose={() => setOpenDrawer(false)}
                 fetchReservas={fetchPacientesYActualizar}
                 gapi={window.gapi}
+                esAsistente={esAsistente}
               />
             )}
           </Box>

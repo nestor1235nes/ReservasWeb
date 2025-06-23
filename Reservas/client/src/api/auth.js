@@ -2,7 +2,11 @@ import axios from "./axios";
 
 export const registerRequest = async (user) => axios.post(`/auth/register`, user);
 
+export const registerUserOnlyRequest = async (user) => axios.post(`/auth/register-only`, user);
+
 export const loginRequest = async (user) => axios.post(`/auth/login`, user);
+
+export const deleteUserRequest = async (id) => axios.delete(`/auth/${id}`);
 
 export const verifyTokenRequest = async () => axios.get(`/auth/verify`);
 

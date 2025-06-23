@@ -49,6 +49,10 @@ const SucursalSchema = new mongoose.Schema({
         type: [mongoose.Schema.Types.ObjectId],
         ref: "User",
     },
+    pacientes: {
+        type: [mongoose.Schema.Types.ObjectId],
+        ref: "Paciente",
+    },
     direccion: {
         type: String,
     },

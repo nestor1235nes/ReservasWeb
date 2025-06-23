@@ -1,6 +1,7 @@
 import Paciente from "../models/paciente.model.js";
 import Reserva from "../models/ficha.model.js";
 import Sucursal from "../models/sucursal.model.js";
+import User from "../models/user.model.js";
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -102,7 +103,6 @@ export const deletePaciente = async (req, res) => {
 
 export const updatePaciente = async (req, res) => {
     try {
-        console.log('Parámetro recibido:', req.params.id); // Cambié de rut a id
         
         // Buscar por ID en lugar de RUT
         const paciente = await Paciente.findById(req.params.id);
@@ -130,21 +130,49 @@ export const updatePaciente = async (req, res) => {
 }
 
 export const getReservas = async (req, res) => {
-    try {
-      const reservas = await Reserva.find({ profesional: req.user.id }).populate('paciente').populate('profesional');
-      reservas.forEach(reserva => {
-        if (reserva.diaPrimeraCita) {
-          reserva.diaPrimeraCita = new Date(reserva.diaPrimeraCita).toISOString().split('T')[0].replace(/-/g, '/');
-        }
-        if (reserva.siguienteCita) {
-          reserva.siguienteCita = new Date(reserva.siguienteCita).toISOString().split('T')[0].replace(/-/g, '/');
-        }
-      });
-      res.json(reservas);
-    } catch (error) {
-      res.status(404).json({ message: error.message });
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    let reservas = [];
+
+    if (user.sucursal) {
+      // Busca la sucursal y revisa si el usuario es asistente
+      const sucursal = await Sucursal.findById(user.sucursal);
+      if (sucursal && sucursal.asistentes.some(a => a.equals(userId))) {
+        // Es asistente: obtiene TODAS las reservas de la sucursal
+        reservas = await Reserva.find({ sucursal: sucursal._id })
+          .populate('paciente')
+          .populate('profesional');
+      } else {
+        // Es profesional (de sucursal o independiente): solo sus reservas
+        
+        reservas = await Reserva.find({ profesional: userId })
+          .populate('paciente')
+          .populate('profesional');
+          console.log("Usuario profesional o administrador de sucursal:", reservas);
+      }
+    } else {
+      // Profesional independiente (sin sucursal): solo sus reservas
+      reservas = await Reserva.find({ profesional: userId })
+        .populate('paciente')
+        .populate('profesional');
     }
-  };
+
+    reservas.forEach(reserva => {
+      if (reserva.diaPrimeraCita) {
+        reserva.diaPrimeraCita = new Date(reserva.diaPrimeraCita).toISOString().split('T')[0].replace(/-/g, '/');
+      }
+      if (reserva.siguienteCita) {
+        reserva.siguienteCita = new Date(reserva.siguienteCita).toISOString().split('T')[0].replace(/-/g, '/');
+      }
+    });
+
+    res.json(reservas);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
 
 export const getReserva = async (req, res) => {
     try {
@@ -170,7 +198,26 @@ export const createReserva = async (req, res) => {
             return res.status(404).json({ message: "Paciente not found" });
         }
 
-        const sucursal = await Sucursal.findOne({ profesional: req.body.profesional });
+        
+        // Buscar sucursal donde el profesional trabaja
+        const sucursal = await Sucursal.findOne({ profesionales: req.body.profesional });
+
+        let sucursalId = null;
+        if (sucursal) {
+            sucursalId = sucursal._id;
+            // Agregar paciente a la sucursal si no está
+            if (!sucursal.pacientes.includes(paciente._id)) {
+                sucursal.pacientes.push(paciente._id);
+                await sucursal.save();
+            }
+        } else {
+            // Profesional independiente: agregar paciente al profesional
+            const profesional = await User.findById(req.body.profesional);
+            if (profesional && !profesional.pacientes.includes(paciente._id)) {
+                profesional.pacientes.push(paciente._id);
+                await profesional.save();
+            }
+        }
 
         const nuevaReserva = new Reserva({
             paciente: paciente._id,
@@ -184,12 +231,9 @@ export const createReserva = async (req, res) => {
             historial: req.body.historial,
             eventId: req.body.eventId,
         });
-
-        console.log(nuevaReserva);
-
-        if(sucursal){
-            console.log(sucursal);
-            nuevaReserva.sucursal = sucursal._id;
+        
+        if (sucursalId) {
+            nuevaReserva.sucursal = sucursalId;
         }
 
         await nuevaReserva.save();
@@ -223,7 +267,6 @@ export const updateReserva = async (req, res) => {
         if (!reserva) {
             return res.status(404).json({ message: "Reserva not found" });
         }        
-
         
         const datosReserva = {
             diaPrimeraCita: req.body.diaPrimeraCita,
@@ -235,7 +278,7 @@ export const updateReserva = async (req, res) => {
             anamnesis: req.body.anamnesis,
             historial: req.body.historial,
             imagenes: req.body.imagenes,
-            eventId: req.body.eventId,
+            eventId: req.body.eventId, 
         }
         await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
 
@@ -305,4 +348,30 @@ export const addHistorial = async (req, res) => {
     } catch (error) {
         res.status(404).json({ message: error.message });
     }
+};
+
+export const getPacientesUsuario = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    
+    let pacientes = [];
+    if (user.sucursal) {
+        // Buscar pacientes de la sucursal
+        const sucursal = await Sucursal.findById(user.sucursal).populate('pacientes');
+        if (sucursal) {
+            pacientes = sucursal.pacientes;
+        }
+    } else {
+      // Buscar pacientes del profesional
+        const userWithPacientes = await User.findById(userId).populate('pacientes');
+        console.log("Usuario con pacientes:", userWithPacientes);
+        pacientes = userWithPacientes.pacientes;
+        console.log("Pacientes del profesional:", pacientes);
+
+    }
+    res.json(pacientes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };

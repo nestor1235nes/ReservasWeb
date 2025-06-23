@@ -70,7 +70,7 @@ export function RegisterPage() {
           const lastSucursal = response[response.length - 1];
           formData.sucursal = lastSucursal._id || lastSucursal.id;
           const user = await signup(formData);
-          await updateSucursal(lastSucursal._id || lastSucursal.id, { administrador: user._id || user.id, empleado: [user._id || user.id] });
+          await updateSucursal(lastSucursal._id || lastSucursal.id, { administrador: user._id || user.id });
           showAlert("success", "Usuario registrado y asignado como administrador");
         }
       } else {

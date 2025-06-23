@@ -34,7 +34,7 @@ const Rutificador = ({ onRutValidated }) => {
   };
 
   return (
-    <Box>
+    <Box sx={{ width: '100%', maxWidth: 400, margin: 'auto', padding: 2 }}>
       <TextField
         label="Ingrese RUT (sin puntos y con guion)"
         value={rut}

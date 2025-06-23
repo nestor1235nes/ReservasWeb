@@ -1,5 +1,11 @@
 import { createContext, useContext, useState } from "react";
-import { getPacientePorRutRequest, getPacienteRequest, getPacientesRequest, updatePacienteRequest, createPacienteRequest } from "../api/pacientes";
+import { getPacientePorRutRequest, 
+  getPacienteRequest, 
+  getPacientesRequest, 
+  updatePacienteRequest, 
+  createPacienteRequest,
+  getPacientesUsuarioRequest
+ } from "../api/pacientes";
 
 const PacienteContext = createContext();
 
@@ -56,8 +62,24 @@ export const PacienteProvider = ({ children }) => {
     }
   }
 
+  const getPacientesUsuario = async () => {
+    try {
+      const response = await getPacientesUsuarioRequest();
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
-    <PacienteContext.Provider value={{getPacientes, getPaciente, createPaciente, updatePaciente, getPacientePorRut }}>
+    <PacienteContext.Provider value={{
+      getPacientes, 
+      getPaciente, 
+      createPaciente, 
+      updatePaciente, 
+      getPacientePorRut,
+      getPacientesUsuario
+       }}>
       {children}
     </PacienteContext.Provider>
   );

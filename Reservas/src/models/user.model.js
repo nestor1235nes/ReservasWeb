@@ -47,6 +47,9 @@ const userSchema = new mongoose.Schema({
     celular: {
         type: String,
     },
+    direccion: {
+        type: String,
+    },
     fotoPerfil: {
         type: String,
     },
@@ -66,6 +69,14 @@ const userSchema = new mongoose.Schema({
     sucursal: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sucursal',
+    },
+    pacientes: {
+        type: [mongoose.Schema.Types.ObjectId],
+        ref: 'Paciente',
+    },
+    adminAtiendePersonas: {
+        type: Boolean,
+        default: false,
     },
 
     ///////////Configuracion de la cuenta/////////////

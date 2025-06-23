@@ -50,12 +50,11 @@ function getInitialHour(event) {
   return '';
 }
 
-const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
+const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente }) => {
   const { updatePaciente } = usePaciente();
   const { updateReserva, getFeriados } = useReserva();
   const showAlert = useAlert();
   const { user, obtenerHorasDisponibles } = useAuth();
-
 
 
   // Inicialización robusta de fecha y hora
@@ -76,24 +75,25 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
   const [openDialog, setOpenDialog] = useState(false);
   const [mensajePaciente, setMensajePaciente] = useState('');
   const [feriados, setFeriados] = useState([]);
+  const profesionalActual = esAsistente ? event?.profesional : user;
 
 
   useEffect(() => {
-    if (user && user.timetable) {
+    if (profesionalActual && profesionalActual.timetable) {
       // Unifica todos los días de todos los bloques de horario
       const dias = Array.from(
         new Set(
-          user.timetable.flatMap(bloque => bloque.days)
+          profesionalActual.timetable.flatMap(bloque => bloque.days)
         )
       );
       setDiasDeTrabajo(dias);
     }
-  }, [user]);
+  }, [profesionalActual]);
 
   useEffect(() => {
     const fetchHorasDisponibles = async () => {
-      if (user && editableFields.fecha) {
-        const response = await obtenerHorasDisponibles(user.id || user._id, editableFields.fecha);
+      if (profesionalActual && editableFields.fecha) {
+        const response = await obtenerHorasDisponibles(profesionalActual.id || profesionalActual._id, editableFields.fecha);
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
@@ -101,8 +101,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
       setFeriados(feriados.data);
     };
     fetchHorasDisponibles();
-    
-  }, [user, editableFields.fecha, obtenerHorasDisponibles]);
+  }, [profesionalActual, editableFields.fecha, obtenerHorasDisponibles]);
 
   useEffect(() => {
     // Si cambia el evento (por ejemplo, desde PatientsPage), actualiza los campos editables
@@ -136,22 +135,23 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi }) => {
     if (confirm) {
       try {
         if (editSection === 'paciente') {
-          await updatePaciente(event.paciente._id, { // Cambiar de rut a _id
+          await updatePaciente(event.paciente._id, {
             email: editableFields.email,
             telefono: editableFields.telefono,
           });
           event.paciente.email = editableFields.email;
           event.paciente.telefono = editableFields.telefono;
         } else if (editSection === 'cita') {
+          // Usa el profesional correcto al guardar
           await updateReserva(event.paciente.rut, {
             siguienteCita: new Date(editableFields.fecha),
             hora: editableFields.hora,
-            profesional: editableFields.profesional,
+            profesional: profesionalActual._id || profesionalActual.id,
             mensaje: mensajePaciente,
           });
           event.diaPrimeraCita = new Date(editableFields.fecha);
           event.hora = editableFields.hora;
-          event.profesional = editableFields.profesional;
+          event.profesional = profesionalActual;
 
           if (mensajePaciente) {
             sendWhatsAppMessage([event], mensajePaciente, user);
