@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { FormControl, InputLabel, Select, MenuItem, TextField } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import localeData from 'dayjs/plugin/localeData';
 import { useAuth } from '../context/authContext';
+
+dayjs.extend(localeData);
+dayjs.locale('es');
 
 const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibles }) => {
   const { user } = useAuth();
@@ -11,14 +17,14 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
 
   useEffect(() => {
     const fetchHorasDisponibles = async () => {
-      if (user && formData.siguienteCita) {
-        const response = await obtenerHorasDisponibles(user.id, formData.siguienteCita);
+      if (user && formData.diaPrimeraCita) {
+        const response = await obtenerHorasDisponibles(user.id, formData.diaPrimeraCita);
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
     };
     fetchHorasDisponibles();
-  }, [user, formData.siguienteCita, obtenerHorasDisponibles]);
+  }, [user, formData.diaPrimeraCita, obtenerHorasDisponibles]);
 
   useEffect(() => {
     if (user && user.timetable) {
@@ -35,28 +41,23 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Traducción de días en inglés a español para comparación
+  const diasSemana = [
+    'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'
+  ];
+
   return (
-    <div>
+    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
       <DatePicker
         label="Fecha de Cita"
-        value={formData.siguienteCita ? dayjs(formData.siguienteCita) : null}
+        value={formData.diaPrimeraCita ? dayjs(formData.diaPrimeraCita) : null}
         onChange={(newValue) => {
-          setFormData({ ...formData, siguienteCita: newValue ? newValue.format('YYYY-MM-DD') : '' });
+          setFormData({ ...formData, diaPrimeraCita: newValue ? newValue.format('YYYY-MM-DD') : '' });
         }}
         shouldDisableDate={(date) => {
-          const dayName = date.format('dddd');
-          const translatedDays = {
-            Monday: "Lunes",
-            Tuesday: "Martes",
-            Wednesday: "Miércoles",
-            Thursday: "Jueves",
-            Friday: "Viernes",
-            Saturday: "Sábado",
-            Sunday: "Domingo",
-          };
-          const translatedDayName = translatedDays[dayName];
-          console.log('Validando día:', translatedDayName, 'en:', diasDeTrabajo); // Debug
-          return !diasDeTrabajo.includes(translatedDayName);
+          const dayName = diasSemana[date.day()];
+          console.log('Validando día:', dayName, 'en:', diasDeTrabajo); // Debug
+          return !diasDeTrabajo.includes(dayName);
         }}
         renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
       />
@@ -82,7 +83,7 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
         fullWidth
         margin="normal"
       />
-    </div>
+    </LocalizationProvider>
   );
 };
 

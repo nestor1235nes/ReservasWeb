@@ -46,10 +46,13 @@ export const PacienteProvider = ({ children }) => {
 
   const createPaciente = async (paciente) => {
     try {
-      await createPacienteRequest(paciente);
+      const response = await createPacienteRequest(paciente);
+      console.log('Respuesta de createPaciente en contexto:', response); // Debug
       getPacientes();
+      return response.data; // Asegurar que se retorne la data
     } catch (error) {
-      console.error(error);
+      console.error('Error en createPaciente:', error);
+      throw error; // Re-throw para que el componente pueda manejarlo
     }
   }
 

@@ -12,7 +12,10 @@ import CloseIcon from '@mui/icons-material/Close';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import '../ui/VerDetalles.css';
-import { set } from 'mongoose';
+import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+
+dayjs.locale('es');
 
 const VerHistorial = ({ open, onClose, paciente }) => {
   const [historial, setHistorial] = useState([]);
@@ -38,6 +41,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
     zIndex: 1, // Asegúrate de que el encabezado esté por encima del contenido
     padding: '10px', // Ajusta el padding según sea necesario
     boxShadow: '0 2px 4px rgba(0,0,0,0.5)', // Opcional: añade una sombra para separar visualmente el encabezado del contenido
+    borderRadius: '4px', // Opcional: añade bordes redondeados
   };
 
   useEffect(() => {
@@ -45,12 +49,18 @@ const VerHistorial = ({ open, onClose, paciente }) => {
       try {
         const data = await getHistorial(paciente.rut);
         const dataReserva = await getReserva(paciente.rut);
+        
+        console.log('Datos del historial recibidos:', data); // Debug
+        console.log('Datos de la reserva recibidos:', dataReserva); // Debug
+        
         // Flatten the array of arrays
         const flattenedData = data.flat();
+        console.log('Historial aplanado:', flattenedData); // Debug
+        
         setHistorial(flattenedData);
         setDataReserva(dataReserva);
       } catch (error) {
-        console.error(error);
+        console.error('Error al cargar historial:', error);
       }
     };
 
@@ -143,15 +153,19 @@ const VerHistorial = ({ open, onClose, paciente }) => {
         flexDirection="column"
       >
         {viewingProcedure && selectedSesion ? (
-          <Box className={animationClass}>
-            <Typography variant="h6" gutterBottom textAlign="center">Procedimiento {new Date(selectedSesion.fecha).toLocaleDateString()}</Typography>
-            <Box display="flex" flexDirection="column" p={1} minHeight={'25pc'} maxHeight={'25pc'} flexGrow={1} backgroundColor="white" borderRadius={1} boxShadow={5} m={1} overflow={"auto"}>
+          <Box className={animationClass} sx={{overflow:'hidden'}}>
+            <Box sx={stickyHeaderStyles} display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6" gutterBottom textAlign="center">
+                <strong>Procedimiento del día: </strong>{dayjs(selectedSesion.fecha).isValid() ? dayjs(selectedSesion.fecha).format('DD/MM/YYYY') : 'Fecha no válida'}
+              </Typography>
+            </Box>
+            <Box display="flex" flexDirection="column" p={0} minHeight={'25pc'} maxHeight={'25pc'} flexGrow={1} backgroundColor="white" borderRadius={1} boxShadow={5} m={1} overflow={"auto"}>
               <ReactQuill
                 value={selectedSesion.notas}
                 readOnly={true}
                 theme="bubble"
               />
-              <Box flexGrow={1} />
+              <Box />
             </Box>
             <Box className="modal-footer" display="flex" justifyContent="center">
               <Button
@@ -215,7 +229,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
                     />
                   )}
                   <ListItemText
-                    primary={`Sesión ${index + 1} -> ${new Date(sesion.fecha).toLocaleDateString()}`}
+                    primary={`Sesión ${index + 1} -> ${dayjs(sesion.fecha).isValid() ? dayjs(sesion.fecha).format('DD/MM/YYYY') : 'Fecha no válida'}`}
                   />
                   <Box>
                     <Tooltip title="Ver procedimiento" arrow>

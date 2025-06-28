@@ -8,7 +8,7 @@ import { registerSchema } from "../schemas/auth";
 import { z } from "zod";
 import RegisterSucursal from "../components/Surcursales/RegisterSurcursal";
 import { gapi } from 'gapi-script';
-import { handleAuthClick } from '../googleCalendarConfig';
+//import { handleAuthClick } from '../googleCalendarConfig';
 
 export function RegisterPage() {
   const { signup, errors: registerErrors, isAuthenticated, updatePerfil } = useAuth();
@@ -79,7 +79,7 @@ export function RegisterPage() {
     }
   };
 
-  const handleGoogleRegister = async () => {
+  /*const handleGoogleRegister = async () => {
     try {
       const profile = await handleAuthClick();
       const response = await fetch('/api/auth/google-auth', {
@@ -110,7 +110,7 @@ export function RegisterPage() {
       console.log(error);
       showAlert("error", "Ocurrió un error al registrar el usuario");
     }
-  };
+  };*/
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -229,15 +229,15 @@ export function RegisterPage() {
               Registrarse
             </Button>
           </form>
-          <Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleClickOpen}>
+          {/*<Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleClickOpen}>
             Registrarse con Google
-          </Button>
+          </Button>*/}
           <Typography variant="body2" align="center" sx={{ mt: 2 }}>
             ¿Ya tienes una cuenta? <Link to="/login" style={{ color: '#1976d2' }}>Iniciar sesión</Link>
           </Typography>
         </CardContent>
       </Card>
-      <Dialog open={open} onClose={handleClose}>
+      {/*<Dialog open={open} onClose={handleClose}>
         <DialogTitle>Confirmación</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -252,7 +252,7 @@ export function RegisterPage() {
             Confirmar
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog>*/}
     </Box>
   );
 }

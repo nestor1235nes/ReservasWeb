@@ -30,12 +30,18 @@ import VideoCallIcon from '@mui/icons-material/VideoCall';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import ModalPerfilProfesional from '../components/Surcursales/ModalPerfilProfesional';
 import ModalReservarCita from '../components/Surcursales/ModalReservarCita';
+import { getCalendarsSync } from '../api/calendarsync';
+import { gapi } from 'gapi-script';
+import DescargarICSModal from '../components/Modales/DescargarICSModal';
+import { generateICS } from '../utils/icalendar';
+import { usePaciente } from '../context/pacienteContext';
+
 
 dayjs.locale('es');
 
 export default function HomePage() {
   const { getAllUsers, obtenerHorasDisponibles } = useAuth();
-  const { getFeriados } = useReserva();
+  const { getFeriados, updateReserva } = useReserva();
   const [profesionales, setProfesionales] = useState([]);
   const [especialidades, setEspecialidades] = useState([]);
   const [filtro, setFiltro] = useState({ nombre: '', especialidad: '', ubicacion: '' });
@@ -46,11 +52,11 @@ export default function HomePage() {
   const [modalReservaOpen, setModalReservaOpen] = useState(false);
   const [datosPreseleccionados, setDatosPreseleccionados] = useState({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
+  const [icsModalOpen, setIcsModalOpen] = useState(false);
+  const [icsData, setIcsData] = useState(null);
   useEffect(() => {
     const fetchData = async () => {
       const users = await getAllUsers();
-      console.log(users);
       setProfesionales(users);
       setEspecialidades([...new Set(users.map(u => u.especialidad).filter(Boolean))]);
       const feriadosRes = await getFeriados();
@@ -104,7 +110,7 @@ export default function HomePage() {
     setModalReservaOpen(true);
   };
 
-  const handleReservaFinalizada = (paciente, error = null) => {
+  const handleReservaFinalizada = async (paciente, error = null) => {
     setModalReservaOpen(false);
     setSeleccion(prev => {
       const updated = { ...prev };
@@ -118,6 +124,91 @@ export default function HomePage() {
       message: error ? 'No se pudo crear la reserva. Intenta nuevamente.' : '¡Reserva realizada con éxito!',
       severity: error ? 'error' : 'success'
     });
+    // --- SINCRONIZACIÓN GOOGLE CALENDAR ---
+    if (!error) {
+      /*try {
+        // 1. Consulta si el profesional tiene Google Calendar sincronizado
+        const sync = await getCalendarsSync(datosPreseleccionados.profesional._id);
+        if (sync.google) {
+          // 2. Verifica si el usuario actual está autenticado con Google
+          if (gapi.auth2 && gapi.auth2.getAuthInstance().isSignedIn.get()) {
+            // 3. Crea el evento en Google Calendar
+            const fechaStr = dayjs(datosPreseleccionados.fecha).format('YYYY-MM-DD');
+            const horaInicio = datosPreseleccionados.hora;
+            const [hora, minuto] = horaInicio.split(':');
+            const horaFin = `${String(parseInt(hora) + 1).padStart(2, '0')}:${minuto}`;
+
+            const event = {
+              summary: `Cita con ${paciente.nombre}`,
+              description: `Reserva médica`,
+              start: {
+                dateTime: `${fechaStr}T${horaInicio}:00`,
+                timeZone: 'America/Santiago',
+              },
+              end: {
+                dateTime: `${fechaStr}T${horaFin}:00`,
+                timeZone: 'America/Santiago',
+              },
+            };
+            const request = gapi.client.calendar.events.insert({
+              calendarId: 'primary',
+              resource: event,
+            });
+            request.execute(async (createdEvent) => {
+              if (createdEvent && createdEvent.id) {
+                // Llama a tu backend para guardar el eventId junto con la reserva
+                const reservaData = {
+                  paciente: paciente.rut,
+                  profesional: datosPreseleccionados.profesional._id,
+                  fecha: datosPreseleccionados.fecha,
+                  hora: datosPreseleccionados.hora,
+                  modalidad: datosPreseleccionados.modalidad,
+                  eventId: createdEvent.id,
+                };
+                console.log('Reserva data:', reservaData);
+                await updateReserva(paciente.rut, reservaData);
+
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error al sincronizar con Google Calendar:', err);
+      }*/
+      // --- FLUJO ICALENDAR PARA PACIENTE ---
+      // Prepara los datos SOLO de la cita recién agendada
+      const profesional = datosPreseleccionados.profesional;
+      const fechaStr = dayjs(datosPreseleccionados.fecha).format('YYYY-MM-DD');
+      const horaInicio = datosPreseleccionados.hora;
+      const [hora, minuto] = horaInicio.split(':');
+      const horaFin = `${String(parseInt(hora) + 1).padStart(2, '0')}:${minuto}`;
+      const start = new Date(`${fechaStr}T${horaInicio}:00-04:00`);
+      const end = new Date(`${fechaStr}T${horaFin}:00-04:00`);
+      setIcsData({
+        summary: `Cita médica`,
+        description: `Cita con ${profesional?.username || "profesional"}`,
+        start,
+        end,
+        location: profesional?.sucursal?.nombre || "",
+        attendees: [paciente.email]
+      });
+      setIcsModalOpen(true);
+    }
+  };
+
+  const handleDescargarICS = () => {
+    if (!icsData) return;
+    const icsContent = generateICS(icsData);
+    const blob = new Blob([icsContent], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cita-${dayjs(icsData.start).format('YYYYMMDD-HHmm')}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setIcsModalOpen(false);
   };
 
   const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
@@ -428,6 +519,11 @@ export default function HomePage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      <DescargarICSModal
+        open={icsModalOpen}
+        onClose={() => setIcsModalOpen(false)}
+        onDescargar={handleDescargarICS}
+      />
     </Box>
   );
 }

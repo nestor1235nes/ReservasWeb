@@ -39,6 +39,9 @@ const ReservasSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sucursal',
     },
+    eventId: {
+        type: String,
+    },
     historial: {
         type: [[{
             fecha: {

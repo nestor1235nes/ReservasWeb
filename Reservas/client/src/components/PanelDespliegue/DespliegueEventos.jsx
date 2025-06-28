@@ -157,36 +157,58 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             sendWhatsAppMessage([event], mensajePaciente, user);
           }
 
-          if (gapi?.auth2?.getAuthInstance?.()?.isSignedIn.get()) {
-            const calendar = gapi.client.calendar;
-            const eventToUpdate = {
-              start: {
-                dateTime: new Date(editableFields.fecha + 'T' + editableFields.hora + ':00').toISOString(),
-                timeZone: 'America/Santiago',
-              },
-              end: {
-                dateTime: new Date(editableFields.fecha + 'T' + (parseInt(editableFields.hora.split(':')[0]) + 1) + ':' + editableFields.hora.split(':')[1] + ':00').toISOString(),
-                timeZone: 'America/Santiago',
-              },
-              summary: `Cita con ${event.paciente.nombre}`,
-              description: event.diagnostico,
-            };
-            calendar.events.update({
-              calendarId: 'primary',
-              eventId: event.paciente.eventId,
-              resource: eventToUpdate,
-            }).execute((response) => {
+          // Verificar si la reserva tiene eventId y actualizar Google Calendar
+          if (event.eventId && gapi?.auth2?.getAuthInstance?.()?.isSignedIn.get()) {
+            try {
+              console.log('Actualizando evento en Google Calendar con ID:', event.eventId);
+              
+              const [hora, minuto] = editableFields.hora.split(':');
+              const horaFin = `${String(parseInt(hora) + 1).padStart(2, '0')}:${minuto}`;
+              
+              const eventToUpdate = {
+                start: {
+                  dateTime: `${editableFields.fecha}T${editableFields.hora}:00`,
+                  timeZone: 'America/Santiago',
+                },
+                end: {
+                  dateTime: `${editableFields.fecha}T${horaFin}:00`,
+                  timeZone: 'America/Santiago',
+                },
+                summary: `Cita con ${event.paciente.nombre}`,
+                description: event.diagnostico || 'Consulta médica',
+              };
+
+              const response = await gapi.client.calendar.events.update({
+                calendarId: 'primary',
+                eventId: event.eventId,
+                resource: eventToUpdate,
+              });
+
               if (response.error) {
-                console.error('Error updating event: ', response.error);
+                console.error('Error updating Google Calendar event:', response.error);
+                showAlert('warning', 'Cita actualizada localmente, pero hubo un error al sincronizar con Google Calendar');
               } else {
-                console.log('Event updated: ', response);
+                console.log('Google Calendar event updated successfully:', response);
+                showAlert('success', 'Cita actualizada correctamente y sincronizada con Google Calendar');
               }
-            });
+            } catch (error) {
+              console.error('Error al actualizar evento en Google Calendar:', error);
+              showAlert('warning', 'Cita actualizada localmente, pero hubo un error al sincronizar con Google Calendar');
+            }
+          } else if (!event.eventId) {
+            console.log('La reserva no tiene eventId, no se actualizará Google Calendar');
+            showAlert('success', 'Cita actualizada correctamente');
+          } else {
+            console.log('Usuario no autenticado con Google Calendar');
+            showAlert('success', 'Cita actualizada correctamente');
           }
         }
         setEditSection(null);
         fetchReservas();
-        showAlert('success', 'Cambios guardados correctamente');
+        // Solo mostrar alert de éxito general si no se mostró uno específico para Google Calendar
+        if (editSection === 'paciente') {
+          showAlert('success', 'Cambios guardados correctamente');
+        }
       } catch (error) {
         console.error(error);
         showAlert('error', 'Error al guardar los cambios');
@@ -508,8 +530,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           </Box>
 
           {/* Modales */}
-          <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} />
-          <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} gapi={gapi} />
+          <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} gapi={gapi} />
+          <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} gapi={gapi} eventId={event.eventId} />
           <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
         </Box>
       </Slide>

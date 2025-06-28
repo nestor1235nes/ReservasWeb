@@ -116,6 +116,7 @@ export const updatePaciente = async (req, res) => {
             req.body.telefono = telefonoNormalizado;
         }
 
+        console.log('Datos a actualizar:', req.body);
         const updatedPaciente = await Paciente.findByIdAndUpdate(
             req.params.id, 
             req.body, 
@@ -333,20 +334,38 @@ export const addHistorial = async (req, res) => {
             return res.status(404).json({ message: "Reserva not found" });
         }
 
+        // Asegurar que la fecha sea un objeto Date válido
+        const fechaSesion = req.body.fecha ? new Date(req.body.fecha) : new Date();
+        const siguienteCitaDate = req.body.siguienteCita ? new Date(req.body.siguienteCita) : null;
+
+        console.log('Fecha recibida:', req.body.fecha);
+        console.log('Fecha procesada:', fechaSesion);
+        console.log('SiguienteCita recibida:', req.body.siguienteCita);
+        console.log('SiguienteCita procesada:', siguienteCitaDate);
+
         const newHistorialEntry = {
-            fecha: req.body.fecha,
-            notas: req.body.notas,
+            fecha: fechaSesion,
+            notas: req.body.notas || '',
+            sucursal: reserva.sucursal,
+            profesional: reserva.profesional,
         };
 
         reserva.historial.push(newHistorialEntry);
-        reserva.siguienteCita = req.body.siguienteCita;
-        reserva.hora = req.body.hora;
+        
+        // Solo actualizar siguienteCita y hora si se proporcionan
+        if (siguienteCitaDate) {
+            reserva.siguienteCita = siguienteCitaDate;
+        }
+        if (req.body.hora) {
+            reserva.hora = req.body.hora;
+        }
 
         await reserva.save();
 
         res.status(200).json(reserva);
     } catch (error) {
-        res.status(404).json({ message: error.message });
+        console.error('Error en addHistorial:', error);
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -372,6 +391,64 @@ export const getPacientesUsuario = async (req, res) => {
     }
     res.json(pacientes);
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Nueva función: obtener todas las reservas de un paciente por RUT
+export const getReservasPorRut = async (req, res) => {
+  try {
+    const paciente = await Paciente.findOne({ rut: req.params.rut });
+    if (!paciente) {
+      return res.status(404).json({ message: "Paciente not found" });
+    }
+    const reservas = await Reserva.find({ paciente: paciente._id }).populate('paciente').populate('profesional');
+    res.json(reservas);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Nueva función: obtener reservas del profesional para exportación ICS
+export const getReservasParaExportacion = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    let reservas = [];
+
+    if (user.sucursal) {
+      // Busca la sucursal y revisa si el usuario es asistente
+      const sucursal = await Sucursal.findById(user.sucursal);
+      if (sucursal && sucursal.asistentes.some(a => a.equals(userId))) {
+        // Es asistente: obtiene TODAS las reservas de la sucursal
+        reservas = await Reserva.find({ sucursal: sucursal._id })
+          .populate('paciente')
+          .populate('profesional');
+      } else {
+        // Es profesional de sucursal: solo sus reservas
+        reservas = await Reserva.find({ 
+          profesional: userId,
+          sucursal: sucursal._id 
+        })
+          .populate('paciente')
+          .populate('profesional');
+      }
+    } else {
+      // Profesional independiente (sin sucursal): solo sus reservas
+      reservas = await Reserva.find({ profesional: userId })
+        .populate('paciente')
+        .populate('profesional');
+    }
+
+    // Filtrar solo reservas con fechas válidas para el ICS
+    const reservasValidas = reservas.filter(reserva => {
+      return (reserva.diaPrimeraCita || reserva.siguienteCita) && reserva.hora;
+    });
+
+    res.json(reservasValidas);
+  } catch (error) {
+    console.error('Error obteniendo reservas para exportación:', error);
     res.status(500).json({ message: error.message });
   }
 };

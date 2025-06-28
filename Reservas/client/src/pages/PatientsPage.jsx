@@ -113,12 +113,12 @@ export default function PatientsPage() {
     setOpenDrawer(true);
   };
 
-  return (
-    <Box
+  return (    <Box
       display="flex"
       flexDirection="column"
-      height="100vh"
+      minHeight="100vh"
       backgroundColor="white"
+      overflow="visible"
       px={isMobile ? 0.5 : 0}
       pb={isMobile ? 1 : 0}
     >
@@ -187,16 +187,17 @@ export default function PatientsPage() {
             Nuevo Paciente
           </Button>
         </Box>
-      </Stack>
-
-      <Card
+      </Stack>      <Card
         sx={{
           mt: isMobile ? 1 : 0,
           borderRadius: isMobile ? 0 : 2,
           boxShadow: isMobile ? 0 : 2,
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <CardContent sx={{ p: isMobile ? 0 : 2 }}>
+        <CardContent sx={{ p: isMobile ? 0 : 2, flex: 1, overflow: "auto" }}>
           {filtered.length === 0 ? (
             <Typography color="text.secondary" align="center" sx={{ py: 6 }}>
               No se encontraron pacientes.

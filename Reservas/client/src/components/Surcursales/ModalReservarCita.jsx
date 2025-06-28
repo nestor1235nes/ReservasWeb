@@ -27,7 +27,9 @@ import VideoCallIcon from '@mui/icons-material/VideoCall';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import Rutificador from '../Rutificador';
 import { getPacientePorRutRequest, createPacienteRequest } from '../../api/pacientes';
-import { createReservaRequest, updateReservaRequest } from '../../api/reservas'; // Asegúrate de importar esto
+import { createReservaRequest, updateReservaRequest } from '../../api/reservas';
+import { getReservasPorRutRequest } from '../../api/reservas';
+import dayjs from 'dayjs';
 
 
 const steps = ['Identificación', 'Datos de contacto', 'Confirmar'];
@@ -51,8 +53,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [rut, setRut] = useState('');
   const [rutValido, setRutValido] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [paciente, setPaciente] = useState({ nombre: '', rut: '', telefono: '', email: '' });
+  const [paciente, setPaciente] = useState({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
   const [error, setError] = useState('');
+  const [proximaCita, setProximaCita] = useState(null); // Estado para la próxima cita
 
   // Paso 1: Rutificador
   const handleRutValidated = async (rutIngresado) => {
@@ -60,20 +63,42 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
     setRutValido(true);
     setLoading(true);
     setError('');
+    setPaciente({ nombre: '', rut: rutIngresado, telefono: '', email: '', _id: '' });
+    setProximaCita(null);
     try {
-      const res = await getPacientePorRutRequest(rutIngresado);
-      if (res.data) {
-        setPaciente({
-          nombre: res.data.nombre || '',
-          rut: res.data.rut || rutIngresado,
-          telefono: res.data.telefono || '',
-          email: res.data.email || ''
+      // Buscar próximas reservas del paciente
+      const res = await getReservasPorRutRequest(rutIngresado);
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        // Buscar la próxima cita (la más cercana en el futuro)
+        const ahora = new Date();
+        // Combina fecha y hora para comparar correctamente
+        const futuras = res.data.filter(r => {
+          if (!r.siguienteCita || !r.hora) return false;
+          const [h, m] = r.hora.split(':');
+          const citaDate = new Date(r.siguienteCita);
+          citaDate.setHours(Number(h), Number(m), 0, 0);
+          return citaDate > ahora;
         });
+        if (futuras.length > 0) {
+          futuras.sort((a, b) => {
+            const [ha, ma] = a.hora.split(':');
+            const [hb, mb] = b.hora.split(':');
+            const da = new Date(a.siguienteCita);
+            da.setHours(Number(ha), Number(ma), 0, 0);
+            const db = new Date(b.siguienteCita);
+            db.setHours(Number(hb), Number(mb), 0, 0);
+            return da - db;
+          });
+          setProximaCita(futuras[0]);
+        } else {
+          setProximaCita(null);
+        }
       } else {
-        setPaciente({ nombre: '', rut: rutIngresado, telefono: '', email: '' });
+        setProximaCita(null);
       }
     } catch (e) {
-      setPaciente({ nombre: '', rut: rutIngresado, telefono: '', email: '' });
+      setProximaCita(null);
+      // No hacer nada si falla
     }
     setLoading(false);
   };
@@ -130,17 +155,22 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       const res = await getPacientePorRutRequest(paciente.rut);
       if (res.data && res.data._id) {
         // Paciente existe: actualizar reserva
-        await updateReservaRequest(paciente.rut, reserva);
+        await updateReservaRequest(res.data.rut, reserva);
+        const pacienteActualizado = { ...paciente, _id: res.data._id };
+        setPaciente(pacienteActualizado);
+        onReserva(pacienteActualizado);
       } else {
         // Paciente no existe: crear paciente y luego reserva
-        await createPacienteRequest(paciente);
+        const response = await createPacienteRequest(paciente);
+        const pacienteActualizado = { ...paciente, _id: response.data._id };
+        setPaciente(pacienteActualizado);
         await createReservaRequest(paciente.rut, reserva);
+        onReserva(pacienteActualizado);
       }
 
       // 3. Llamar callback, limpiar y cerrar
-      onReserva(paciente);
       setActiveStep(0);
-      setPaciente({ nombre: '', rut: '', telefono: '', email: '' });
+      setPaciente({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
       setRut('');
       setRutValido(false);
       onClose();
@@ -234,6 +264,17 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                     startAdornment: <EmailIcon sx={{ mr: 1, color: '#2596be' }} />
                   }}
                 />
+                {proximaCita && (
+                  <Paper elevation={1} sx={{ width: '100%', p: 1.5, mt: 1, background: '#e3f7fa' }}>
+                    <Typography variant="subtitle2" color="#2596be" fontWeight={600}>
+                      Se ha encontrado una cita previa la cual se sustituirá por la nueva reserva. Cita previa:
+                    </Typography>
+                    <Typography variant="body2">
+                      Fecha: {dayjs(proximaCita.siguienteCita).utc().format('DD/MM/YYYY')}<br />
+                      Hora: {proximaCita.hora}
+                    </Typography>
+                  </Paper>
+                )}
                 {error && <Typography color="error">{error}</Typography>}
               </Stack>
             )}

@@ -9,6 +9,8 @@ import uploadRoutes from './routes/upload.routes.js';
 import funcionRoutes from './routes/funciones.routes.js';
 import deletePerfilRoutes from './routes/deletePerfil.routes.js';
 import sucursalRoutes from './routes/sucursal.routes.js';
+import calendarSyncRoutes from './routes/calendarsync.routes.js';
+
 
 const app = express();
 
@@ -36,6 +38,8 @@ app.use("/api/", uploadRoutes);
 app.use("/api/", funcionRoutes);
 app.use("/api/", deletePerfilRoutes);
 app.use("/api", sucursalRoutes);
+app.use("/api/calendarsync", calendarSyncRoutes);
+
 app.use('/uploads', express.static('uploads'))
 app.use('/imagenesPacientes', express.static('imagenesPacientes'))
 

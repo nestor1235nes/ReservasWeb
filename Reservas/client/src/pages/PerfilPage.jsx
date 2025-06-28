@@ -23,6 +23,8 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import ModalPerfilProfesional from '../components/Surcursales/ModalPerfilProfesional';
+import PreviewIcon from '@mui/icons-material/Preview';
+import SincronizacionCalendarios from '../components/Modales/SincronizacionCalendarios';
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const intervals = [10, 15, 30, 60];
@@ -294,6 +296,8 @@ export function PerfilPage() {
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
   const { agregarProfesional, quitarProfesional } = useSucursal();
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalSyncOpen, setModalSyncOpen] = useState(false);
+
 
   const handleOpenPerfil = (profesional) => {
     setProfesionalSeleccionado(profesional);
@@ -470,7 +474,7 @@ export function PerfilPage() {
           Mi Perfil Profesional
         </Typography>
         <Box display="flex" gap={1} flexWrap="wrap">
-          <Button variant="contained" sx={{ background: 'white', color: 'black' }} onClick={() => setModalOpen(true)}>
+          <Button startIcon={<PreviewIcon />} variant="contained" sx={{ background: 'white', color: 'black' }} onClick={() => setModalOpen(true)}>
             Vista previa
           </Button>
           {editProfileMode ? (
@@ -493,14 +497,16 @@ export function PerfilPage() {
               </Button>
             </>
           ) : (
-            <Button
-              variant="contained"
-              startIcon={<ManageAccountsIcon />}
-              onClick={handleEditProfileClick}
-              sx={{ background: "#2596be", color: "white" }}
-            >
-              Configurar perfil
-            </Button>
+            (tab === 0 || tab === 1) && (
+              <Button
+                variant="contained"
+                startIcon={<ManageAccountsIcon />}
+                onClick={handleEditProfileClick}
+                sx={{ background: "white", color: "black" }}
+              >
+                Configurar perfil
+              </Button>
+            )
           )}
         </Box>
       </Stack>
@@ -836,6 +842,18 @@ export function PerfilPage() {
                     </Typography>
                   </Box>
                 </Box>
+                <Tooltip title="Sincroniza tu calendario con calendarios externos como Google Calendar o ICalendar" arrow>
+                  <Box mt={3} display="flex" justifyContent="center" gap={2}>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        startIcon={<CalendarTodayIcon />}
+                        onClick={() => setModalSyncOpen(true)}
+                      >
+                        Sincronizar con calendarios externos
+                      </Button>
+                  </Box>
+                </Tooltip>
               </CardContent>
             </Card>
           )}
@@ -891,6 +909,12 @@ export function PerfilPage() {
           />
         </Box>
       </Modal>
+
+      <SincronizacionCalendarios
+        open={modalSyncOpen}
+        onClose={() => setModalSyncOpen(false)}
+        user={user}
+      />
 
       <Box mt={4}>
         <PerfilMensajesAutomatizados />
