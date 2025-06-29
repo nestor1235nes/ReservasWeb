@@ -413,6 +413,37 @@ export const deleteServicio = async (req, res) => {
   }
 };
 
+export const updateServicio = async (req, res) => {
+  try {
+    const { id, index } = req.params;
+    const { tipo, duracion, precio, modalidad, descripcion } = req.body;
+    
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (index === undefined || index === null) {
+      return res.status(400).json({ message: "Index is required" });
+    }
+    if (index < 0 || index >= user.servicios.length) {
+      return res.status(400).json({ message: "Index out of bounds" });
+    }
+
+    // Actualizar el servicio en el índice especificado
+    user.servicios[index] = {
+      tipo,
+      duracion,
+      precio,
+      modalidad,
+      descripcion
+    };
+
+    const updatedUser = await user.save();
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const updateNotifications = async (req, res) => {
   try {
     const updated = await User.findByIdAndUpdate(

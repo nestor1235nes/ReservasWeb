@@ -21,3 +21,10 @@ export const getAllUsersRequest = async () => axios.get(`/auth`);
 export const updateNotificationsRequest = async (id, data) => axios.post(`/auth/notifications/${id}`, data);
 
 export const deleteNotificationsRequest = async (id) => axios.delete(`/auth/notifications/${id}`);
+
+// Servicios
+export const addServicioRequest = async (id, servicioData) => axios.post(`/auth/servicios/${id}`, servicioData);
+
+export const updateServicioRequest = async (id, index, servicioData) => axios.put(`/auth/servicios/${id}/${index}`, servicioData);
+
+export const deleteServicioRequest = async (id, index) => axios.delete(`/auth/servicios/${id}/${index}`);

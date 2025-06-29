@@ -151,25 +151,22 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
 
   const handleSubmit = async () => {
     try {
-      // Preparar los datos con el campo correcto para la base de datos
+      // Preparar los datos
       const dataToSave = {
         ...patientData,
-        siguienteCita: patientData.diaPrimeraCita // Mapear diaPrimeraCita a siguienteCita para la BD
       };
 
       let pacienteId = null;
 
-      // 1. Actualizar los datos del paciente (crear o actualizar)
+      // 1. Crear o actualizar paciente
       if (data) {
         await updateReserva(patientData.rut, dataToSave);
-        // Si estamos editando, usar el _id existente
         pacienteId = data._id;
       } else {
-        // Crear nuevo paciente y obtener su _id
+        // Crear nuevo paciente
         const pacienteResponse = await createPaciente(patientData);
-        console.log('Respuesta de createPaciente:', pacienteResponse); // Debug
+        console.log('Respuesta de createPaciente:', pacienteResponse);
         
-        // Verificar si la respuesta tiene _id directamente o en data
         if (pacienteResponse && pacienteResponse._id) {
           pacienteId = pacienteResponse._id;
         } else if (pacienteResponse && pacienteResponse.data && pacienteResponse.data._id) {
@@ -178,18 +175,30 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
           console.warn('No se pudo obtener _id del paciente creado');
         }
         
-        // Solo crear reserva si se quiere agendar cita
-        if (agendarNuevaCita) {
-          await createReserva(patientData.rut, dataToSave);
+        // Determinar si necesitamos crear una reserva
+        const tieneInformacionMedica = patientData.diagnostico || patientData.anamnesis;
+        const necesitaReserva = agendarNuevaCita || tieneInformacionMedica;
+        
+        if (necesitaReserva) {
+          // Preparar datos de la reserva
+          const reservaData = {
+            ...dataToSave,
+            // Si agenda cita, usar la fecha seleccionada; si no, usar fecha actual como diaPrimeraCita
+            diaPrimeraCita: new Date().toISOString().split('T')[0],
+            siguienteCita: agendarNuevaCita ? patientData.siguienteCita : null,
+            hora: agendarNuevaCita ? patientData.hora : null
+          };
+          
+          await createReserva(patientData.rut, reservaData);
         }
       }
   
       // 2. Subir las imágenes solo si hay archivos seleccionados
       if (files.length > 0) {
         const formData = new FormData();
-        formData.append('rut', patientData.rut); // Agrega el rut al FormData
+        formData.append('rut', patientData.rut);
         files.forEach((file) => {
-          formData.append('files', file); // Agrega cada archivo al FormData
+          formData.append('files', file);
         });
   
         const response = await axios.post('/api/imagenesPacientes', formData, {
@@ -197,7 +206,14 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
             'Content-Type': 'multipart/form-data',
           },
         });
-        await updateReserva(patientData.rut, { imagenes: response.data.urls });
+        
+        // Solo actualizar reserva si existe una (si se creó por información médica o cita)
+        const tieneInformacionMedica = patientData.diagnostico || patientData.anamnesis;
+        const necesitaReserva = agendarNuevaCita || tieneInformacionMedica;
+        
+        if (necesitaReserva) {
+          await updateReserva(patientData.rut, { imagenes: response.data.urls });
+        }
       }
   
       // 3. Agregar evento a Google Calendar solo si se agenda nueva cita
@@ -254,10 +270,15 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
       }
   
       // 4. Mostrar mensaje de éxito y resetear el formulario
-      const mensaje = agendarNuevaCita 
-        ? 'Paciente registrado y cita agendada correctamente'
-        : 'Paciente registrado correctamente';
-      showAlert('success', mensaje);
+      let mensaje = 'Paciente registrado correctamente';
+      if (agendarNuevaCita) {
+        mensaje = 'Paciente registrado y cita agendada correctamente';
+      } else if (patientData.diagnostico || patientData.anamnesis) {
+        mensaje = 'Paciente registrado con información médica guardada';
+      }
+      
+      setAlert({ type: 'success', message: mensaje });
+      setOpenSnackbar(true);
       setPatientData({
         nombre: '',
         rut: '',

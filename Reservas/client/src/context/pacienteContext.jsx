@@ -47,7 +47,7 @@ export const PacienteProvider = ({ children }) => {
   const createPaciente = async (paciente) => {
     try {
       const response = await createPacienteRequest(paciente);
-      console.log('Respuesta de createPaciente en contexto:', response); // Debug
+      // Debug: Respuesta de createPaciente en contexto
       getPacientes();
       return response.data; // Asegurar que se retorne la data
     } catch (error) {

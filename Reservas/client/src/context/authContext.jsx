@@ -9,7 +9,10 @@ import {
   deleteNotificationsRequest, 
   deleteBloqueHorarioRequest, 
   registerUserOnlyRequest,
-  deleteUserRequest
+  deleteUserRequest,
+  addServicioRequest,
+  updateServicioRequest,
+  deleteServicioRequest
  } from "../api/auth";
 import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/funcion";
 import { updateNotificationsRequest } from '../api/auth';
@@ -181,6 +184,40 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Funciones para manejar servicios
+  const addServicio = async (servicioData) => {
+    try {
+      const res = await addServicioRequest(user.id || user._id, servicioData);
+      setUser(res.data);
+      return res.data;
+    } catch (error) {
+      setErrors(error.response?.data?.message || "Error al agregar servicio");
+      throw error;
+    }
+  };
+
+  const updateServicio = async (index, servicioData) => {
+    try {
+      const res = await updateServicioRequest(user.id || user._id, index, servicioData);
+      setUser(res.data);
+      return res.data;
+    } catch (error) {
+      setErrors(error.response?.data?.message || "Error al actualizar servicio");
+      throw error;
+    }
+  };
+
+  const deleteServicio = async (index) => {
+    try {
+      const res = await deleteServicioRequest(user.id || user._id, index);
+      setUser(res.data);
+      return res.data;
+    } catch (error) {
+      setErrors(error.response?.data?.message || "Error al eliminar servicio");
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (user && user.id) {
       checkEsAdmin(user.id);
@@ -234,6 +271,9 @@ export const AuthProvider = ({ children }) => {
         deleteUser,
         checkEsAsistente,
         esAsistente,
+        addServicio,
+        updateServicio,
+        deleteServicio,
 
       }}
     >

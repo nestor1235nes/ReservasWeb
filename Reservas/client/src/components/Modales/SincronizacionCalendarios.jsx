@@ -200,9 +200,9 @@ const SincronizacionCalendarios = ({ open, onClose, user }) => {
           </Typography>
           <Typography variant="body2" color="text.secondary" component="ul" sx={{ mt: 1, pl: 2 }}>
             <li>Google Calendar</li>
-            <li>Apple Calendar</li>
             <li>Microsoft Outlook</li>
             <li>Thunderbird</li>
+            <li>Celulares Andriod/Apple</li>
             <li>Cualquier aplicación compatible con iCalendar</li>
           </Typography>
         </Box>

@@ -28,7 +28,8 @@ const pacienteStorage = multer.diskStorage({
     cb(null, dir); // Guarda las imágenes en la carpeta del paciente
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`); // Nombre del archivo
+    const fileName = `${Date.now()}-${file.originalname}`;
+    cb(null, fileName); // Nombre del archivo
   }
 });
 
@@ -45,8 +46,17 @@ router.post('/upload', uploadProfile.single('file'), (req, res) => {
 
 // Nueva ruta para subir múltiples imágenes de pacientes
 router.post('/imagenesPacientes', uploadPaciente.array('files'), (req, res) => {
-  console.log(req.body);
-  const fileUrls = req.files.map(file => `/imagenesPacientes/${req.body.rut}/${file.filename}`); // Devuelve las URLs de las imágenes subidas
+  
+  
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No se recibieron archivos' });
+  }
+  
+  if (!req.body.rut) {
+    return res.status(400).json({ error: 'RUT del paciente es requerido' });
+  }
+  
+  const fileUrls = req.files.map(file => `/imagenesPacientes/${req.body.rut}/${file.filename}`);
   res.json({ urls: fileUrls });
 });
 

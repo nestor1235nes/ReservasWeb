@@ -21,7 +21,7 @@ const ArrastraSeleccionaImagenes = ({ onImagesSelected, pacienteRut }) => {
       <Box {...getRootProps()} sx={{ border: '2px dashed grey', padding: '1rem', textAlign: 'center' }}>
         <input {...getInputProps()} />
         <Typography variant="body1">Arrastra y suelta imágenes aquí, o haz clic para seleccionar imágenes</Typography>
-        <Button variant="contained" component="span" sx={{ marginTop: '1rem' }}>
+        <Button variant="contained" component="span" sx={{ marginTop: '1rem', backgroundColor: '#2596be', color: 'white' }}>
           Seleccionar imágenes
         </Button>
       </Box>

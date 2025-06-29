@@ -1,6 +1,7 @@
 import Paciente from "../models/paciente.model.js";
 import Reserva from "../models/ficha.model.js";
 import User from "../models/user.model.js";
+import Sucursal from "../models/sucursal.model.js";
 import axios from "axios";
 
 /////////////// Obtener todos los pacientes con hora previa y sin sesiones ///////////////
@@ -8,9 +9,46 @@ import axios from "axios";
 export const obtenerPacientesSinSesiones = async (req, res) => {
   try {
     const profesionalId = req.user.id;
-    const pacientesSinSesiones = await Reserva.find({ historial: { $size: 0 }, profesional: profesionalId }).populate('paciente');
-    const filtro = pacientesSinSesiones.filter(reserva => reserva.paciente.estado === true && !reserva.diagnostico);
-    res.status(200).json(filtro.map(reserva => reserva.paciente));
+    const user = await User.findById(profesionalId);
+    
+    let pacientes = [];
+    
+    if (user.sucursal) {
+      // Buscar pacientes de la sucursal
+      const sucursal = await Sucursal.findById(user.sucursal).populate('pacientes');
+      if (sucursal) {
+        pacientes = sucursal.pacientes;
+      }
+    } else {
+      // Buscar pacientes del profesional
+      const userWithPacientes = await User.findById(profesionalId).populate('pacientes');
+      pacientes = userWithPacientes.pacientes || [];
+    }
+    
+    // Filtrar pacientes que necesitan registrar primera sesión
+    const pacientesSinSesiones = [];
+    
+    for (const paciente of pacientes) {
+      // Buscar si tiene reservas
+      const reservas = await Reserva.find({ paciente: paciente._id });
+      
+      if (reservas.length === 0) {
+        // Paciente sin reservas pero tiene diaPrimeraCita en el modelo Paciente
+        if (paciente.diaPrimeraCita) {
+          pacientesSinSesiones.push(paciente);
+        }
+      } else {
+        // Paciente con reservas pero sin historial ni diagnóstico
+        const reservasSinSesion = reservas.filter(reserva => 
+          reserva.historial.length === 0 && !reserva.diagnostico
+        );
+        if (reservasSinSesion.length > 0) {
+          pacientesSinSesiones.push(paciente);
+        }
+      }
+    }
+    
+    res.status(200).json(pacientesSinSesiones);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

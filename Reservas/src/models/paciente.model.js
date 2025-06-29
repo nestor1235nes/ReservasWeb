@@ -67,6 +67,14 @@ const PacienteSchema = new mongoose.Schema({
     eventId: {
         type: String,
     },
+    profesional: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+    },
+    diaPrimeraCita: {
+        type: Date,
+        default: Date.now,
+    },
 
     // Datos de comportamiento
     comportamiento: {

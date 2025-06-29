@@ -38,7 +38,7 @@ import { useAuth } from "../context/authContext";
 export default function PatientsPage() {
   const { getPacientes, getPacientesUsuario } = usePaciente();
   const { getReservas } = useReserva();
-  const { esAsistente } = useAuth();
+  const { esAsistente, user } = useAuth();
   const [pacientes, setPacientes] = useState([]);
   const [reservas, setReservas] = useState([]);
   const [search, setSearch] = useState("");
@@ -60,7 +60,7 @@ export default function PatientsPage() {
       setPacientes(pacientesData || []);
       const reservasData = await getReservas();
       setReservas(reservasData || []);
-      console.log("Pacientes y reservas cargados:", reservasData);
+      // Debug: Pacientes y reservas cargados
     };
     fetchData();
   }, [getPacientes, getReservas]);
@@ -107,16 +107,17 @@ export default function PatientsPage() {
         imagenes: [],
         start: null,
         hora: "",
-        profesional: { username: "Sin asignar" }
+        profesional: paciente.profesional || { username: "Sin asignar" }
       });
     }
     setOpenDrawer(true);
   };
 
-  return (    <Box
+  return (    
+  <Box
       display="flex"
       flexDirection="column"
-      minHeight="100vh"
+      minHeight="100%"
       backgroundColor="white"
       overflow="visible"
       px={isMobile ? 0.5 : 0}

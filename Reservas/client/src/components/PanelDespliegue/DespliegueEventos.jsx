@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, IconButton, Slide, Button, TextField, Card, CardContent, CardHeader,
-  FormControl, InputLabel, Select, MenuItem, Divider, Chip, Stack, Tooltip
+  FormControl, InputLabel, Select, MenuItem, Divider, Chip, Stack, Tooltip, Avatar,
+  Grid, Paper, Badge, Modal, Fab, Fade, Skeleton
 } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { usePaciente } from '../../context/pacienteContext';
 import { useAuth } from '../../context/authContext';
 import { useReserva } from '../../context/reservaContext';
+import { useSucursal } from '../../context/sucursalContext';
 import { useAlert } from '../../context/AlertContext';
 import AgregarPaciente from '../Modales/AgregarPaciente';
 import AgregarSesion from './AgregarSesion';
@@ -23,6 +25,13 @@ import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import ImageIcon from '@mui/icons-material/Image';
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -32,6 +41,8 @@ import '../ui/AgregarSesionCSS.css';
 import MostrarImagenes from '../MostrarImagenes';
 import localeData from 'dayjs/plugin/localeData';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { useDropzone } from 'react-dropzone';
+import axios from 'axios';
 
 dayjs.extend(localeData);
 dayjs.locale('es');
@@ -53,11 +64,11 @@ function getInitialHour(event) {
 const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente }) => {
   const { updatePaciente } = usePaciente();
   const { updateReserva, getFeriados } = useReserva();
+  const { getProfesionalesSucursal } = useSucursal();
   const showAlert = useAlert();
   const { user, obtenerHorasDisponibles } = useAuth();
 
-
-  // Inicialización robusta de fecha y hora
+  // Estados existentes
   const [editSection, setEditSection] = useState(null);
   const [editableFields, setEditableFields] = useState({
     email: event?.paciente?.email || '',
@@ -75,8 +86,79 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const [openDialog, setOpenDialog] = useState(false);
   const [mensajePaciente, setMensajePaciente] = useState('');
   const [feriados, setFeriados] = useState([]);
-  const profesionalActual = esAsistente ? event?.profesional : user;
+  
+  // Estados para profesionales de la sucursal (para asistentes)
+  const [profesionalesSucursal, setProfesionalesSucursal] = useState([]);
+  const [profesionalSeleccionado, setProfesionalSeleccionado] = useState(null);
+  
+  const profesionalActual = esAsistente ? (profesionalSeleccionado || event?.profesional) : user;
 
+  // Nuevos estados para imágenes
+  const [imagenes, setImagenes] = useState(event?.imagenes || []);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [openImageModal, setOpenImageModal] = useState(false);
+  const [openUploadModal, setOpenUploadModal] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Configuración del dropzone
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    multiple: true,
+    onDrop: (acceptedFiles) => {
+      setUploadFiles(acceptedFiles);
+    }
+  });
+
+  // Cargar profesionales de la sucursal si es asistente
+  useEffect(() => {
+    const fetchProfesionalesSucursal = async () => {
+      if (esAsistente && user?.sucursal?._id) {
+        try {
+          const profesionales = await getProfesionalesSucursal(user.sucursal._id);
+          if (profesionales && profesionales.length > 0) {
+            setProfesionalesSucursal(profesionales);
+            // Establecer el profesional actual como seleccionado por defecto
+            if (event?.profesional) {
+              const profesionalActual = profesionales.find(p => p._id === event.profesional._id);
+              if (profesionalActual) {
+                setProfesionalSeleccionado(profesionalActual);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error al cargar profesionales de la sucursal:', error);
+        }
+      }
+    };
+    fetchProfesionalesSucursal();
+  }, [esAsistente, user?.sucursal?._id, event?.profesional, getProfesionalesSucursal]);
+
+  // Recargar profesionales cuando se abre el modo de edición de cita
+  useEffect(() => {
+    if (editSection === 'cita' && esAsistente && user?.sucursal?._id) {
+      const fetchProfesionalesSucursal = async () => {
+        try {
+          const profesionales = await getProfesionalesSucursal(user.sucursal._id);
+          if (profesionales && profesionales.length > 0) {
+            setProfesionalesSucursal(profesionales);
+            // Establecer el profesional actual como seleccionado por defecto
+            if (event?.profesional) {
+              const profesionalActual = profesionales.find(p => p._id === event.profesional._id);
+              if (profesionalActual) {
+                setProfesionalSeleccionado(profesionalActual);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error al recargar profesionales:', error);
+        }
+      };
+      fetchProfesionalesSucursal();
+    }
+  }, [editSection, esAsistente, user?.sucursal?._id, event?.profesional, getProfesionalesSucursal]);
 
   useEffect(() => {
     if (profesionalActual && profesionalActual.timetable) {
@@ -112,9 +194,78 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
       hora: getInitialHour(event),
       profesional: event?.profesional || ''
     });
+    setImagenes(event?.imagenes || []);
   }, [event]);
 
   if (!event) return null;
+
+  // Funciones para manejar imágenes
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prevIndex) => 
+      prevIndex === 0 ? imagenes.length - 1 : prevIndex - 1
+    );
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prevIndex) => 
+      prevIndex === imagenes.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  const handleImageClick = (index) => {
+    setCurrentImageIndex(index);
+    setOpenImageModal(true);
+  };
+
+  const handleUploadImages = async () => {
+    if (uploadFiles.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      
+      // Agregar el RUT del paciente ANTES de agregar los archivos
+      formData.append('rut', event.paciente.rut);
+      // Debug: RUT enviado
+      
+      // Agregar los archivos
+      uploadFiles.forEach((file, index) => {
+        formData.append('files', file);
+        // Debug: Archivo preparado
+      });
+
+      // Debug: FormData preparado para envío
+
+      const response = await axios.post('/api/imagenesPacientes', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      // Debug: Respuesta del servidor recibida
+
+      if (response.data.urls) {
+        const newImagenes = [...imagenes, ...response.data.urls];
+        setImagenes(newImagenes);
+        
+        // Actualizar la reserva con las nuevas imágenes
+        await updateReserva(event.paciente.rut, {
+          imagenes: newImagenes
+        });
+
+        showAlert('success', 'Imágenes subidas correctamente');
+        setUploadFiles([]);
+        setOpenUploadModal(false);
+        fetchReservas();
+      }
+    } catch (error) {
+      console.error('Error al subir imágenes:', error);
+      console.error('Detalles del error:', error.response?.data);
+      showAlert('error', 'Error al subir las imágenes: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleEditClick = (section) => setEditSection(section);
 
@@ -123,8 +274,18 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
     setEditableFields((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleProfesionalChange = (e) => {
+    const profesionalId = e.target.value;
+    const profesional = profesionalesSucursal.find(p => p._id === profesionalId);
+    if (profesional) {
+      setProfesionalSeleccionado(profesional);
+      // Limpiar la hora seleccionada cuando cambie el profesional
+      setEditableFields((prev) => ({ ...prev, hora: '' }));
+    }
+  };
+
   const handleSaveClick = () => {
-    if (editSection === 'cita' && user.idInstance) {
+    if (editSection === 'cita' && (user.idInstance || esAsistente)) {
       setOpenDialog(true);
     } else {
       handleDialogClose(true);
@@ -142,16 +303,26 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           event.paciente.email = editableFields.email;
           event.paciente.telefono = editableFields.telefono;
         } else if (editSection === 'cita') {
-          // Usa el profesional correcto al guardar
+          // Determinar qué profesional usar
+          const profesionalParaGuardar = esAsistente 
+            ? (profesionalSeleccionado?._id || profesionalSeleccionado?.id || event.profesional?._id || event.profesional?.id)
+            : (profesionalActual._id || profesionalActual.id);
+          
           await updateReserva(event.paciente.rut, {
             siguienteCita: new Date(editableFields.fecha),
             hora: editableFields.hora,
-            profesional: profesionalActual._id || profesionalActual.id,
+            profesional: profesionalParaGuardar,
             mensaje: mensajePaciente,
           });
           event.diaPrimeraCita = new Date(editableFields.fecha);
           event.hora = editableFields.hora;
-          event.profesional = profesionalActual;
+          
+          // Actualizar el profesional en el evento
+          if (esAsistente && profesionalSeleccionado) {
+            event.profesional = profesionalSeleccionado;
+          } else if (!esAsistente) {
+            event.profesional = profesionalActual;
+          }
 
           if (mensajePaciente) {
             sendWhatsAppMessage([event], mensajePaciente, user);
@@ -160,7 +331,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           // Verificar si la reserva tiene eventId y actualizar Google Calendar
           if (event.eventId && gapi?.auth2?.getAuthInstance?.()?.isSignedIn.get()) {
             try {
-              console.log('Actualizando evento en Google Calendar con ID:', event.eventId);
+              // Actualizando evento en Google Calendar
               
               const [hora, minuto] = editableFields.hora.split(':');
               const horaFin = `${String(parseInt(hora) + 1).padStart(2, '0')}:${minuto}`;
@@ -188,7 +359,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 console.error('Error updating Google Calendar event:', response.error);
                 showAlert('warning', 'Cita actualizada localmente, pero hubo un error al sincronizar con Google Calendar');
               } else {
-                console.log('Google Calendar event updated successfully:', response);
+                // Google Calendar event updated successfully
                 showAlert('success', 'Cita actualizada correctamente y sincronizada con Google Calendar');
               }
             } catch (error) {
@@ -196,10 +367,10 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
               showAlert('warning', 'Cita actualizada localmente, pero hubo un error al sincronizar con Google Calendar');
             }
           } else if (!event.eventId) {
-            console.log('La reserva no tiene eventId, no se actualizará Google Calendar');
+            // La reserva no tiene eventId, no se actualizará Google Calendar
             showAlert('success', 'Cita actualizada correctamente');
           } else {
-            console.log('Usuario no autenticado con Google Calendar');
+            // Usuario no autenticado con Google Calendar
             showAlert('success', 'Cita actualizada correctamente');
           }
         }
@@ -245,167 +416,611 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
       <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500}>
         <Box
-          p={2}
-          width={window.innerWidth < 600 ? '100%' : 500}
+          width={window.innerWidth < 600 ? '100%' : 520}
           maxHeight={window.innerWidth < 600 ? 800 : '100%'}
           sx={{
-            overflowY: 'auto',
-            background: 'linear-gradient(135deg, #f1f7fa 60%, #e3f2fd 100%)',
+            background: '#e9f3f4',
             borderRadius: 3,
-            boxShadow: 4,
-            position: 'relative'
+            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+            position: 'relative',
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            flexDirection: 'column',
+            height: window.innerWidth < 600 ? '800px' : '100%'
           }}
         >
-          {/* Encabezado */}
+          {/* Contenido scrolleable */}
           <Box
-            display="flex"
-            alignItems="center"
-            gap={1}
             sx={{
-              background: 'linear-gradient(90deg, #2596be 60%, #21cbe6 100%)',
-              color: 'white',
-              borderRadius: 2,
-              px: 2,
-              py: 1,
-              mb: 2,
-              boxShadow: 2
+              flex: 1,
+              overflowY: 'auto',
+              p: 3,
+              pb: 1, // Reducir padding bottom para el contenido
             }}
           >
-            <CalendarTodayIcon sx={{ mr: 1 }} />
-            <Typography variant="h6" fontWeight={700} flex={1}>
-              Detalles de la Cita
-            </Typography>
-            <Tooltip title="Cerrar">
-              <IconButton onClick={onClose} sx={{ color: 'white' }}>
-                <CloseIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          {/* Encabezado moderno */}
+          <Paper
+            elevation={0}
+            sx={{
+              background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+              color: 'white',
+              borderRadius: 2,
+              p: 2.5,
+              mb: 3,
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '100px',
+                height: '100px',
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: '50%',
+                transform: 'translate(30px, -30px)'
+              }
+            }}
+          >
+            <Stack direction="row" alignItems="center" justifyContent="space-between">
+              <Box display="flex" alignItems="center" gap={2}>
+                <Avatar 
+                  sx={{ 
+                    bgcolor: 'rgba(255,255,255,0.2)', 
+                    width: 48, 
+                    height: 48,
+                    border: '2px solid rgba(255,255,255,0.3)'
+                  }}
+                >
+                  <CalendarTodayIcon sx={{ fontSize: 24 }} />
+                </Avatar>
+                <Box>
+                  <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>
+                    Detalles de la Cita
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    {event.paciente?.nombre}
+                  </Typography>
+                </Box>
+              </Box>
+              <Tooltip title="Cerrar">
+                <IconButton 
+                  onClick={onClose} 
+                  sx={{ 
+                    color: 'white', 
+                    bgcolor: 'rgba(255,255,255,0.2)',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </Paper>
 
-          {/* Imágenes asociadas */}
-          <Box mb={2}>
-            <MostrarImagenes imagenes={event.imagenes} />
-          </Box>
+          {/* Carrusel de imágenes mejorado */}
+          <Card 
+            sx={{ 
+              mb: 3, 
+              borderRadius: 3,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
+            }}
+          >
+            <CardHeader
+              avatar={
+                <Avatar sx={{ bgcolor: '#2596be', width: 40, height: 40 }}>
+                  <ImageIcon />
+                </Avatar>
+              }
+              title={
+                <Typography variant="h6" fontWeight={600} color="text.primary">
+                  Imágenes del Paciente
+                </Typography>
+              }
+              action={
+                <Stack direction="row" spacing={1}>
+                  <Chip 
+                    label={`${imagenes.length} imagen${imagenes.length !== 1 ? 'es' : ''}`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                  {!esAsistente && (
+                    <Tooltip title="Agregar imágenes">
+                      <IconButton 
+                        onClick={() => setOpenUploadModal(true)}
+                        sx={{ 
+                          bgcolor: '#f0f9ff',
+                          color: '#2596be',
+                          '&:hover': { bgcolor: '#e0f2fe' }
+                        }}
+                      >
+                        <AddPhotoAlternateIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Stack>
+              }
+              sx={{ pb: 1 }}
+            />
+            <CardContent sx={{ pt: 0 }}>
+              {imagenes.length > 0 ? (
+                <Box>
+                  {/* Imagen principal */}
+                  <Box 
+                    sx={{ 
+                      position: 'relative',
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      bgcolor: '#f8fafc',
+                      mb: 2
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={`http://localhost:4000${imagenes[currentImageIndex]}`}
+                      alt={`Imagen ${currentImageIndex + 1}`}
+                      className="image-carousel-fade"
+                      sx={{
+                        width: '100%',
+                        height: 250,
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        transition: 'transform 0.3s ease',
+                        '&:hover': { transform: 'scale(1.02)' }
+                      }}
+                      onClick={() => handleImageClick(currentImageIndex)}
+                    />
+                    
+                    {/* Controles de navegación */}
+                    {imagenes.length > 1 && (
+                      <>
+                        <IconButton
+                          onClick={handlePrevImage}
+                          sx={{
+                            position: 'absolute',
+                            left: 8,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            bgcolor: 'rgba(0,0,0,0.6)',
+                            color: 'white',
+                            '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' }
+                          }}
+                        >
+                          <ArrowBackIosIcon />
+                        </IconButton>
+                        <IconButton
+                          onClick={handleNextImage}
+                          sx={{
+                            position: 'absolute',
+                            right: 8,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            bgcolor: 'rgba(0,0,0,0.6)',
+                            color: 'white',
+                            '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' }
+                          }}
+                        >
+                          <ArrowForwardIosIcon />
+                        </IconButton>
+                      </>
+                    )}
+                    
+                    {/* Indicador de zoom */}
+                    <Chip
+                      icon={<ZoomInIcon />}
+                      label="Click para ampliar"
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        bottom: 8,
+                        right: 8,
+                        bgcolor: 'rgba(0,0,0,0.7)',
+                        color: 'white'
+                      }}
+                    />
+                  </Box>
 
-          {/* Modal mensaje paciente */}
-          <Dialog open={openDialog} onClose={() => handleDialogClose(false)}>
-            <DialogTitle>Mensaje para el Paciente</DialogTitle>
-            <DialogContent>
+                  {/* Miniaturas */}
+                  {imagenes.length > 1 && (
+                    <Grid container spacing={1}>
+                      {imagenes.map((imagen, index) => (
+                        <Grid item xs={3} key={index}>
+                          <Box
+                            component="img"
+                            src={`http://localhost:4000${imagen}`}
+                            alt={`Miniatura ${index + 1}`}
+                            className={`thumbnail-image ${index === currentImageIndex ? 'active' : ''}`}
+                            sx={{
+                              width: '100%',
+                              height: 60,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              cursor: 'pointer',
+                              border: index === currentImageIndex ? '3px solid #2596be' : '2px solid transparent',
+                              transition: 'all 0.3s ease',
+                              '&:hover': { 
+                                transform: 'scale(1.05)',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                              }
+                            }}
+                            onClick={() => setCurrentImageIndex(index)}
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  )}
+                </Box>
+              ) : (
+                <Box 
+                  sx={{ 
+                    textAlign: 'center', 
+                    py: 4,
+                    bgcolor: '#f8fafc',
+                    borderRadius: 2,
+                    border: '2px dashed #cbd5e1'
+                  }}
+                >
+                  <ImageIcon sx={{ fontSize: 48, color: '#94a3b8', mb: 1 }} />
+                  <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                    No hay imágenes disponibles
+                  </Typography>
+                  {!esAsistente && (
+                    <Button
+                      variant="contained"
+                      startIcon={<AddPhotoAlternateIcon />}
+                      onClick={() => setOpenUploadModal(true)}
+                      sx={{ 
+                        bgcolor: '#2596be',
+                        '&:hover': { bgcolor: '#1e7a9b' }
+                      }}
+                    >
+                      Agregar Imágenes
+                    </Button>
+                  )}
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Modal mensaje paciente mejorado */}
+          <Dialog 
+            open={openDialog} 
+            onClose={() => handleDialogClose(false)}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{
+              sx: {
+                borderRadius: 3,
+                boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+              }
+            }}
+          >
+            <DialogTitle sx={{ 
+              background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}>
+              <PhotoCameraIcon />
+              {esAsistente ? 'Notificar Reagendamiento' : 'Mensaje para el Paciente'}
+            </DialogTitle>
+            <DialogContent sx={{ p: 3 }}>
               <TextField
-                label="Escribe un mensaje"
+                label="Escribe un mensaje personalizado"
+                multiline
                 rows={4}
                 fullWidth
                 margin="normal"
-                multiline
                 name="mensajePaciente"
                 value={mensajePaciente}
                 onChange={(e) => setMensajePaciente(e.target.value)}
+                placeholder={esAsistente 
+                  ? "Ej: Hola, hemos reagendado tu cita para el..." 
+                  : "Ej: Hola, tu cita ha sido reagendada para el..."
+                }
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2
+                  }
+                }}
               />
             </DialogContent>
-            <DialogActions>
-              <Button onClick={() => handleDialogClose(true)} variant="contained" color="primary">
-                Confirmar
-              </Button>
-              <Button onClick={() => handleDialogClose(false)} variant="outlined" color="secondary">
+            <DialogActions sx={{ p: 3, gap: 1 }}>
+              <Button 
+                onClick={() => handleDialogClose(false)} 
+                variant="outlined"
+                sx={{ borderRadius: 2 }}
+              >
                 Cancelar
+              </Button>
+              <Button 
+                onClick={() => handleDialogClose(true)} 
+                variant="contained"
+                sx={{
+                  background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                  borderRadius: 2,
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)'
+                  }
+                }}
+              >
+                {esAsistente ? 'Reagendar y Notificar' : 'Enviar y Confirmar'}
               </Button>
             </DialogActions>
           </Dialog>
 
-          {/* Datos del paciente */}
-          <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
+          {/* Datos del paciente - Diseño mejorado */}
+          <Card 
+            className="info-card"
+            sx={{ 
+              mb: 3, 
+              borderRadius: 3,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
+            }}
+          >
             <CardHeader
-              avatar={<PersonIcon sx={{color:'#2596be'}} />}
-              title={<Typography variant="h6" fontWeight={600}>Datos del paciente</Typography>}
+              avatar={
+                <Avatar sx={{ bgcolor: '#10b981', width: 40, height: 40 }}>
+                  <PersonIcon />
+                </Avatar>
+              }
+              title={
+                <Typography variant="h6" fontWeight={600} color="text.primary">
+                  Información del Paciente
+                </Typography>
+              }
               action={
                 editSection === 'paciente' ? (
-                  <Box display="flex" gap={1}>
-                    <Tooltip title="Guardar">
-                      <IconButton onClick={handleSaveClick} sx={{ bgcolor: '#82e0aa', color: 'black' }}>
+                  <Stack direction="row" spacing={1}>
+                    <Tooltip title="Guardar cambios">
+                      <IconButton 
+                        onClick={handleSaveClick} 
+                        sx={{ 
+                          bgcolor: '#dcfce7', 
+                          color: '#16a34a',
+                          '&:hover': { bgcolor: '#bbf7d0' }
+                        }}
+                      >
                         <CheckIcon />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Cancelar">
-                      <IconButton onClick={handleCancelClick} sx={{ bgcolor: '#f1948a', color: 'black' }}>
+                      <IconButton 
+                        onClick={handleCancelClick} 
+                        sx={{ 
+                          bgcolor: '#fef2f2', 
+                          color: '#dc2626',
+                          '&:hover': { bgcolor: '#fee2e2' }
+                        }}
+                      >
                         <CloseIcon />
                       </IconButton>
                     </Tooltip>
-                  </Box>
+                  </Stack>
                 ) : (
-                  <Tooltip title="Editar datos del paciente">
-                    <IconButton onClick={() => handleEditClick('paciente')}>
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
+                  !esAsistente && (
+                    <Tooltip title="Editar información">
+                      <IconButton 
+                        onClick={() => handleEditClick('paciente')}
+                        sx={{ 
+                          bgcolor: '#f0f9ff',
+                          color: '#2596be',
+                          '&:hover': { bgcolor: '#e0f2fe' }
+                        }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )
                 )
               }
-              sx={{ pb: 0 }}
+              sx={{ pb: 1 }}
             />
-            <CardContent sx={{ pt: 1 }}>
-              <Stack spacing={1}>
-                <Typography variant="body1"><strong>Nombre:</strong> {event.paciente.nombre}</Typography>
-                <Box display="flex" gap={2}>
-                  <Typography variant="body1"><strong>Rut:</strong> {event.paciente.rut}</Typography>
-                  <Typography variant="body1"><strong>Celular:</strong> {event.paciente.telefono}</Typography>
-                </Box>
-                {editSection === 'paciente' ? (
-                  <>
-                    <TextField
-                      label="Celular (Ej: 912345678)"
-                      name="telefono"
-                      value={editableFields.telefono}
-                      onChange={handleFieldChange}
-                      fullWidth
-                      margin="dense"
-                    />
-                    <TextField
-                      label="E-mail"
-                      name="email"
-                      value={editableFields.email}
-                      onChange={handleFieldChange}
-                      fullWidth
-                      margin="dense"
-                    />
-                  </>
-                ) : (
-                  <Typography variant="body1"><strong>E-mail:</strong> {event.paciente.email}</Typography>
-                )}
-              </Stack>
+            <CardContent sx={{ pt: 0 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Paper 
+                    elevation={0} 
+                    sx={{ 
+                      p: 2, 
+                      bgcolor: '#f8fafc',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Nombre Completo
+                    </Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {event.paciente.nombre}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6}>
+                  <Paper 
+                    elevation={0} 
+                    sx={{ 
+                      p: 2, 
+                      bgcolor: '#f8fafc',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      RUT
+                    </Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {event.paciente.rut}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6}>
+                  <Paper 
+                    elevation={0} 
+                    sx={{ 
+                      p: 2, 
+                      bgcolor: '#f8fafc',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Teléfono
+                    </Typography>
+                    {editSection === 'paciente' ? (
+                      <TextField
+                        name="telefono"
+                        value={editableFields.telefono}
+                        onChange={handleFieldChange}
+                        size="small"
+                        fullWidth
+                        variant="outlined"
+                      />
+                    ) : (
+                      <Typography variant="body1" fontWeight={600}>
+                        {event.paciente.telefono}
+                      </Typography>
+                    )}
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Paper 
+                    elevation={0} 
+                    sx={{ 
+                      p: 2, 
+                      bgcolor: '#f8fafc',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Email
+                    </Typography>
+                    {editSection === 'paciente' ? (
+                      <TextField
+                        name="email"
+                        value={editableFields.email}
+                        onChange={handleFieldChange}
+                        size="small"
+                        fullWidth
+                        variant="outlined"
+                      />
+                    ) : (
+                      <Typography variant="body1" fontWeight={600}>
+                        {event.paciente.email || 'No especificado'}
+                      </Typography>
+                    )}
+                  </Paper>
+                </Grid>
+              </Grid>
             </CardContent>
           </Card>
 
-          {/* Detalles de la cita */}
-          <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
+          {/* Detalles de la cita - Diseño mejorado */}
+          <Card 
+            className="info-card"
+            sx={{ 
+              mb: 3, 
+              borderRadius: 3,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
+            }}
+          >
             <CardHeader
-              avatar={<ManageAccountsIcon sx={{color:'#2596be'}} />}
-              title={<Typography variant="h6" fontWeight={600}>Detalles de la cita</Typography>}
+              avatar={
+                <Avatar sx={{ bgcolor: '#8b5cf6', width: 40, height: 40 }}>
+                  <ManageAccountsIcon />
+                </Avatar>
+              }
+              title={
+                <Typography variant="h6" fontWeight={600} color="text.primary">
+                  Información de la Cita
+                </Typography>
+              }
               action={
                 editSection === 'cita' ? (
-                  <Box display="flex" gap={1}>
-                    <Tooltip title="Guardar">
-                      <IconButton onClick={handleSaveClick} sx={{ bgcolor: '#82e0aa', color: 'black' }}>
+                  <Stack direction="row" spacing={1}>
+                    <Tooltip title="Guardar cambios">
+                      <IconButton 
+                        onClick={handleSaveClick} 
+                        sx={{ 
+                          bgcolor: '#dcfce7', 
+                          color: '#16a34a',
+                          '&:hover': { bgcolor: '#bbf7d0' }
+                        }}
+                      >
                         <CheckIcon />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Cancelar">
-                      <IconButton onClick={handleCancelClick} sx={{ bgcolor: '#f1948a', color: 'black' }}>
+                      <IconButton 
+                        onClick={handleCancelClick} 
+                        sx={{ 
+                          bgcolor: '#fef2f2', 
+                          color: '#dc2626',
+                          '&:hover': { bgcolor: '#fee2e2' }
+                        }}
+                      >
                         <CloseIcon />
                       </IconButton>
                     </Tooltip>
-                  </Box>
+                  </Stack>
                 ) : (
-                  <Tooltip title="Editar cita">
-                    <IconButton onClick={() => handleEditClick('cita')}>
+                  <Tooltip title="Reagendar cita">
+                    <IconButton 
+                      onClick={() => handleEditClick('cita')}
+                      sx={{ 
+                        bgcolor: '#f0f9ff',
+                        color: '#2596be',
+                        '&:hover': { bgcolor: '#e0f2fe' }
+                      }}
+                    >
                       <EditIcon />
                     </IconButton>
                   </Tooltip>
                 )
               }
-              sx={{ pb: 0 }}
+              sx={{ pb: 1 }}
             />
-            <CardContent sx={{ pt: 1 }}>
+            <CardContent sx={{ pt: 0 }}>
               {editSection === 'cita' ? (
                 <Stack spacing={2}>
+                  {esAsistente && (
+                    <FormControl fullWidth>
+                      <InputLabel>Profesional</InputLabel>
+                      <Select
+                        name="profesional"
+                        value={profesionalSeleccionado?._id || ''}
+                        onChange={handleProfesionalChange}
+                      >
+                        {profesionalesSucursal.length > 0 ? (
+                          profesionalesSucursal.map((profesional) => (
+                            <MenuItem key={profesional._id} value={profesional._id}>
+                              {profesional.username}
+                            </MenuItem>
+                          ))
+                        ) : (
+                          <MenuItem disabled>
+                            No hay profesionales disponibles
+                          </MenuItem>
+                        )}
+                      </Select>
+                      {/* Debug info */}
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        Debug: {profesionalesSucursal.length} profesionales cargados
+                      </Typography>
+                    </FormControl>
+                  )}
                   <DatePicker
                     label="Fecha de Cita"
                     value={editableFields.fecha ? dayjs(editableFields.fecha) : null}
@@ -414,15 +1029,13 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     }}
                     shouldDisableDate={(date) => {
                       const dayName = diasSemana[date.day()];
-                      // Verifica si el día no es de trabajo
                       const noTrabaja = !diasDeTrabajo.includes(dayName);
-                      // Verifica si la fecha está en feriados (usando f.date)
                       const esFeriado = feriados.some(f => f.date && dayjs(f.date).isSame(date, 'day'));
                       return noTrabaja || esFeriado;
                     }}
-                    renderInput={(params) => <TextField {...params} fullWidth margin="dense" required />}
+                    renderInput={(params) => <TextField {...params} fullWidth />}
                   />
-                  <FormControl fullWidth margin="dense">
+                  <FormControl fullWidth>
                     <InputLabel>Hora de Cita</InputLabel>
                     <Select
                       name="hora"
@@ -436,98 +1049,443 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   </FormControl>
                 </Stack>
               ) : (
-                <Stack spacing={1}>
-                  <Box display="flex" gap={2}>
-                    <Typography variant="body1"><strong>Fecha:</strong> {event.start ? dayjs(event.start).format('DD/MM/YYYY') : ''}</Typography>
-                    <Typography variant="body1"><strong>Hora:</strong> {getInitialHour(event)} hrs.</Typography>
-                  </Box>
-                  <Typography variant="body1"><strong>Profesional:</strong> {event.profesional.username}</Typography>
-                </Stack>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: '#f8fafc',
+                        borderRadius: 2,
+                        border: '1px solid #e2e8f0'
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Fecha
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600}>
+                        {event.start ? dayjs(event.start).format('DD/MM/YYYY') : 'No especificada'}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                  
+                  <Grid item xs={6}>
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: '#f8fafc',
+                        borderRadius: 2,
+                        border: '1px solid #e2e8f0'
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Hora
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600}>
+                        {getInitialHour(event)} hrs.
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: '#f8fafc',
+                        borderRadius: 2,
+                        border: '1px solid #e2e8f0'
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Profesional
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600}>
+                        {event.profesional?.username || 'No asignado'}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                </Grid>
               )}
+              
               <Divider sx={{ my: 2 }} />
+              
               <Stack direction="row" spacing={2} alignItems="center">
-                <Chip icon={<HistoryEduIcon />} label={`N° Sesiones: ${event.historial.length}`} color="primary" variant="outlined" />
-                <Chip label={event.diagnostico || "Primera cita del paciente"} color={event.diagnostico ? "success" : "warning"} variant="outlined" />
+                <Chip 
+                  icon={<HistoryEduIcon />} 
+                  label={`${event.historial?.length || 0} Sesiones`} 
+                  color="primary" 
+                  variant="outlined"
+                  sx={{ fontWeight: 600 }}
+                />
+                <Chip 
+                  label={event.diagnostico || "Primera consulta"} 
+                  color={event.diagnostico ? "success" : "warning"} 
+                  variant="outlined"
+                  sx={{ fontWeight: 600 }}
+                />
               </Stack>
             </CardContent>
           </Card>
 
-          {/* Anamnesis */}
-          <Card sx={{ mb: 2, border: '2px solid #e3f2fd', boxShadow: 1 }}>
-            <CardHeader
-              avatar={<ListAltIcon sx={{color:'#2596be'}} />}
-              title={<Typography variant="h6" fontWeight={600}>Anamnesis</Typography>}
-              sx={{ pb: 0 }}
-            />
-            <CardContent sx={{ pt: 1 }}>
-              <Box
-                sx={{
-                  background: '#f8fafd',
-                  borderRadius: 2,
-                  minHeight: 120,
-                  boxShadow: '0 0 5px 0 rgba(0,0,0,0.05)',
-                  p: 1
-                }}
-              >
-                <ReactQuill value={event.anamnesis} readOnly theme="bubble" />
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Acciones flotantes */}
-          <Box
-            sx={{
-              position: 'sticky',
-              bottom: 0,
-              left: 0,
-              width: '100%',
-              background: 'rgba(255,255,255,0.95)',
-              borderRadius: 2,
-              boxShadow: 3,
-              mt: 2,
-              p: 2,
-              zIndex: 10
+          {/* Anamnesis - Diseño mejorado */}
+          <Card 
+            className="info-card"
+            sx={{ 
+              mb: 3, 
+              borderRadius: 3,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
             }}
           >
-            {event.historial.length === 0 && !event.diagnostico ? (
-              <Stack spacing={1} alignItems="center">
-                <Typography variant="body2" color="textSecondary">
-                  Nota: Es la primera cita con este paciente
+            <CardHeader
+              avatar={
+                <Avatar sx={{ bgcolor: '#f59e0b', width: 40, height: 40 }}>
+                  <ListAltIcon />
+                </Avatar>
+              }
+              title={
+                <Typography variant="h6" fontWeight={600} color="text.primary">
+                  Anamnesis
                 </Typography>
+              }
+              sx={{ pb: 1 }}
+            />
+            <CardContent sx={{ pt: 0 }}>
+              <Paper
+                elevation={0}
+                sx={{
+                  background: '#f8fafc',
+                  borderRadius: 2,
+                  minHeight: 120,
+                  border: '1px solid #e2e8f0',
+                  p: 2
+                }}
+              >
+                <ReactQuill 
+                  value={event.anamnesis || 'Sin información registrada'} 
+                  readOnly 
+                  theme="bubble"
+                  style={{ minHeight: '80px' }}
+                />
+              </Paper>
+            </CardContent>
+          </Card>
+          </Box>
+
+          {/* Panel de acciones fijo en la parte inferior */}
+          <Box 
+            sx={{
+              flexShrink: 0,
+              p: 1,
+              background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
+              borderTop: '1px solid #e2e8f0',
+              borderRadius: '0 0 12px 12px',
+              boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
+              position: 'fixed',
+              bottom: 0,
+              width: '34%',
+            }}
+          >
+            {esAsistente ? (
+              // Solo mostrar Ver Historial para asistentes
+              <Stack spacing={1.5} alignItems="center">
+                <Box textAlign="center">
+                  <Typography variant="subtitle1" color="text.primary" sx={{ mb: 0.5, fontWeight: 600 }}>
+                    Consulta de Información
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Como asistente, puedes consultar el historial del paciente
+                  </Typography>
+                </Box>
                 <Button
                   variant="contained"
                   fullWidth
-                  startIcon={<AddCircleOutlineIcon />}
-                  onClick={handleOpenModal}
-                  sx={{ fontWeight: 600, backgroundColor: '#2596be', color: 'white' }}
+                  size="medium"
+                  startIcon={<HistoryEduIcon />}
+                  onClick={handleOpenHistorialModal}
+                  sx={{ 
+                    fontWeight: 600,
+                    py: 1,
+                    background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
+                    boxShadow: '0 3px 10px rgba(139, 92, 246, 0.3)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)',
+                      boxShadow: '0 4px 15px rgba(139, 92, 246, 0.5)',
+                      transform: 'translateY(-1px)'
+                    },
+                    transition: 'all 0.3s ease'
+                  }}
                 >
-                  Registrar Ficha
+                  Ver Historial del Paciente
                 </Button>
               </Stack>
             ) : (
-              <Stack direction="row" spacing={2}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<AddCircleOutlineIcon />}
-                  onClick={handleOpenSesionModal}
-                  sx={{ fontWeight: 600, backgroundColor: '#2596be', color: 'white'  }}
-                >
-                  Agregar Sesión
-                </Button>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  fullWidth
-                  startIcon={<HistoryEduIcon />}
-                  onClick={handleOpenHistorialModal}
-                  sx={{ fontWeight: 600 }}
-                >
-                  Ver historial
-                </Button>
-              </Stack>
+              // Mostrar botones normales para profesionales
+              ((!event.historial || event.historial.length === 0) && !event.diagnostico && !event.anamnesis) ? (
+                <Stack spacing={1.5} alignItems="center">
+                  <Box textAlign="center">
+                    <Typography variant="subtitle1" color="text.primary" sx={{ mb: 0.5, fontWeight: 600 }}>
+                      Primera Consulta
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Registra la información inicial del paciente
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="medium"
+                    startIcon={<AddCircleOutlineIcon />}
+                    onClick={handleOpenModal}
+                    sx={{ 
+                      fontWeight: 600,
+                      py: 1,
+                      background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                      boxShadow: '0 3px 10px rgba(37, 150, 190, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)',
+                        boxShadow: '0 4px 15px rgba(37, 150, 190, 0.5)',
+                        transform: 'translateY(-1px)'
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    Registrar Ficha Inicial
+                  </Button>
+                </Stack>
+              ) : (
+                <Stack direction="row" spacing={1.5}>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="medium"
+                    startIcon={<AddCircleOutlineIcon />}
+                    onClick={handleOpenSesionModal}
+                    sx={{ 
+                      fontWeight: 600,
+                      py: 1,
+                      background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                      boxShadow: '0 3px 10px rgba(37, 150, 190, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)',
+                        boxShadow: '0 4px 15px rgba(37, 150, 190, 0.5)',
+                        transform: 'translateY(-1px)'
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    Agregar Sesión
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    size="medium"
+                    startIcon={<HistoryEduIcon />}
+                    onClick={handleOpenHistorialModal}
+                    sx={{ 
+                      fontWeight: 600,
+                      py: 1,
+                      borderColor: '#8b5cf6',
+                      color: '#8b5cf6',
+                      '&:hover': {
+                        borderColor: '#7c3aed',
+                        backgroundColor: '#faf5ff',
+                        transform: 'translateY(-1px)'
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    Ver Historial
+                  </Button>
+                </Stack>
+              )
             )}
           </Box>
+
+          {/* Modal para subir imágenes */}
+          <Modal
+            open={openUploadModal}
+            onClose={() => setOpenUploadModal(false)}
+            aria-labelledby="upload-modal-title"
+          >
+            <Fade in={openUploadModal}>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: { xs: '90%', sm: 500 },
+                  bgcolor: 'background.paper',
+                  borderRadius: 3,
+                  boxShadow: 24,
+                  p: 3
+                }}
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                  <Typography id="upload-modal-title" variant="h6" fontWeight={600}>
+                    Agregar Imágenes del Paciente
+                  </Typography>
+                  <IconButton 
+                    onClick={() => setOpenUploadModal(false)}
+                    size="small"
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                </Box>
+
+                <Box
+                  {...getRootProps()}
+                  className={isDragActive ? 'dropzone-hover' : ''}
+                  sx={{
+                    border: '2px dashed #cbd5e1',
+                    borderRadius: 2,
+                    p: 4,
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    bgcolor: isDragActive ? '#f0f9ff' : '#f8fafc',
+                    borderColor: isDragActive ? '#2596be' : '#cbd5e1',
+                    '&:hover': {
+                      borderColor: '#2596be',
+                      bgcolor: '#f0f9ff'
+                    }
+                  }}
+                >
+                  <input {...getInputProps()} />
+                  <CloudUploadIcon sx={{ fontSize: 48, color: '#94a3b8', mb: 2 }} />
+                  <Typography variant="h6" color="text.primary" sx={{ mb: 1 }}>
+                    {isDragActive ? 'Suelta las imágenes aquí' : 'Arrastra imágenes aquí'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    o haz clic para seleccionar archivos
+                  </Typography>
+                  <Chip 
+                    label="JPG, PNG, GIF, WEBP" 
+                    variant="outlined" 
+                    size="small"
+                    color="primary"
+                  />
+                </Box>
+
+                {uploadFiles.length > 0 && (
+                  <Box mt={3}>
+                    <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                      Archivos seleccionados ({uploadFiles.length}):
+                    </Typography>
+                    <Stack spacing={1} sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                      {uploadFiles.map((file, index) => (
+                        <Paper 
+                          key={index} 
+                          elevation={0}
+                          sx={{ 
+                            p: 2, 
+                            bgcolor: '#f8fafc',
+                            border: '1px solid #e2e8f0'
+                          }}
+                        >
+                          <Stack direction="row" alignItems="center" spacing={2}>
+                            <ImageIcon color="primary" />
+                            <Box flex={1}>
+                              <Typography variant="body2" fontWeight={500}>
+                                {file.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => {
+                      setUploadFiles([]);
+                      setOpenUploadModal(false);
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    onClick={handleUploadImages}
+                    disabled={uploadFiles.length === 0 || isUploading}
+                    startIcon={isUploading ? <Skeleton width={20} height={20} /> : <CloudUploadIcon />}
+                    sx={{
+                      background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)'
+                      }
+                    }}
+                  >
+                    {isUploading ? 'Subiendo...' : 'Subir Imágenes'}
+                  </Button>
+                </Stack>
+              </Box>
+            </Fade>
+          </Modal>
+
+          {/* Modal para ver imagen en grande */}
+          <Modal
+            open={openImageModal}
+            onClose={() => setOpenImageModal(false)}
+            aria-labelledby="image-modal"
+          >
+            <Fade in={openImageModal}>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  maxWidth: '90vw',
+                  maxHeight: '90vh',
+                  bgcolor: 'background.paper',
+                  borderRadius: 2,
+                  boxShadow: 24,
+                  p: 1
+                }}
+              >
+                <IconButton
+                  onClick={() => setOpenImageModal(false)}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    bgcolor: 'rgba(0,0,0,0.5)',
+                    color: 'white',
+                    '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+                {imagenes.length > 0 && (
+                  <Box
+                    component="img"
+                    src={`http://localhost:4000${imagenes[currentImageIndex]}`}
+                    alt={`Imagen ${currentImageIndex + 1}`}
+                    sx={{
+                      width: '100%',
+                      height: 'auto',
+                      maxHeight: '85vh',
+                      objectFit: 'contain',
+                      borderRadius: 1
+                    }}
+                  />
+                )}
+              </Box>
+            </Fade>
+          </Modal>
 
           {/* Modales */}
           <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} gapi={gapi} />

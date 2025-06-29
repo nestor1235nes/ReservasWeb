@@ -11,7 +11,10 @@ import {
   googleAuth,
   deleteBloqueHorario,
   registerUserOnly,
-  deleteUser
+  deleteUser,
+  addServicio,
+  deleteServicio,
+  updateServicio
 } from "../controllers/auth.controller.js";
 import { validateSchema } from "../middlewares/validator.middleware.js";
 import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
@@ -29,6 +32,9 @@ router.put("/:id", updatePerfil);
 router.put("/:id/timetable/:index", deleteBloqueHorario);
 router.post("/notifications/:id", updateNotifications);
 router.delete("/notifications/:id", deleteNotifications);
+router.post("/servicios/:id", addServicio);
+router.put("/servicios/:id/:index", updateServicio);
+router.delete("/servicios/:id/:index", deleteServicio);
 router.get("/", getAllProfiles);
 
 export default router;

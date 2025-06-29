@@ -25,6 +25,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import ModalPerfilProfesional from '../components/Surcursales/ModalPerfilProfesional';
 import PreviewIcon from '@mui/icons-material/Preview';
 import SincronizacionCalendarios from '../components/Modales/SincronizacionCalendarios';
+import ModalServicio from '../components/Modales/ModalServicio';
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const intervals = [10, 15, 30, 60];
@@ -290,13 +291,16 @@ const ScheduleEditor = ({ schedule, index, onChange, onSave, onCancel }) => {
 export function PerfilPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { user, updatePerfil, deleteBloqueHorario, esAdminSucursal } = useAuth();
+  const { user, updatePerfil, deleteBloqueHorario, esAdminSucursal, esAsistente, deleteServicio } = useAuth();
   const [tab, setTab] = useState(0);
   const [editProfileMode, setEditProfileMode] = useState(false);
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
   const { agregarProfesional, quitarProfesional } = useSucursal();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSyncOpen, setModalSyncOpen] = useState(false);
+  const [modalServicioOpen, setModalServicioOpen] = useState(false);
+  const [servicioEditing, setServicioEditing] = useState(null);
+  const [servicioEditingIndex, setServicioEditingIndex] = useState(null);
 
 
   const handleOpenPerfil = (profesional) => {
@@ -367,6 +371,35 @@ export function PerfilPage() {
     });
     setEditingScheduleIndex(formData.timetable.length);
   };
+
+  // Servicios
+  const handleAddServicio = () => {
+    setServicioEditing(null);
+    setServicioEditingIndex(null);
+    setModalServicioOpen(true);
+  };
+
+  const handleEditServicio = (servicio, index) => {
+    setServicioEditing(servicio);
+    setServicioEditingIndex(index);
+    setModalServicioOpen(true);
+  };
+
+  const handleDeleteServicio = async (index) => {
+    try {
+      await deleteServicio(index);
+    } catch (error) {
+      console.error('Error al eliminar servicio:', error);
+    }
+  };
+
+  const handleCloseModalServicio = () => {
+    setModalServicioOpen(false);
+    setServicioEditing(null);
+    setServicioEditingIndex(null);
+  };
+
+  // Horarios
   const handleEditSchedule = (index) => setEditingScheduleIndex(index);
   const handleDeleteSchedule = async (index) => {
     await deleteBloqueHorario(user.id || user._id, index);
@@ -471,12 +504,14 @@ export function PerfilPage() {
         }}
       >
         <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} color="white">
-          Mi Perfil Profesional
+          {esAsistente ? "Mi Perfil Personal" : "Mi Perfil Profesional"}
         </Typography>
         <Box display="flex" gap={1} flexWrap="wrap">
-          <Button startIcon={<PreviewIcon />} variant="contained" sx={{ background: 'white', color: 'black' }} onClick={() => setModalOpen(true)}>
-            Vista previa
-          </Button>
+          {!esAsistente && (
+            <Button startIcon={<PreviewIcon />} variant="contained" sx={{ background: 'white', color: '#2596be' }} onClick={() => setModalOpen(true)}>
+              Vista previa
+            </Button>
+          )}
           {editProfileMode ? (
             <>
               <Button
@@ -497,12 +532,12 @@ export function PerfilPage() {
               </Button>
             </>
           ) : (
-            (tab === 0 || tab === 1) && (
+            (esAsistente ? tab === 0 : (tab === 0 || tab === 1)) && (
               <Button
                 variant="contained"
                 startIcon={<ManageAccountsIcon />}
                 onClick={handleEditProfileClick}
-                sx={{ background: "white", color: "black" }}
+                sx={{ background: "white", color: "#2596be" }}
               >
                 Configurar perfil
               </Button>
@@ -529,9 +564,9 @@ export function PerfilPage() {
           aria-label="tabs"
         >
           <Tab label="Información Personal" />
-          <Tab label="Información Profesional" />
-          <Tab label="Horarios" />
-          <Tab label="Servicios" />
+          {!esAsistente && <Tab label="Información Profesional" />}
+          {!esAsistente && <Tab label="Horarios" />}
+          {!esAsistente && <Tab label="Servicios" />}
         </Tabs>
       </Box>
 
@@ -548,7 +583,7 @@ export function PerfilPage() {
                 boxShadow: 3,
                 borderColor: "#2596be",
               }, }}>
-            <CardHeader title="Foto de Perfil" subheader="Esta imagen será visible para tus pacientes" />
+            <CardHeader title="Foto de Perfil" subheader={esAsistente ? "Tu imagen de perfil personal" : "Esta imagen será visible para tus pacientes"} />
             <CardContent sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <Box mb={2}>
                 <FotoPerfil />
@@ -601,7 +636,7 @@ export function PerfilPage() {
       )}
 
       {/* Información Profesional */}
-      {tab === 1 && (
+      {!esAsistente && tab === 1 && (
         <Box display="flex" flexDirection={isMobile ? "column" : "row"} gap={3} flexWrap="wrap" mt={2}>
           <Card 
           sx={{ flex: 1,
@@ -728,7 +763,8 @@ export function PerfilPage() {
       )}
 
       {/* Horarios */}
-      {tab === 2 && (
+      {/* Horarios */}
+      {!esAsistente && tab === 2 && (
         <Box mt={2}>
           <Card sx={{ mb: 3 }}>
             <CardHeader
@@ -766,7 +802,7 @@ export function PerfilPage() {
                 <Typography variant="body2" color="textSecondary" mb={3}>
                   Agrega tu primer bloque de horarios para que los pacientes puedan agendar citas contigo.
                 </Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddSchedule} size="large">
+                <Button variant="contained" sx={{backgroundColor:'#2596be', color:'white'}} startIcon={<AddIcon />} onClick={handleAddSchedule} size="large">
                   Crear Primer Horario
                 </Button>
               </CardContent>
@@ -861,64 +897,240 @@ export function PerfilPage() {
       )}
 
       {/* Servicios */}
-      {tab === 3 && (
-        <Card sx={{ mt: 2, minWidth: isMobile ? "100%" : 400 }}>
-          <CardHeader
-            title="Servicios y Tarifas"
-            action={
-              <Button variant="contained" startIcon={<AddIcon />}>
-                Nuevo Servicio
-              </Button>
-            }
-            subheader="Define los servicios que ofreces y sus precios"
-          />
-          <CardContent>
-            <Stack spacing={2}>
-              {/* Ejemplo de servicio */}
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Box display="flex" flexDirection={isMobile ? "column" : "row"} justifyContent="space-between" alignItems={isMobile ? "flex-start" : "center"} gap={2}>
-                  <Typography fontWeight={600}>Primera consulta</Typography>
-                  <Stack direction="row" spacing={1}>
-                    <Button size="small" variant="outlined" startIcon={<EditIcon />}>Editar</Button>
-                    <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon />}>Eliminar</Button>
-                  </Stack>
+      {!esAsistente && tab === 3 && (
+        <Box mt={2}>
+          <Card sx={{ mb: 3 }}>
+            <CardHeader
+              title={
+                <Box display="flex" alignItems="center" gap={1}>
+                  <EditIcon sx={{color:'#2596be'}} />
+                  <Typography variant="h5" fontWeight={600}>
+                    Gestión de Servicios y Tarifas
+                  </Typography>
                 </Box>
-                <Stack direction={isMobile ? "column" : "row"} spacing={2} mt={1}>
-                  <Chip label="30 minutos" />
-                  <Chip label="$30.000" />
-                  <Chip icon={<PlaceIcon />} label="Presencial" />
-                  <Chip icon={<VideoCameraFrontIcon />} label="Telemedicina" />
-                </Stack>
-              </Paper>
-            </Stack>
-          </CardContent>
-        </Card>
+              }
+              subheader="Define los servicios que ofreces, sus precios y modalidades de atención para que los pacientes conozcan tu oferta."
+              action={
+                <Button 
+                  variant="contained" 
+                  startIcon={<AddIcon />}
+                  onClick={handleAddServicio}
+                  sx={{
+                    background: "#2596be",
+                    color: "white",
+                  }}
+                >
+                  Agregar Servicio
+                </Button>
+              }
+            />
+          </Card>
+          
+          {user.servicios && user.servicios.length === 0 ? (
+            <Card sx={{ textAlign: "center", py: 6 }}>
+              <CardContent>
+                <EditIcon sx={{ fontSize: 64, color: "text.secondary", mb: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                  No tienes servicios configurados
+                </Typography>
+                <Typography variant="body2" color="textSecondary" mb={3}>
+                  Agrega los servicios que ofreces para que los pacientes puedan conocer tus tarifas y modalidades de atención.
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  startIcon={<AddIcon />} 
+                  onClick={handleAddServicio} 
+                  size="large"
+                  sx={{backgroundColor:'#2596be', color:'white'}}
+                >
+                  Crear Primer Servicio
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Box>
+              {user.servicios.map((servicio, index) => (
+                <Card 
+                  key={index} 
+                  variant="outlined" 
+                  sx={{ 
+                    mb: 2,
+                    border: "2px solid #e3f2fd",
+                    "&:hover": {
+                      boxShadow: 3,
+                      borderColor: "#2596be",
+                    },
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  <CardContent sx={{ pb: 2 }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <EditIcon sx={{color:'#2596be'}} />
+                        <Typography variant="h6" fontWeight={600}>
+                          {servicio.tipo}
+                        </Typography>
+                      </Box>
+                      <Box display="flex" gap={1}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleEditServicio(servicio, index)} 
+                          sx={{ color: "#1976d2" }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleDeleteServicio(index)} 
+                          sx={{ color: "#d32f2f" }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                    
+                    {servicio.descripcion && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {servicio.descripcion}
+                      </Typography>
+                    )}
+                    
+                    <Box display="flex" flexWrap="wrap" gap={3}>
+                      <Box>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <AccessTimeIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="textSecondary">
+                            Duración:
+                          </Typography>
+                        </Box>
+                        <Chip label={servicio.duracion} size="small" color="primary" variant="outlined" />
+                      </Box>
+                      
+                      <Box>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Typography variant="body2" color="textSecondary">
+                            💰 Precio:
+                          </Typography>
+                        </Box>
+                        <Chip label={`$${servicio.precio}`} size="small" color="success" variant="outlined" />
+                      </Box>
+                      
+                      <Box>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Typography variant="body2" color="textSecondary">
+                            Modalidad:
+                          </Typography>
+                        </Box>
+                        <Chip 
+                          icon={
+                            servicio.modalidad.includes('Presencial') && servicio.modalidad.includes('Telemedicina') 
+                              ? <EditIcon /> 
+                              : servicio.modalidad.includes('Presencial') 
+                                ? <PlaceIcon /> 
+                                : <VideoCameraFrontIcon />
+                          } 
+                          label={servicio.modalidad} 
+                          size="small" 
+                          color="secondary" 
+                          variant="outlined" 
+                        />
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+          )}
+          
+          {/* Resumen de servicios */}
+          {user.servicios && user.servicios.length > 0 && (
+            <Card sx={{ mt: 3, background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
+              <CardContent>
+                <Typography variant="h6" color="white" gutterBottom>
+                  📋 Resumen de Servicios
+                </Typography>
+                <Box display="flex" flexWrap="wrap" gap={4}>
+                  <Box textAlign="center" flex={1}>
+                    <Typography variant="h4" color="white" fontWeight="bold">
+                      {user.servicios.length}
+                    </Typography>
+                    <Typography variant="body2" color="rgba(255,255,255,0.8)">
+                      Servicios disponibles
+                    </Typography>
+                  </Box>
+                  <Box textAlign="center" flex={1}>
+                    <Typography variant="h4" color="white" fontWeight="bold">
+                      ${Math.min(...user.servicios.map(s => parseInt(s.precio) || 0)).toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" color="rgba(255,255,255,0.8)">
+                      Precio mínimo
+                    </Typography>
+                  </Box>
+                  <Box textAlign="center" flex={1}>
+                    <Typography variant="h4" color="white" fontWeight="bold">
+                      {[...new Set(user.servicios.map(s => s.modalidad))].length}
+                    </Typography>
+                    <Typography variant="body2" color="rgba(255,255,255,0.8)">
+                      Modalidades únicas
+                    </Typography>
+                  </Box>
+                  <Box textAlign="center" flex={1}>
+                    <Typography variant="h4" color="white" fontWeight="bold">
+                      {Math.round(user.servicios.reduce((acc, s) => {
+                        const minutes = parseInt(s.duracion.match(/\d+/)?.[0]) || 60;
+                        return acc + minutes;
+                      }, 0) / user.servicios.length)}
+                    </Typography>
+                    <Typography variant="body2" color="rgba(255,255,255,0.8)">
+                      Duración promedio (min)
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
+        </Box>
       )}
 
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        aria-labelledby="modal-perfil-profesional"
-        aria-describedby="modal-detalle-profesional"
-      >
-        <Box>
-          <ModalPerfilProfesional
-            open={modalOpen}
-            onClose={() => setModalOpen(false)}
-            profesional={user}
-          />
+      {!esAsistente && (
+        <Modal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          aria-labelledby="modal-perfil-profesional"
+          aria-describedby="modal-detalle-profesional"
+        >
+          <Box>
+            <ModalPerfilProfesional
+              open={modalOpen}
+              onClose={() => setModalOpen(false)}
+              profesional={user}
+            />
+          </Box>
+        </Modal>
+      )}
+
+      {!esAsistente && (
+        <SincronizacionCalendarios
+          open={modalSyncOpen}
+          onClose={() => setModalSyncOpen(false)}
+          user={user}
+        />
+      )}
+
+      {!esAsistente && (
+        <Box mt={4}>
+          <PerfilMensajesAutomatizados />
         </Box>
-      </Modal>
+      )}
 
-      <SincronizacionCalendarios
-        open={modalSyncOpen}
-        onClose={() => setModalSyncOpen(false)}
-        user={user}
+      {/* Modal de Servicios */}
+      <ModalServicio
+        open={modalServicioOpen}
+        onClose={handleCloseModalServicio}
+        servicio={servicioEditing}
+        index={servicioEditingIndex}
+        isEditing={servicioEditing !== null}
       />
-
-      <Box mt={4}>
-        <PerfilMensajesAutomatizados />
-      </Box>
     </Box>
   );
 }

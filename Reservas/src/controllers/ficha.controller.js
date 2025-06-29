@@ -81,11 +81,32 @@ export const createPaciente = async (req, res) => {
             edad,
             email,
             estado: estado || "Pendiente",
-            eventId
+            eventId,
+            profesional: req.user.id, // Asignar el profesional que lo creó
+            diaPrimeraCita: new Date() // Siempre asignar la fecha actual como fecha de registro
             // No inicializar comportamiento aquí, se queda como array vacío por defecto
         });
 
         const pacienteGuardado = await newPaciente.save();
+
+        // Asociar el paciente al usuario logueado
+        const userId = req.user.id;
+        const user = await User.findById(userId);
+        
+        if (user.sucursal) {
+            // Si el usuario pertenece a una sucursal, agregar el paciente a la sucursal
+            await Sucursal.findByIdAndUpdate(
+                user.sucursal,
+                { $addToSet: { pacientes: pacienteGuardado._id } }
+            );
+        } else {
+            // Si es un profesional independiente, agregar el paciente al usuario
+            await User.findByIdAndUpdate(
+                userId,
+                { $addToSet: { pacientes: pacienteGuardado._id } }
+            );
+        }
+
         res.status(201).json(pacienteGuardado);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -116,7 +137,6 @@ export const updatePaciente = async (req, res) => {
             req.body.telefono = telefonoNormalizado;
         }
 
-        console.log('Datos a actualizar:', req.body);
         const updatedPaciente = await Paciente.findByIdAndUpdate(
             req.params.id, 
             req.body, 
@@ -151,7 +171,6 @@ export const getReservas = async (req, res) => {
         reservas = await Reserva.find({ profesional: userId })
           .populate('paciente')
           .populate('profesional');
-          console.log("Usuario profesional o administrador de sucursal:", reservas);
       }
     } else {
       // Profesional independiente (sin sucursal): solo sus reservas
@@ -199,9 +218,11 @@ export const createReserva = async (req, res) => {
             return res.status(404).json({ message: "Paciente not found" });
         }
 
+        // Usar el usuario autenticado como profesional
+        const profesionalId = req.body.profesional || req.user.id;
         
         // Buscar sucursal donde el profesional trabaja
-        const sucursal = await Sucursal.findOne({ profesionales: req.body.profesional });
+        const sucursal = await Sucursal.findOne({ profesionales: profesionalId });
 
         let sucursalId = null;
         if (sucursal) {
@@ -213,7 +234,7 @@ export const createReserva = async (req, res) => {
             }
         } else {
             // Profesional independiente: agregar paciente al profesional
-            const profesional = await User.findById(req.body.profesional);
+            const profesional = await User.findById(profesionalId);
             if (profesional && !profesional.pacientes.includes(paciente._id)) {
                 profesional.pacientes.push(paciente._id);
                 await profesional.save();
@@ -226,7 +247,7 @@ export const createReserva = async (req, res) => {
             siguienteCita: req.body.siguienteCita,
             hora: req.body.hora,
             mensajePaciente: req.body.mensajePaciente,
-            profesional: req.body.profesional,
+            profesional: profesionalId,
             diagnostico: req.body.diagnostico,
             anamnesis: req.body.anamnesis,
             historial: req.body.historial,
@@ -338,11 +359,6 @@ export const addHistorial = async (req, res) => {
         const fechaSesion = req.body.fecha ? new Date(req.body.fecha) : new Date();
         const siguienteCitaDate = req.body.siguienteCita ? new Date(req.body.siguienteCita) : null;
 
-        console.log('Fecha recibida:', req.body.fecha);
-        console.log('Fecha procesada:', fechaSesion);
-        console.log('SiguienteCita recibida:', req.body.siguienteCita);
-        console.log('SiguienteCita procesada:', siguienteCitaDate);
-
         const newHistorialEntry = {
             fecha: fechaSesion,
             notas: req.body.notas || '',
@@ -377,16 +393,26 @@ export const getPacientesUsuario = async (req, res) => {
     let pacientes = [];
     if (user.sucursal) {
         // Buscar pacientes de la sucursal
-        const sucursal = await Sucursal.findById(user.sucursal).populate('pacientes');
+        const sucursal = await Sucursal.findById(user.sucursal).populate({
+          path: 'pacientes',
+          populate: {
+            path: 'profesional',
+            select: 'username email'
+          }
+        });
         if (sucursal) {
             pacientes = sucursal.pacientes;
         }
     } else {
       // Buscar pacientes del profesional
-        const userWithPacientes = await User.findById(userId).populate('pacientes');
-        console.log("Usuario con pacientes:", userWithPacientes);
+        const userWithPacientes = await User.findById(userId).populate({
+          path: 'pacientes',
+          populate: {
+            path: 'profesional',
+            select: 'username email'
+          }
+        });
         pacientes = userWithPacientes.pacientes;
-        console.log("Pacientes del profesional:", pacientes);
 
     }
     res.json(pacientes);

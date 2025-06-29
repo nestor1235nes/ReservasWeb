@@ -15,7 +15,7 @@ const router = Router();
 router.get("/ficha/rut/:rut/", getPacientePorRut);
 router.get("/ficha", auth, getPacientes);
 router.get("/ficha/:id", getPaciente);
-router.post("/ficha", createPaciente);
+router.post("/ficha", auth, createPaciente);
 router.delete("/ficha/:id", deletePaciente);
 router.put("/ficha/:id", updatePaciente); // Cambiar de :rut a :id
 router.get("/pacientes-usuario", auth, getPacientesUsuario);
