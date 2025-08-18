@@ -164,6 +164,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         pacienteId = data._id;
       } else {
         // Crear nuevo paciente
+        console.log('Creando nuevo paciente:', patientData);
         const pacienteResponse = await createPaciente(patientData);
         console.log('Respuesta de createPaciente:', pacienteResponse);
         
@@ -180,15 +181,21 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         const necesitaReserva = agendarNuevaCita || tieneInformacionMedica;
         
         if (necesitaReserva) {
+          // Debug: Imprimir valores antes de crear la reserva
+          console.log('agendarNuevaCita:', agendarNuevaCita);
+          console.log('patientData.diaPrimeraCita:', patientData.diaPrimeraCita);
+          console.log('patientData.hora:', patientData.hora);
+          
           // Preparar datos de la reserva
           const reservaData = {
             ...dataToSave,
-            // Si agenda cita, usar la fecha seleccionada; si no, usar fecha actual como diaPrimeraCita
+            // diaPrimeraCita siempre es la fecha actual (cuando se registra)
             diaPrimeraCita: new Date().toISOString().split('T')[0],
-            siguienteCita: agendarNuevaCita ? patientData.siguienteCita : null,
+            // siguienteCita es la fecha seleccionada por el usuario si agenda cita
+            siguienteCita: agendarNuevaCita ? patientData.diaPrimeraCita : '',
             hora: agendarNuevaCita ? patientData.hora : null
           };
-          
+          console.log('Creando reserva con datos:', reservaData);
           await createReserva(patientData.rut, reservaData);
         }
       }

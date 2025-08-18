@@ -32,6 +32,7 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
+import PaymentIcon from '@mui/icons-material/Payment';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -43,6 +44,9 @@ import localeData from 'dayjs/plugin/localeData';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
+import PaymentButton from '../../pages/PaymentButton';
+import { getPaymentStatusRequest } from '../../api/payment';
+
 
 dayjs.extend(localeData);
 dayjs.locale('es');
@@ -67,6 +71,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const { getProfesionalesSucursal } = useSucursal();
   const showAlert = useAlert();
   const { user, obtenerHorasDisponibles } = useAuth();
+  const [paymentStatus, setPaymentStatus] = useState('not_initiated');
+
 
   // Estados existentes
   const [editSection, setEditSection] = useState(null);
@@ -111,6 +117,21 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
       setUploadFiles(acceptedFiles);
     }
   });
+
+  useEffect(() => {
+    const loadPaymentStatus = async () => {
+      if (event._id) {
+        try {
+          const response = await getPaymentStatusRequest(event._id);
+          setPaymentStatus(response.data.paymentStatus);
+        } catch (error) {
+          console.error('Error cargando estado de pago:', error);
+        }
+      }
+    };
+
+    loadPaymentStatus();
+  }, [event._id]);
 
   // Cargar profesionales de la sucursal si es asistente
   useEffect(() => {
@@ -1173,6 +1194,55 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
               </Paper>
             </CardContent>
           </Card>
+          <Card 
+    className="info-card"
+    sx={{ 
+      mb: 3, 
+      borderRadius: 3,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+      border: '1px solid #e2e8f0',
+      overflow: 'hidden'
+    }}
+  >
+    <CardHeader
+      avatar={
+        <Avatar sx={{ bgcolor: '#059669', width: 40, height: 40 }}>
+          <PaymentIcon />
+        </Avatar>
+      }
+      title={
+        <Typography variant="h6" fontWeight={600} color="text.primary">
+          Estado de Pago
+        </Typography>
+      }
+      sx={{ pb: 1 }}
+    />
+    <CardContent sx={{ pt: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <Typography variant="body2">Estado:</Typography>
+        <Chip 
+          label={
+            paymentStatus === 'completed' ? 'Pagado' :
+            paymentStatus === 'pending' ? 'Pendiente' :
+            paymentStatus === 'failed' ? 'Fallido' : 'Sin iniciar'
+          }
+          color={
+            paymentStatus === 'completed' ? 'success' :
+            paymentStatus === 'pending' ? 'warning' :
+            paymentStatus === 'failed' ? 'error' : 'default'
+          }
+          size="small"
+        />
+      </Box>
+
+      {paymentStatus !== 'completed' && !esAsistente && (
+        <PaymentButton 
+          reserva={event}
+          onPaymentSuccess={() => setPaymentStatus('completed')}
+        />
+      )}
+    </CardContent>
+  </Card>
           </Box>
 
           {/* Panel de acciones fijo en la parte inferior */}

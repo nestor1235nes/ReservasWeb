@@ -15,7 +15,12 @@ import {
   TextField,
   Modal,
   Snackbar,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress
 } from '@mui/material';
 import { CalendarToday, AccessTime, Search, Map as MapIcon } from '@mui/icons-material';
 import dayjs from 'dayjs';
@@ -28,6 +33,8 @@ import ApartmentIcon from '@mui/icons-material/Apartment';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import VideoCallIcon from '@mui/icons-material/VideoCall';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ModalPerfilProfesional from '../components/Surcursales/ModalPerfilProfesional';
 import ModalReservarCita from '../components/Surcursales/ModalReservarCita';
 import { getCalendarsSync } from '../api/calendarsync';
@@ -35,6 +42,7 @@ import { gapi } from 'gapi-script';
 import DescargarICSModal from '../components/Modales/DescargarICSModal';
 import { generateICS } from '../utils/icalendar';
 import { usePaciente } from '../context/pacienteContext';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 
 dayjs.locale('es');
@@ -54,6 +62,20 @@ export default function HomePage() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [icsModalOpen, setIcsModalOpen] = useState(false);
   const [icsData, setIcsData] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentResult, setPaymentResult] = useState(null);
+  useEffect(() => {
+    // If navigated here with payment result (from PaymentConfirmPage), show modal
+    if (location?.state?.paymentResult) {
+      setPaymentResult(location.state.paymentResult);
+      setPaymentDialogOpen(true);
+      // remove the state so refresh or back doesn't show it again
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
   useEffect(() => {
     const fetchData = async () => {
       const users = await getAllUsers();
@@ -524,6 +546,40 @@ export default function HomePage() {
         onClose={() => setIcsModalOpen(false)}
         onDescargar={handleDescargarICS}
       />
+      {/* Payment result dialog (shown after returning from Webpay) */}
+      <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>
+          {paymentResult?.success ? 'Pago Exitoso' : (paymentResult ? 'Pago Fallido' : 'Estado de Pago')}
+        </DialogTitle>
+        <DialogContent dividers>
+          {paymentResult ? (
+            paymentResult.success ? (
+              <Box textAlign="center">
+                <CheckCircleOutlineIcon color="success" sx={{ fontSize: 64 }} />
+                <Typography mt={2}>{paymentResult.message || 'El pago fue procesado correctamente.'}</Typography>
+                {paymentResult.transaction && (
+                  <Box mt={2} textAlign="left">
+                    <Typography variant="subtitle2">Detalles:</Typography>
+                    <Typography variant="body2">Código autorización: {paymentResult.transaction.authorization_code}</Typography>
+                    <Typography variant="body2">Monto: ${paymentResult.transaction.amount?.toLocaleString()}</Typography>
+                    <Typography variant="body2">Fecha: {new Date(paymentResult.transaction.transaction_date).toLocaleString()}</Typography>
+                  </Box>
+                )}
+              </Box>
+            ) : (
+              <Box textAlign="center">
+                <ErrorOutlineIcon color="error" sx={{ fontSize: 64 }} />
+                <Typography mt={2}>{paymentResult.message || 'Hubo un problema procesando el pago.'}</Typography>
+              </Box>
+            )
+          ) : (
+            <Box display="flex" alignItems="center" justifyContent="center" p={3}><CircularProgress /></Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPaymentDialogOpen(false)} variant="contained">Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

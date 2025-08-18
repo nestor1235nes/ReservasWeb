@@ -5,6 +5,7 @@ import { PacienteProvider } from "./context/pacienteContext";
 import { ReservaProvider } from "./context/reservaContext";
 import { AlertProvider } from './context/AlertContext';
 import { SucursalProvider } from "./context/sucursalContext";
+import { AnalyticsProvider } from "./context/analyticsContext";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { createTheme, ThemeProvider, CssBaseline, Box, IconButton, Drawer, useMediaQuery } from '@mui/material';
@@ -18,6 +19,8 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import PatientsPage from "./pages/PatientsPage";
+import GraphicsPage from "./pages/GraphicsPage";
+import PaymentConfirmPage from "./pages/PaymentConfirmPage";
 import { ProtectedRoute } from "./routes";
 import { PerfilPage } from "./pages/PerfilPage";
 import GestionarAsistentes from "./pages/Sucursales/GestionarAsistentes";
@@ -55,10 +58,11 @@ function AppContent() {
       <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <SucursalProvider>
-          <AuthProvider>
-            <AlertProvider>
-              <PacienteProvider>
-                <ReservaProvider>
+          <AnalyticsProvider>
+            <AuthProvider>
+              <AlertProvider>
+                <PacienteProvider>
+                  <ReservaProvider>
                   <Box display="flex" bgcolor="#e9f5f9" minHeight="100vh">
                     {/* Sidebar Desktop */}
                     {!hideSidebar && (
@@ -119,7 +123,10 @@ function AppContent() {
                           <Route path="/pacientes" element={<PatientsPage />} />
                           <Route path="/sucursal/asistentes" element={<GestionarAsistentes />} />
                           <Route path="/sucursal/profesionales" element={<GestionarProfesionales />} />
+                          <Route path="/reportes" element={<GraphicsPage />} />
                         </Route>
+                        {/* Ruta pública para confirmación de pago desde Webpay */}
+                        <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
                         {/* Agrega aquí más rutas si lo necesitas */}
                       </Routes>
                     </Box>
@@ -128,6 +135,7 @@ function AppContent() {
               </PacienteProvider>
             </AlertProvider>
           </AuthProvider>
+          </AnalyticsProvider>
         </SucursalProvider>
       </LocalizationProvider>
     </ThemeProvider>

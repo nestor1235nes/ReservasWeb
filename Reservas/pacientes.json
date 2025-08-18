@@ -1,0 +1,162 @@
+[
+  {
+    "nombre": "Ana López",
+    "rut": "12345678-9",
+    "telefono": "912345678",
+    "direccion": "Av. Siempre Viva 742",
+    "edad": "29",
+    "email": "ana.lopez@example.com",
+    "estado": "Confirmada",
+    "eventId": "evt_001",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-08-01T00:00:00Z",
+    "comportamiento": [
+      {
+        "asistencia": "Asistió y confirmó",
+        "fecha": "2025-08-01T10:00:00Z",
+        "cantidadCitas": 1,
+        "asistenciasTotales": 1,
+        "inasistenciasTotales": 0,
+        "reagendamientosTotales": 0,
+        "motivoInasistencia": "Otro"
+      }
+    ]
+  },
+  {
+    "nombre": "Carlos Pérez",
+    "rut": "11222333-4",
+    "telefono": "987654321",
+    "direccion": "Calle Falsa 123",
+    "edad": "35",
+    "email": "carlos.perez@example.com",
+    "estado": "Pendiente",
+    "eventId": "evt_002",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-07-20T00:00:00Z",
+    "comportamiento": []
+  },
+  {
+    "nombre": "Marcela Díaz",
+    "rut": "19283746-5",
+    "telefono": "956789123",
+    "direccion": "Pasaje Las Rosas 56",
+    "edad": "41",
+    "email": "marcela.diaz@example.com",
+    "estado": "Modificada",
+    "eventId": "evt_003",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-07-25T00:00:00Z",
+    "comportamiento": [
+      {
+        "asistencia": "No Asistió y reagendó",
+        "fecha": "2025-07-25T11:00:00Z",
+        "cantidadCitas": 2,
+        "asistenciasTotales": 1,
+        "inasistenciasTotales": 1,
+        "reagendamientosTotales": 1,
+        "motivoInasistencia": "Trabajo"
+      }
+    ]
+  },
+  {
+    "nombre": "José Ramírez",
+    "rut": "20938475-0",
+    "telefono": "976543210",
+    "direccion": "Av. Los Robles 80",
+    "edad": "50",
+    "email": "jose.ramirez@example.com",
+    "estado": "Cancelada",
+    "eventId": "evt_004",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-06-10T00:00:00Z",
+    "comportamiento": []
+  },
+  {
+    "nombre": "Valeria Soto",
+    "rut": "11335577-8",
+    "telefono": "923456789",
+    "direccion": "Camino al Mar 35",
+    "edad": "22",
+    "email": "valeria.soto@example.com",
+    "estado": "Confirmada",
+    "eventId": "evt_005",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-08-03T00:00:00Z",
+    "comportamiento": [
+      {
+        "asistencia": "Confirmó y no asistió",
+        "fecha": "2025-08-03T09:00:00Z",
+        "cantidadCitas": 1,
+        "asistenciasTotales": 0,
+        "inasistenciasTotales": 1,
+        "reagendamientosTotales": 0,
+        "motivoInasistencia": "Problemas personales"
+      }
+    ]
+  },
+  {
+    "nombre": "Fernando Araya",
+    "rut": "13579246-1",
+    "telefono": "968765432",
+    "direccion": "Av. Central 101",
+    "edad": "33",
+    "email": "fernando.araya@example.com",
+    "estado": "Pendiente",
+    "eventId": "evt_006",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-08-05T00:00:00Z",
+    "comportamiento": []
+  },
+  {
+    "nombre": "Luisa Contreras",
+    "rut": "10293847-6",
+    "telefono": "954321987",
+    "direccion": "Calle del Río 18",
+    "edad": "46",
+    "email": "luisa.contreras@example.com",
+    "estado": "Modificada",
+    "eventId": "evt_007",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-07-30T00:00:00Z",
+    "comportamiento": []
+  },
+  {
+    "nombre": "Ignacio Mena",
+    "rut": "12312312-3",
+    "telefono": "967891234",
+    "direccion": "Camino del Sol 202",
+    "edad": "39",
+    "email": "ignacio.mena@example.com",
+    "estado": "Confirmada",
+    "eventId": "evt_008",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-08-04T00:00:00Z",
+    "comportamiento": []
+  },
+  {
+    "nombre": "Beatriz Reyes",
+    "rut": "99887766-5",
+    "telefono": "958732145",
+    "direccion": "Pasaje Estrella 300",
+    "edad": "28",
+    "email": "beatriz.reyes@example.com",
+    "estado": "Pendiente",
+    "eventId": "evt_009",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-08-02T00:00:00Z",
+    "comportamiento": []
+  },
+  {
+    "nombre": "Tomás Herrera",
+    "rut": "55443322-1",
+    "telefono": "972345678",
+    "direccion": "Calle Los Álamos 777",
+    "edad": "31",
+    "email": "tomas.herrera@example.com",
+    "estado": "Cancelada",
+    "eventId": "evt_010",
+    "profesional": "64f64e36e1c79b531db9f57a",
+    "diaPrimeraCita": "2025-07-15T00:00:00Z",
+    "comportamiento": []
+  }
+]

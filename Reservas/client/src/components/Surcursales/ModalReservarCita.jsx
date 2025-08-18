@@ -16,6 +16,13 @@ import {
   Fade,
   IconButton
 } from '@mui/material';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemButton from '@mui/material/ListItemButton';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import PersonIcon from '@mui/icons-material/Person';
@@ -28,11 +35,12 @@ import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import Rutificador from '../Rutificador';
 import { getPacientePorRutRequest, createPacienteRequest } from '../../api/pacientes';
 import { createReservaRequest, updateReservaRequest } from '../../api/reservas';
+import { createPaymentRequest } from '../../api/payment';
 import { getReservasPorRutRequest } from '../../api/reservas';
 import dayjs from 'dayjs';
 
 
-const steps = ['Identificación', 'Datos de contacto', 'Confirmar'];
+const steps = ['Identificación', 'Datos de contacto', 'Servicios & Pago', 'Confirmar'];
 
 const style = {
   position: 'absolute',
@@ -56,6 +64,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [paciente, setPaciente] = useState({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
   const [error, setError] = useState('');
   const [proximaCita, setProximaCita] = useState(null); // Estado para la próxima cita
+  const [selectedService, setSelectedService] = useState(null);
+  const [selectedServiceIndex, setSelectedServiceIndex] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('presencial'); // 'presencial' | 'webpay'
 
   // Paso 1: Rutificador
   const handleRutValidated = async (rutIngresado) => {
@@ -113,7 +124,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       setError('Complete todos los campos obligatorios.');
       return;
     }
-    setError('');
+  setError('');
     if (activeStep === 1 && !paciente && !paciente._id) {
       setLoading(true);
       try {
@@ -125,6 +136,16 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       }
       setLoading(false);
     }
+    // Si vamos al paso de servicios, requerir selección si el profesional tiene servicios
+    if (activeStep === 2) {
+      // validated in UI when pressing next from services step; but keep default flow
+    }
+    // If moving from services step and webpay is selected, require a service selection
+    if (activeStep === 2 && paymentMethod === 'webpay' && (!selectedService)) {
+      setError('Seleccione un servicio para poder pagar con Webpay');
+      return;
+    }
+
     setActiveStep((prev) => prev + 1);
   };
 
@@ -153,27 +174,65 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
 
       // 2. Verificar si el paciente existe
       const res = await getPacientePorRutRequest(paciente.rut);
+      let pacienteId = paciente._id;
       if (res.data && res.data._id) {
-        // Paciente existe: actualizar reserva
+        pacienteId = res.data._id;
+        // Paciente existe: actualizar reserva por rut (mantener comportamiento previo si necesario)
         await updateReservaRequest(res.data.rut, reserva);
         const pacienteActualizado = { ...paciente, _id: res.data._id };
         setPaciente(pacienteActualizado);
-        onReserva(pacienteActualizado);
       } else {
-        // Paciente no existe: crear paciente y luego reserva
+        // Paciente no existe: crear paciente
         const response = await createPacienteRequest(paciente);
-        const pacienteActualizado = { ...paciente, _id: response.data._id };
-        setPaciente(pacienteActualizado);
-        await createReservaRequest(paciente.rut, reserva);
-        onReserva(pacienteActualizado);
+        pacienteId = response.data._id;
+        setPaciente({ ...paciente, _id: pacienteId });
       }
 
-      // 3. Llamar callback, limpiar y cerrar
-      setActiveStep(0);
-      setPaciente({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
-      setRut('');
-      setRutValido(false);
-      onClose();
+      // 3. Dependiendo método de pago: presencial -> guardar reserva y cerrar;
+      //    webpay -> crear reserva primero, luego solicitar transacción y redirigir a Webpay
+      if (paymentMethod === 'presencial') {
+        // Crear reserva normalmente
+        await createReservaRequest(paciente.rut, reserva);
+        onReserva({ ...paciente, _id: pacienteId });
+      } else if (paymentMethod === 'webpay') {
+        // Asegurarse que hay servicio seleccionado y precio
+        if (!selectedService) {
+          setError('Seleccione un servicio antes de proceder al pago');
+          setLoading(false);
+          return;
+        }
+
+        // Crear la reserva en estado pendiente en el backend
+        const createRes = await createReservaRequest(paciente.rut, reserva);
+        const reservaCreada = createRes.data; // asume que el endpoint devuelve la reserva creada
+        const reservaId = reservaCreada._id || reservaCreada.id;
+
+        // Iniciar transacción con backend
+  const amount = Number(selectedService.precio || selectedService.price || selectedService.monto || 0);
+        const paymentResp = await createPaymentRequest(reservaId, amount, paciente.rut);
+
+        // Redirigir a Webpay (form POST)
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = paymentResp.data.url;
+        const tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = 'token_ws';
+        tokenInput.value = paymentResp.data.token;
+        form.appendChild(tokenInput);
+        document.body.appendChild(form);
+        form.submit();
+        // No cerrar modal: la redirección llevará al frontend de vuelta a /payment/confirm
+      }
+
+      // 4. Si se guardó en presencial, limpiar y cerrar
+      if (paymentMethod === 'presencial') {
+        setActiveStep(0);
+        setPaciente({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
+        setRut('');
+        setRutValido(false);
+        onClose();
+      }
     } catch (e) {
       setError('Error al crear o actualizar la reserva');
     }
@@ -279,6 +338,48 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
               </Stack>
             )}
             {activeStep === 2 && (
+              <Stack spacing={2} alignItems="stretch" justifyContent="center" minHeight={200}>
+                <Typography fontWeight={600} color="#2596be">Servicios disponibles</Typography>
+                <Paper elevation={1} sx={{ p: 1, borderRadius: 2, background: '#fff' }}>
+                  <List>
+                    {(datosPreseleccionados.profesional?.servicios || []).length === 0 && (
+                      <ListItem>
+                        <ListItemText primary="Este profesional no tiene servicios definidos" />
+                      </ListItem>
+                    )}
+                    {(datosPreseleccionados.profesional?.servicios || []).map((s, idx) => (
+                      <ListItem key={s._id || idx} sx={{ borderRadius: 1, p: 0 }}>
+                        <ListItemButton
+                          selected={selectedServiceIndex === idx}
+                          onClick={() => { setSelectedService(s); setSelectedServiceIndex(idx); }}
+                          sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2 }}
+                        >
+                          <ListItemText
+                            primary={s.tipo || s.nombre || `Servicio ${idx + 1}`}
+                            secondary={s.descripcion}
+                          />
+                          <Typography fontWeight={600}>{s.precio ? `$${Number(s.precio).toLocaleString()}` : (s.price ? `$${Number(s.price).toLocaleString()}` : '-')}</Typography>
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Paper>
+                <Paper elevation={1} sx={{ p: 2, borderRadius: 2, background: '#f7fbfc' }}>
+                  <Typography fontWeight={600} mb={1}>Método de pago</Typography>
+                  <RadioGroup
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    <FormControlLabel value="presencial" control={<Radio />} label="Pagar presencialmente (en consulta)" />
+                    <FormControlLabel value="webpay" control={<Radio />} label="Pagar ahora con Webpay" />
+                  </RadioGroup>
+                  {paymentMethod === 'webpay' && (
+                    <Typography variant="caption" color="text.secondary">Serás redirigido a Webpay para completar el pago seguro.</Typography>
+                  )}
+                </Paper>
+              </Stack>
+            )}
+            {activeStep === 3 && (
               <Stack spacing={2} alignItems="center" justifyContent="center" minHeight={200}>
                 <Paper elevation={2} sx={{ width: '100%', p: 2, borderRadius: 2, background: '#f7fbfc' }}>
                   <Stack direction="row" alignItems="center" spacing={1} mb={1}>
@@ -346,6 +447,18 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                           Especialidad: {datosPreseleccionados.profesional?.especialidad || 'No seleccionado'}
                         </Typography>
                       </Stack>
+                      {selectedService && (
+                        <>
+                          <Divider sx={{ my: 1 }} />
+                          <Stack spacing={1}>
+                            <Typography variant="subtitle2" fontWeight={600} color="#2596be">Servicio seleccionado</Typography>
+                            <Typography variant="body2">{selectedService.tipo || selectedService.nombre}</Typography>
+                            <Typography variant="body2" color="text.secondary">{selectedService.descripcion}</Typography>
+                            <Typography variant="body2" fontWeight={700}>Monto: {selectedService.precio ? `$${Number(selectedService.precio).toLocaleString()}` : '-'}</Typography>
+                            <Typography variant="body2">Método de pago: {paymentMethod === 'webpay' ? 'Webpay' : 'Presencial'}</Typography>
+                          </Stack>
+                        </>
+                      )}
                     </Stack>
                   )}
                 </Paper>
