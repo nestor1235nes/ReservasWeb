@@ -25,6 +25,8 @@ import { ProtectedRoute } from "./routes";
 import { PerfilPage } from "./pages/PerfilPage";
 import GestionarAsistentes from "./pages/Sucursales/GestionarAsistentes";
 import GestionarProfesionales from "./pages/Sucursales/GestionarProfesionales";
+import Telemedicina from "./pages/Telemedicina";
+import PatientSession from "./pages/PatientSession";
 
 
 const theme = createTheme({
@@ -50,8 +52,12 @@ function AppContent() {
     start();
   }, []);
 
-  // Oculta sidebar y drawer en la ruta base "/"
-  const hideSidebar = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/register";
+  // Oculta sidebar y drawer en la ruta base "/" y en la vista pública de telemedicina para pacientes
+  const hideSidebar =
+    location.pathname === "/" ||
+    location.pathname === "/login" ||
+    location.pathname === "/register" ||
+    location.pathname.startsWith("/telemedicina/join");
 
   return (
     <ThemeProvider theme={theme}>
@@ -124,7 +130,9 @@ function AppContent() {
                           <Route path="/sucursal/asistentes" element={<GestionarAsistentes />} />
                           <Route path="/sucursal/profesionales" element={<GestionarProfesionales />} />
                           <Route path="/reportes" element={<GraphicsPage />} />
+                          <Route path="/telemedicina/:reservaId?" element={<Telemedicina />} />
                         </Route>
+                        <Route path="/telemedicina/join" element={<PatientSession />} />
                         {/* Ruta pública para confirmación de pago desde Webpay */}
                         <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
                         {/* Agrega aquí más rutas si lo necesitas */}

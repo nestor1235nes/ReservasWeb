@@ -8,3 +8,6 @@ export const getEstadisticasPorPeriodoRequest = async (periodo) =>
 
 export const getTendenciasMensualesRequest = async () => 
   axios.get('/analytics/tendencias-mensuales');
+
+export const getPagosMensualesRequest = async () =>
+  axios.get('/analytics/pagos-mensuales');

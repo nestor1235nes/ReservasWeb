@@ -2,7 +2,8 @@ import { createContext, useContext } from "react";
 import { 
   getEstadisticasGeneralesRequest, 
   getEstadisticasPorPeriodoRequest, 
-  getTendenciasMensualesRequest 
+  getTendenciasMensualesRequest,
+  getPagosMensualesRequest
 } from "../api/analytics";
 
 const AnalyticsContext = createContext();
@@ -45,11 +46,22 @@ export const AnalyticsProvider = ({ children }) => {
     }
   }
 
+  const getPagosMensuales = async () => {
+    try {
+      const response = await getPagosMensualesRequest();
+      return response;
+    } catch (error) {
+      console.error('Error obteniendo pagos mensuales:', error);
+      throw error;
+    }
+  }
+
   return (
     <AnalyticsContext.Provider value={{
       getEstadisticasGenerales,
       getEstadisticasPorPeriodo,
-      getTendenciasMensuales
+  getTendenciasMensuales,
+  getPagosMensuales
     }}>
       {children}
     </AnalyticsContext.Provider>

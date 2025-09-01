@@ -40,16 +40,19 @@ export default function GraphicsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { getEstadisticasGenerales, getEstadisticasPorPeriodo, getTendenciasMensuales } = useAnalytics();
+  const { getPagosMensuales } = useAnalytics();
   const { user } = useAuth();
   
   const [estadisticas, setEstadisticas] = useState(null);
   const [tendencias, setTendencias] = useState([]);
+  const [pagosMensuales, setPagosMensuales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [timeRange, setTimeRange] = useState('6months');
 
   useEffect(() => {
-    loadData();
+  loadData();
+  loadPagos();
   }, [timeRange]);
 
   const loadData = async () => {
@@ -66,6 +69,16 @@ export default function GraphicsPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPagos = async () => {
+    try {
+      const res = await getPagosMensuales();
+      setPagosMensuales(res.data || []);
+      console.log('Pagos mensuales cargados:', res.data);
+    } catch (err) {
+      console.error('Error cargando pagos mensuales', err);
     }
   };
 
@@ -132,6 +145,7 @@ export default function GraphicsPage() {
   const kpis = getKPIs();
   const estadoPacientesData = getEstadoPacientesData();
   const reservasPorMesData = getReservasPorMesData();
+  const pagosPorMesData = pagosMensuales.map(p => ({ mes: p.mes, amount: p.totalAmount }));
   const comportamientoData = getComportamientoPacientesData();
   const distribucionEdadData = getDistribucionEdadData();
 
@@ -153,9 +167,9 @@ export default function GraphicsPage() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
+      {/* Header (same style as TodayPage) */}
+      <Stack direction={isMobile ? "column" : "row"} justifyContent="space-between" alignItems={isMobile ? "stretch" : "center"} spacing={2} p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
+        <Typography variant="h5" fontWeight={700} color="white">
           Reportes y Analytics
         </Typography>
         <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -163,6 +177,7 @@ export default function GraphicsPage() {
           <Select
             value={timeRange}
             label="Período"
+            sx={{ background: "white", borderRadius: 1 }}
             onChange={(e) => setTimeRange(e.target.value)}
           >
             <MenuItem value="1month">1 mes</MenuItem>
@@ -171,6 +186,9 @@ export default function GraphicsPage() {
             <MenuItem value="1year">1 año</MenuItem>
           </Select>
         </FormControl>
+      </Stack>
+      <Box display="flex" justifyContent="flex-end" mt={2} mb={2}>
+        
       </Box>
 
       {/* KPIs Cards */}
@@ -348,6 +366,35 @@ export default function GraphicsPage() {
               />
             ) : (
               <Typography color="text.secondary">No hay datos disponibles</Typography>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Pagos por Mes */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, height: 400 }}>
+            <Typography variant="h6" mb={2} fontWeight="bold">
+              Pagos procesados (últimos 12 meses)
+            </Typography>
+            {pagosPorMesData.length > 0 ? (
+              <BarChart
+                xAxis={[{ 
+                  scaleType: 'band', 
+                  data: pagosPorMesData.map(d => String(d.mes)),
+                  labelStyle: { fontSize: 12 }
+                }]}
+                series={[
+                  {
+                    data: pagosPorMesData.map(d => d.amount),
+                    label: 'Monto (CLP)',
+                    color: theme.palette.success.main,
+                  },
+                ]}
+                height={300}
+                margin={{ left: 50, right: 50, top: 50, bottom: 100 }}
+              />
+            ) : (
+              <Typography color="text.secondary">No hay datos de pagos disponibles</Typography>
             )}
           </Paper>
         </Grid>

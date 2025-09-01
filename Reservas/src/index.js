@@ -1,3 +1,5 @@
+// Load environment variables from .env for local development
+import 'dotenv/config';
 import app from "./app.js";
 import { PORT } from "./config.js";
 import { connectDB } from "./db.js";

@@ -345,3 +345,67 @@ export const getTendenciasMensuales = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Obtener pagos completados por mes (últimos 12 meses)
+export const getPagosPorMes = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    let filtroBase = { paymentStatus: 'completed' };
+
+    if (user.sucursal) {
+      const sucursal = await Sucursal.findById(user.sucursal);
+      if (sucursal && sucursal.asistentes.some(a => a.equals(userId))) {
+        filtroBase.sucursal = sucursal._id;
+      } else {
+        filtroBase.profesional = userId;
+      }
+    } else {
+      filtroBase.profesional = userId;
+    }
+
+    // Últimos 12 meses
+    const ahora = new Date();
+    const hace12Meses = new Date(ahora.getFullYear() - 1, ahora.getMonth(), 1);
+
+    const reservas = await Reserva.find({
+      ...filtroBase,
+      updatedAt: { $gte: hace12Meses }
+    });
+
+    // Inicializar meses
+    const tendenciasPagos = {};
+    for (let i = 11; i >= 0; i--) {
+      const fecha = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
+      const mesKey = fecha.toISOString().substring(0, 7); // YYYY-MM
+      const mesNombre = fecha.toLocaleDateString('es-CL', { month: 'short', year: 'numeric' });
+      tendenciasPagos[mesKey] = { mes: mesNombre, totalAmount: 0, count: 0 };
+    }
+
+    reservas.forEach(reserva => {
+      // tomar la fecha del pago preferentemente desde paymentData.transactionDate, sino updatedAt
+      let fechaPago = null;
+      if (reserva.paymentData && reserva.paymentData.transactionDate) {
+        const d = new Date(reserva.paymentData.transactionDate);
+        if (!isNaN(d)) fechaPago = d;
+      }
+      if (!fechaPago && reserva.updatedAt) fechaPago = new Date(reserva.updatedAt);
+
+      if (fechaPago) {
+        const mesKey = fechaPago.toISOString().substring(0, 7);
+        if (tendenciasPagos[mesKey]) {
+          const amt = (reserva.paymentData && reserva.paymentData.amount) ? Number(reserva.paymentData.amount) : (reserva.paymentAmount || 0);
+          tendenciasPagos[mesKey].totalAmount += amt;
+          tendenciasPagos[mesKey].count += amt > 0 ? 1 : 0;
+        }
+      }
+    });
+
+    const resultado = Object.values(tendenciasPagos);
+    res.json(resultado);
+  } catch (error) {
+    console.error('Error obteniendo pagos por mes:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
