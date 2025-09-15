@@ -5,7 +5,6 @@ import {
 import { useAuth } from "../context/authContext";
 import { useSucursal } from "../context/sucursalContext";
 import FotoPerfil from "../components/FotoPerfil";
-import PerfilMensajesAutomatizados from "../components/PerfilMensajesAutomatizados";
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import EditCalendarIcon from '@mui/icons-material/EditCalendar';
 import AddIcon from '@mui/icons-material/Add';
@@ -26,6 +25,7 @@ import ModalPerfilProfesional from '../components/Surcursales/ModalPerfilProfesi
 import PreviewIcon from '@mui/icons-material/Preview';
 import SincronizacionCalendarios from '../components/Modales/SincronizacionCalendarios';
 import ModalServicio from '../components/Modales/ModalServicio';
+import MensajesAutomaticos from "../components/MensajesAutomaticos";
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const intervals = [10, 15, 30, 60];
@@ -321,7 +321,12 @@ export function PerfilPage() {
     cita_virtual: user.cita_virtual || false,
     email: user.email || "",
     timetable: normalizeTimetable(user.timetable),
-    adminAtiendePersonas: user.adminAtiendePersonas || false
+    adminAtiendePersonas: user.adminAtiendePersonas || false,
+    // Campos WhatsApp / Green API
+    idInstance: user.idInstance || "",
+    apiTokenInstance: user.apiTokenInstance || "",
+    defaultMessage: user.defaultMessage || "",
+    reminderMessage: user.reminderMessage || ""
   });
 
   // Handlers
@@ -330,6 +335,15 @@ export function PerfilPage() {
     // Detecta si cambió el valor del switch
     const prevValue = user.adminAtiendePersonas || false;
     const newValue = formData.adminAtiendePersonas || false;
+
+    // Validación básica credenciales Green API
+    const mensajesConfigurados = (formData.defaultMessage && formData.defaultMessage.trim() !== '') || (formData.reminderMessage && formData.reminderMessage.trim() !== '');
+    if (mensajesConfigurados) {
+      if (!formData.idInstance || !formData.apiTokenInstance) {
+        alert('Para guardar mensajes automáticos necesitas ID Instance y API Token de Green API.');
+        return;
+      }
+    }
 
     await updatePerfil(user.id || user._id, formData);
 
@@ -355,7 +369,12 @@ export function PerfilPage() {
       cita_presencial: user.cita_presencial || false,
       cita_virtual: user.cita_virtual || false,
       email: user.email || "",
-      timetable: normalizeTimetable(user.timetable)
+      timetable: normalizeTimetable(user.timetable),
+      adminAtiendePersonas: user.adminAtiendePersonas || false,
+      idInstance: user.idInstance || "",
+      apiTokenInstance: user.apiTokenInstance || "",
+      defaultMessage: user.defaultMessage || "",
+      reminderMessage: user.reminderMessage || ""
     });
     setEditProfileMode(false);
   };
@@ -567,6 +586,7 @@ export function PerfilPage() {
           {!esAsistente && <Tab label="Información Profesional" />}
           {!esAsistente && <Tab label="Horarios" />}
           {!esAsistente && <Tab label="Servicios" />}
+          <Tab label="Mensajes" />
         </Tabs>
       </Box>
 
@@ -1117,10 +1137,14 @@ export function PerfilPage() {
         />
       )}
 
-      {!esAsistente && (
-        <Box mt={4}>
-          <PerfilMensajesAutomatizados />
-        </Box>
+      {/* Mensajes Automáticos */}
+      {!esAsistente && tab === 4 && (
+        <MensajesAutomaticos
+          formData={formData}
+          onChange={handleChange}
+          editProfileMode={editProfileMode}
+          isMobile={isMobile}
+        />
       )}
 
       {/* Modal de Servicios */}

@@ -252,6 +252,8 @@ export const createReserva = async (req, res) => {
             anamnesis: req.body.anamnesis,
             historial: req.body.historial,
             eventId: req.body.eventId,
+            modalidad: req.body.modalidad || 'Presencial', // Valor por defecto
+            servicio: req.body.servicio || 'Consulta', // Valor por defecto
         });
         
         if (sucursalId) {

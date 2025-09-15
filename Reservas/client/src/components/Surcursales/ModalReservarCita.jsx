@@ -169,6 +169,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           : '',
         hora: datosPreseleccionados.hora,
         modalidad: datosPreseleccionados.modalidad,
+        servicio: selectedService ? (selectedService._id || selectedService.id || selectedService.tipo || selectedService.nombre) : '',
         // Puedes agregar más campos si tu backend lo requiere
       };
 

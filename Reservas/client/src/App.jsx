@@ -27,6 +27,7 @@ import GestionarAsistentes from "./pages/Sucursales/GestionarAsistentes";
 import GestionarProfesionales from "./pages/Sucursales/GestionarProfesionales";
 import Telemedicina from "./pages/Telemedicina";
 import PatientSession from "./pages/PatientSession";
+import FrontUsers from "./pages/FrontUsers";
 
 
 const theme = createTheme({
@@ -57,6 +58,7 @@ function AppContent() {
     location.pathname === "/" ||
     location.pathname === "/login" ||
     location.pathname === "/register" ||
+    location.pathname === "/front-users" ||
     location.pathname.startsWith("/telemedicina/join");
 
   return (
@@ -122,6 +124,7 @@ function AppContent() {
                         <Route path="/" element={<HomePage />} />
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
+                        <Route path="/front-users" element={<FrontUsers />} />
                         <Route element={<ProtectedRoute />}>
                           <Route path="/calendario" element={<CalendarioPage />} />
                           <Route path="/hoy" element={<TodayPage />} />
@@ -135,7 +138,7 @@ function AppContent() {
                         <Route path="/telemedicina/join" element={<PatientSession />} />
                         {/* Ruta pública para confirmación de pago desde Webpay */}
                         <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
-                        {/* Agrega aquí más rutas si lo necesitas */}
+                        
                       </Routes>
                     </Box>
                   </Box>

@@ -20,6 +20,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
+  const primary = '#2596be';
+
   const onSubmit = (data) => signin(data);
 
   useEffect(() => {
@@ -58,15 +60,20 @@ export function LoginPage() {
   };
 
   return (
-    <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-      <Card sx={{ maxWidth: 400, width: '100%', padding: 2 }}>
-        <CardContent>
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: 'linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%)', p: 2 }}>
+      <Card sx={{ maxWidth: 420, width: '100%', borderRadius: 2, boxShadow: 6 }}>
+        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+            <Typography variant="h5" component="div" fontWeight={800}>
+              Iniciar sesión
+            </Typography>
+            <img src="/vite.svg" alt="logo" style={{ width: 36, height: 36 }} />
+          </Box>
+
           {loginErrors.map((error, i) => (
-            <Alert severity="error" key={i}>{error}</Alert>
+            <Alert severity="error" key={i} sx={{ mb: 2 }}>{error}</Alert>
           ))}
-          <Typography variant="h5" component="div" gutterBottom>
-            Iniciar sesión
-          </Typography>
+
           <form onSubmit={handleSubmit(onSubmit)}>
             <TextField
               label="Correo electrónico"
@@ -77,6 +84,7 @@ export function LoginPage() {
               {...register("email", { required: true })}
               error={!!errors.email}
               helperText={errors.email?.message}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
             />
             <TextField
               label="Contraseña"
@@ -87,19 +95,27 @@ export function LoginPage() {
               {...register("password", { required: true, minLength: 6 })}
               error={!!errors.password}
               helperText={errors.password?.message}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
             />
-            <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 2 }}>
+
+            <Button type="submit" variant="contained" fullWidth sx={{ mt: 2, backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' }, py: 1.5, fontWeight: 700 }}>
               Iniciar sesión
             </Button>
           </form>
-          {/*<Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleClickOpen}>
-            Iniciar sesión con Google
-          </Button>*/}
+
+          {/*
+            Mantengo el código comentado tal cual lo pediste. No se eliminó nada de lo comentado.
+            <Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleClickOpen}>
+              Iniciar sesión con Google
+            </Button>
+          */}
+
           <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-            ¿No tienes una cuenta? <Link to="/register" style={{ color: '#1976d2' }}>Regístrate</Link>
+            ¿No tienes una cuenta? <Link to="/register" style={{ color: primary, fontWeight: 700 }}>Regístrate</Link>
           </Typography>
         </CardContent>
       </Card>
+
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>Confirmación</DialogTitle>
         <DialogContent>
@@ -108,10 +124,10 @@ export function LoginPage() {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} sx={{ backgroundColor:'secondary.main', color: 'white' }}>
+          <Button onClick={handleClose} sx={{ backgroundColor: 'secondary.main', color: 'white' }}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} sx={{ backgroundColor:'primary.main', color: 'white' }}>
+          <Button onClick={handleConfirm} sx={{ backgroundColor: 'primary.main', color: 'white' }}>
             Confirmar
           </Button>
         </DialogActions>

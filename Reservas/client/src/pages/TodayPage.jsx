@@ -30,6 +30,8 @@ import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import { useReserva } from "../context/reservaContext";
+import { usePaciente } from "../context/pacienteContext";
+import { useAlert } from "../context/AlertContext";
 import DespliegueEventos from "../components/PanelDespliegue/DespliegueEventos";
 
 const statusMap = {
@@ -38,16 +40,19 @@ const statusMap = {
   cancelada: { color: "error", label: "Cancelada", icon: <CancelIcon fontSize="small" /> }
 };
 
-function AppointmentCard({ reserva, onClick }) {
+function AppointmentCard({ reserva, onClick, onChangeEstado }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
+  console.log('Renderizando AppointmentCard para reserva:', reserva);
 
   const tipoAtencionIcon =
     reserva.tipoAtencion === "Telemedicina" ? <VideocamIcon fontSize="small" sx={{ mr: 0.5 }} /> :
     reserva.tipoAtencion === "Presencial" ? <PlaceIcon fontSize="small" sx={{ mr: 0.5 }} /> : null;
 
-  const status = statusMap[reserva.estado] || statusMap.pendiente;
+  // Leer estado desde reserva.estado o desde el paciente (backend guarda en paciente.estado)
+  const estadoRaw = (reserva.estado || reserva.paciente?.estado || '').toString();
+  const status = statusMap[estadoRaw.toLowerCase()] || statusMap.pendiente;
 
   return (
     <Card
@@ -95,11 +100,20 @@ function AppointmentCard({ reserva, onClick }) {
                 />
                 <Chip
                   icon={tipoAtencionIcon}
-                  label={reserva.tipoAtencion}
+                  label={reserva.tipoAtencion || reserva.modalidad || 'Desconocida'}
                   size="small"
                   variant="outlined"
                   color="info"
                 />
+                {/* Mostrar modalidad si existe como chip adicional */}
+                {reserva.modalidad && reserva.modalidad !== reserva.tipoAtencion && (
+                  <Chip
+                    label={reserva.modalidad}
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                  />
+                )}
               </Stack>
             </Box>
             <Stack direction="row" alignItems="center" spacing={1}>
@@ -110,6 +124,26 @@ function AppointmentCard({ reserva, onClick }) {
                 size="small"
                 sx={{ fontWeight: 600 }}
               />
+              {/* Menu para cambiar estado */}
+              <IconButton
+                size="small"
+                onClick={(e) => { e.stopPropagation(); handleMenuOpen(e); }}
+                aria-controls={anchorEl ? 'estado-menu' : undefined}
+                aria-haspopup="true"
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+              <Menu
+                id="estado-menu"
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={(e) => { e.stopPropagation(); handleMenuClose(); }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MenuItem onClick={() => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'confirmada'); }}>Confirmar</MenuItem>
+                <MenuItem onClick={() => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'pendiente'); }}>Marcar Pendiente</MenuItem>
+                <MenuItem onClick={() => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'cancelada'); }}>Cancelar</MenuItem>
+              </Menu>
             </Stack>
           </Stack>
           <Stack direction="row" alignItems="center" mt={2}>
@@ -123,6 +157,14 @@ function AppointmentCard({ reserva, onClick }) {
               <Typography variant="caption" color="text.secondary">
                 {reserva.paciente?.email}
               </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                {reserva.paciente?.rut ? `RUT: ${reserva.paciente.rut}` : ''}
+              </Typography>
+              {reserva.profesional?.username && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  Profesional: {reserva.profesional.username}
+                </Typography>
+              )}
             </Box>
           </Stack>
         </Box>
@@ -133,6 +175,8 @@ function AppointmentCard({ reserva, onClick }) {
 
 export default function TodayPage() {
   const { getReservas } = useReserva();
+  const { updatePaciente } = usePaciente();
+  const showAlert = useAlert();
   const [reservas, setReservas] = useState([]);
   const [tab, setTab] = useState(0);
   const theme = useTheme();
@@ -156,10 +200,16 @@ export default function TodayPage() {
   }, [getReservas]);
 
   // Filtrado por estado
+  const getEstadoNormalized = (r) => {
+    const raw = (r.estado || r.paciente?.estado || '') || '';
+    return raw.toString().toLowerCase().trim();
+  };
+
   const filtered = reservas.filter(r => {
     if (tab === 0) return true;
-    if (tab === 1) return r.estado === "confirmada";
-    if (tab === 2) return r.estado === "pendiente";
+    const estado = getEstadoNormalized(r);
+    if (tab === 1) return estado === 'confirmada' || estado === 'confirmado';
+    if (tab === 2) return estado === 'pendiente';
     return true;
   });
 
@@ -172,6 +222,22 @@ export default function TodayPage() {
     setSelectedEvent(reserva);
     setOpen(true);
   };
+
+  // Cambiar estado de la reserva/paciente
+  const handleChangeEstado = async (reserva, nuevoEstado) => {
+    try {
+      // Intentar actualizar el paciente (backend guarda estado en paciente.estado)
+      await updatePaciente(reserva.paciente._id, { estado: capitalizeEstado(nuevoEstado) });
+      showAlert('success', `Estado cambiado a ${capitalizeEstado(nuevoEstado)}`);
+      // Refrescar lista
+      fetchReservasAgain();
+    } catch (error) {
+      console.error('Error cambiando estado:', error);
+      showAlert('error', 'No fue posible cambiar el estado.');
+    }
+  };
+
+  const capitalizeEstado = (s) => s ? (s.charAt(0).toUpperCase() + s.slice(1)) : s;
 
   const handleCloseDrawer = () => {
     setOpen(false);
@@ -232,7 +298,7 @@ export default function TodayPage() {
                 </Typography>
               ) : (
                 morning.map(reserva => (
-                  <AppointmentCard key={reserva._id} reserva={reserva} onClick={() => handleCardClick(reserva)} />
+                  <AppointmentCard key={reserva._id} reserva={reserva} onClick={() => handleCardClick(reserva)} onChangeEstado={handleChangeEstado} />
                 ))
               )}
             </Box>
@@ -246,7 +312,7 @@ export default function TodayPage() {
                 </Typography>
               ) : (
                 afternoon.map(reserva => (
-                  <AppointmentCard key={reserva._id} reserva={reserva} onClick={() => handleCardClick(reserva)} />
+                  <AppointmentCard key={reserva._id} reserva={reserva} onClick={() => handleCardClick(reserva)} onChangeEstado={handleChangeEstado} />
                 ))
               )}
             </Box>

@@ -123,6 +123,7 @@ export default function HomePage() {
   
 
   const handleAbrirReserva = (prof, seleccion) => {
+    console.log('Abriendo modal de reserva con datos:', { prof, seleccion });
     setDatosPreseleccionados({
       profesional: prof,
       fecha: seleccion[prof._id]?.fecha,
@@ -134,6 +135,7 @@ export default function HomePage() {
 
   const handleReservaFinalizada = async (paciente, error = null) => {
     setModalReservaOpen(false);
+    console.log('Reset seleccion after reserva:', seleccion);
     setSeleccion(prev => {
       const updated = { ...prev };
       Object.keys(updated).forEach(key => {

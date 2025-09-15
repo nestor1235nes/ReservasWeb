@@ -104,7 +104,7 @@ const SlideBar = ({ selected, onSelect }) => {
       }}
     >
       <Typography variant="h6" color="#2596be" fontWeight="bold" mb={3}>
-        VidaYa
+        Sessionly
       </Typography>
       <Divider sx={{ mb: 2 }} />
       <List>

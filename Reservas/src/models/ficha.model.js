@@ -35,6 +35,9 @@ const ReservasSchema = new mongoose.Schema({
     modalidad: {
         type: String,
     },
+    servicio: {
+        type: String,
+    },
     sucursal: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sucursal',
