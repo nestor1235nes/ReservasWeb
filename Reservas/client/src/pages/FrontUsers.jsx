@@ -78,7 +78,7 @@ export default function FrontUsers() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [slug]);
 
-	const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+	const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 	const getDiasDisponibles = (timetable) => [...new Set((timetable || []).flatMap(b => b.days || []))];
 	const esFeriado = (fecha) => feriados.some(f => f.date && dayjs(f.date).isSame(fecha, 'day'));
 
@@ -102,7 +102,7 @@ export default function FrontUsers() {
 		};
 
 		const shouldDisableDate = (date) => {
-			const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+			const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 			const dia = diasSemana[date.day()];
 			const diasDisponibles = getDiasDisponibles(prof?.timetable);
 			return !diasDisponibles.includes(dia) || esFeriado(date);

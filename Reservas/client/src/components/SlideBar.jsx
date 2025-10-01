@@ -65,6 +65,8 @@ const SlideBar = ({ selected, onSelect }) => {
       ...baseMenuItems.slice(0, 6),
       { label: 'Mi empresa', icon: <GiteIcon />, isEmpresa: true },
       baseMenuItems[6],
+      // Aseguramos que el botón "Cerrar sesión" aparezca al final del menú también para admin de sucursal
+      baseMenuItems[7],
     ];
   } else {
     menuItems = baseMenuItems;

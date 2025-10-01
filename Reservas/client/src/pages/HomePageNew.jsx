@@ -201,7 +201,7 @@ export default function HomePageNew() {
 			setIcsModalOpen(false);
 		};
 
-		const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+		const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 	return (
 		<Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>

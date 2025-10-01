@@ -235,7 +235,7 @@ export default function HomePage() {
     setIcsModalOpen(false);
   };
 
-  const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+  const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   return (
     <Box display="flex" flexDirection="column" minHeight="100vh">
