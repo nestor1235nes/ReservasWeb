@@ -8,7 +8,8 @@ import {
     getHistorial,
     addHistorial,
     getReservasPorRut, // Importar la nueva función
-    getReservasParaExportacion // Nueva función para exportación ICS
+    getReservasParaExportacion, // Nueva función para exportación ICS
+    publicCreateReserva
     
 } from "../controllers/ficha.controller.js";
 import { obtenerPacientesSinSesiones, getFeriados } from "../controllers/funciones.controller.js";
@@ -25,6 +26,8 @@ router.get("/reserva/:rut/historial", auth, getHistorial); // Aplica el middlewa
 router.post("/reserva/:rut/historial", auth, addHistorial); // Aplica el middleware de autenticación
 router.get("/reserva/:rut/todas", getReservasPorRut); // Nueva ruta para obtener todas las reservas de un paciente por RUT
 router.get("/reservas-exportacion", auth, getReservasParaExportacion); // Nueva ruta para obtener reservas del profesional para exportación ICS
+// Ruta pública para crear reserva desde enlace (sin autenticación)
+router.post("/public/reserva", publicCreateReserva);
 
 ////////////////////// Funciones //////////////////////
 router.get("/pacientes-sin-sesiones", auth, obtenerPacientesSinSesiones); // Aplica el middleware de autenticación

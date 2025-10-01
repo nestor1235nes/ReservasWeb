@@ -2,7 +2,7 @@ import User from "../models/user.model.js";
 import Sucursal from "../models/sucursal.model.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { TOKEN_SECRET, CLIENT_ID } from "../config.js";
+import { TOKEN_SECRET, CLIENT_ID, FRONTEND_URL } from "../config.js";
 import { createAccessToken } from "../libs/jwt.js";
 import { OAuth2Client } from 'google-auth-library';
 
@@ -179,6 +179,8 @@ export const register = async (req, res) => {
       direccion: userSaved.direccion,
       pacientes: userSaved.pacientes,
       adminAtiendePersonas: userSaved.adminAtiendePersonas,
+      miEnlace: userSaved.miEnlace,
+      bookingTemplate: userSaved.bookingTemplate,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -272,6 +274,8 @@ export const login = async (req, res) => {
       direccion: userFound.direccion,
       pacientes: userFound.pacientes,
       adminAtiendePersonas: userFound.adminAtiendePersonas,
+      miEnlace: userFound.miEnlace,
+      bookingTemplate: userFound.bookingTemplate,
 
     });
   } catch (error) {
@@ -312,6 +316,8 @@ export const verifyToken = async (req, res) => {
       direccion: userFound.direccion,
       pacientes: userFound.pacientes,
       adminAtiendePersonas: userFound.adminAtiendePersonas,
+      miEnlace: userFound.miEnlace,
+      bookingTemplate: userFound.bookingTemplate,
     });
   });
 };
@@ -549,3 +555,42 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 }
+
+// Genera y persiste un enlace público único para el usuario
+export const generarEnlace = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Si ya tiene enlace, devolverlo sin cambiar
+    if (user.miEnlace && user.miEnlace.trim() !== "") {
+      return res.json({ miEnlace: user.miEnlace });
+    }
+
+    // Construir un slug sencillo y único: nombre-normalizado-<shortid>
+    const slugBase = (user.username || "usuario").toString().toLowerCase().normalize("NFD").replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 40);
+    const shortId = user._id.toString().slice(-6);
+    const slug = `${slugBase}-${shortId}`;
+
+    const url = `${FRONTEND_URL}/front-users?u=${encodeURIComponent(slug)}`;
+    user.miEnlace = url;
+    user.slug = slug;
+    await user.save();
+
+    res.json({ miEnlace: user.miEnlace });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const user = await User.findOne({ slug }).populate('sucursal');
+    if (!user) return res.status(404).json({ message: 'No encontrado' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

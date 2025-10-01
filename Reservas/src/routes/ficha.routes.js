@@ -6,7 +6,8 @@ import {
     deletePaciente,
     updatePaciente,
     getPacientePorRut,
-    getPacientesUsuario
+    getPacientesUsuario,
+    publicCreatePaciente
 } from "../controllers/ficha.controller.js";
 import { auth } from "../middlewares/auth.middleware.js";
 
@@ -19,5 +20,8 @@ router.post("/ficha", auth, createPaciente);
 router.delete("/ficha/:id", deletePaciente);
 router.put("/ficha/:id", updatePaciente); // Cambiar de :rut a :id
 router.get("/pacientes-usuario", auth, getPacientesUsuario);
+
+// Rutas públicas para flujo de reservas desde enlace (sin autenticación)
+router.post("/public/ficha", publicCreatePaciente);
 
 export default router;

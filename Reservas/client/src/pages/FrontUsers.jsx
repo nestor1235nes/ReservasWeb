@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, useMediaQuery, IconButton, Drawer, List, ListItem, ListItemButton, ListItemText, Divider, ListItemIcon, Avatar, Chip } from '@mui/material';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, useMediaQuery, IconButton, Drawer, List, ListItem, ListItemButton, ListItemText, Divider, ListItemIcon, Avatar, Chip, Snackbar, Alert } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -10,23 +10,47 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import GroupsIcon from '@mui/icons-material/Groups';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import LoginModal from '../components/LoginModal';
 import LoginIcon from '@mui/icons-material/Login';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SecurityIcon from '@mui/icons-material/Security';
 import Ilustracion from '../assets/ilustracion4.png';
 import Logo from '../assets/logopng.png';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import { useAuth } from '../context/authContext';
+import { useReserva } from '../context/reservaContext';
+import { getUserBySlugRequest } from '../api/auth';
+import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
+import ModalReservarCita from '../components/Surcursales/ModalReservarCita';
+import Template1 from '../components/Templates/Template1';
+import Template2 from '../components/Templates/Template2';
+import Template3 from '../components/Templates/Template3';
+import { generateICS } from '../utils/icalendar';
 
 export default function FrontUsers() {
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 	const primary = '#2596be';
+	dayjs.locale('es');
 
 	const [loginOpen, setLoginOpen] = useState(false);
 	const [anchorEl, setAnchorEl] = useState(null);
 	const loginButtonRef = useRef(null);
 	const [mobileOpen, setMobileOpen] = useState(false);
+	const [searchParams] = useSearchParams();
+	const slug = searchParams.get('u');
+	const { obtenerHorasDisponibles } = useAuth();
+	const { getFeriados } = useReserva();
+	const [prof, setProf] = useState(null);
+	const [feriados, setFeriados] = useState([]);
+	const [seleccion, setSeleccion] = useState({ fecha: null, horasDisponibles: [], horaSeleccionada: undefined, modalidad: undefined });
+	const [modalReservaOpen, setModalReservaOpen] = useState(false);
+	const [datosPreseleccionados, setDatosPreseleccionados] = useState({});
+	const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
 	const features = [
 		{ icon: <CalendarTodayIcon />, title: 'Gestión de Agenda', description: 'Sincroniza tu calendario y libera horas en un clic.' },
@@ -37,6 +61,142 @@ export default function FrontUsers() {
 		{ icon: <GroupsIcon />, title: 'Perfiles profesionales', description: 'Destaca tu experiencia y servicios.' },
 	];
 
+	// Personalized booking: fetch professional by slug and feriados
+	useEffect(() => {
+		const load = async () => {
+			if (!slug) return;
+			try {
+				const res = await getUserBySlugRequest(slug);
+				setProf(res.data);
+				const fer = await getFeriados();
+				setFeriados(fer.data || []);
+			} catch (e) {
+				setProf(null);
+			}
+		};
+		load();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [slug]);
+
+	const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+	const getDiasDisponibles = (timetable) => [...new Set((timetable || []).flatMap(b => b.days || []))];
+	const esFeriado = (fecha) => feriados.some(f => f.date && dayjs(f.date).isSame(fecha, 'day'));
+
+	const handleFechaChange = async (fecha) => {
+		setSeleccion(prev => ({ ...prev, fecha, horasDisponibles: [], horaSeleccionada: undefined }));
+		if (fecha && prof?._id) {
+			const res = await obtenerHorasDisponibles(prof._id, dayjs(fecha).format('YYYY-MM-DD'));
+			setSeleccion(prev => ({ ...prev, fecha, horasDisponibles: res.times || [], horaSeleccionada: undefined }));
+		}
+	};
+
+		const handleAbrirReserva = () => {
+			setDatosPreseleccionados({
+				profesional: prof,
+				fecha: seleccion.fecha,
+				hora: seleccion.horaSeleccionada,
+				modalidad: seleccion.modalidad,
+				publicFlow: true,
+			});
+			setModalReservaOpen(true);
+		};
+
+		const shouldDisableDate = (date) => {
+			const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+			const dia = diasSemana[date.day()];
+			const diasDisponibles = getDiasDisponibles(prof?.timetable);
+			return !diasDisponibles.includes(dia) || esFeriado(date);
+		};
+
+	const handleReservaFinalizada = async (paciente, error = null) => {
+		setModalReservaOpen(false);
+		setSeleccion({ fecha: null, horasDisponibles: [], horaSeleccionada: undefined, modalidad: undefined });
+		setSnackbar({ open: true, message: error ? 'No se pudo crear la reserva. Intenta nuevamente.' : '¡Reserva realizada con éxito!', severity: error ? 'error' : 'success' });
+	};
+
+	// If slug present and prof loaded, render personalized booking view
+	if (slug && prof) {
+		const tpl = prof.bookingTemplate || 'template1';
+
+		// Template 2: perfil arriba, widget abajo
+			if (tpl === 'template2') {
+				return (
+					<>
+						<Template2
+							prof={prof}
+							seleccion={seleccion}
+							onFechaChange={handleFechaChange}
+							onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
+							onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
+							onReservar={handleAbrirReserva}
+							shouldDisableDate={shouldDisableDate}
+						/>
+						<ModalReservarCita open={modalReservaOpen} onClose={() => setModalReservaOpen(false)} onReserva={handleReservaFinalizada} datosPreseleccionados={datosPreseleccionados} />
+					</>
+				);
+			}
+
+		// Template 3: perfil ancho + widget sticky
+			if (tpl === 'template3') {
+				return (
+					<>
+						<Template3
+							prof={prof}
+							seleccion={seleccion}
+							onFechaChange={handleFechaChange}
+							onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
+							onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
+							onReservar={handleAbrirReserva}
+							shouldDisableDate={shouldDisableDate}
+						/>
+						<ModalReservarCita open={modalReservaOpen} onClose={() => setModalReservaOpen(false)} onReserva={handleReservaFinalizada} datosPreseleccionados={datosPreseleccionados} />
+					</>
+				);
+			}
+
+		// Template 1 (por defecto): panel izq perfil + derecha booking
+			return (
+				<>
+					<Template1
+						prof={prof}
+						seleccion={seleccion}
+						onFechaChange={handleFechaChange}
+						onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
+						onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
+						onReservar={handleAbrirReserva}
+						shouldDisableDate={shouldDisableDate}
+					/>
+					<ModalReservarCita
+						open={modalReservaOpen}
+						onClose={() => setModalReservaOpen(false)}
+						onReserva={handleReservaFinalizada}
+						datosPreseleccionados={datosPreseleccionados}
+					/>
+					<Snackbar
+						open={snackbar.open}
+						autoHideDuration={4000}
+						onClose={() => setSnackbar({ ...snackbar, open: false })}
+						anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+						sx={{ color: 'white' }}
+					>
+						<Alert
+							onClose={() => setSnackbar({ ...snackbar, open: false })}
+							severity={snackbar.severity}
+							sx={{
+								width: '100%',
+								color: 'white',
+								backgroundColor: snackbar.severity === 'error' ? '#f44336' : '#4caf50',
+								'& .MuiAlert-icon': { color: 'white' },
+							}}
+						>
+							{snackbar.message}
+						</Alert>
+					</Snackbar>
+				</>
+			);
+	}
+
+	// Default marketing page when no slug
 	return (
 		<Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f7fbfd' }}>
 			{/* Header (sticky like HomePageNew) */}

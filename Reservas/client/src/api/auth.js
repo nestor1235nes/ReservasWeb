@@ -28,3 +28,7 @@ export const addServicioRequest = async (id, servicioData) => axios.post(`/auth/
 export const updateServicioRequest = async (id, index, servicioData) => axios.put(`/auth/servicios/${id}/${index}`, servicioData);
 
 export const deleteServicioRequest = async (id, index) => axios.delete(`/auth/servicios/${id}/${index}`);
+
+// Generar enlace público del usuario
+export const generateEnlaceRequest = async (id) => axios.post(`/auth/${id}/generar-enlace`);
+export const getUserBySlugRequest = async (slug) => axios.get(`/auth/by-slug/${encodeURIComponent(slug)}`);

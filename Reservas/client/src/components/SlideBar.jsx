@@ -15,6 +15,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import VideoCallIcon from '@mui/icons-material/VideoCall';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import AddLinkIcon from '@mui/icons-material/AddLink';
 import LogoutIcon from '@mui/icons-material/Logout';
 import GiteIcon from '@mui/icons-material/Gite';
 import ExpandLess from '@mui/icons-material/ExpandLess';
@@ -32,6 +33,7 @@ const baseMenuItems = [
   { label: 'Telemedicina', icon: <VideoCallIcon />, path: '/telemedicina' },
   { label: 'Gráficos y Reportes', icon: <BarChartIcon />, path: '/reportes' },
   { label: 'Perfil', icon: <AccountCircleIcon />, path: '/perfil' },
+  { label: 'Mi Enlace', icon: <AddLinkIcon />, path: '/mi-enlace' },
   { label: 'Cerrar sesión', icon: <LogoutIcon />, logout: true },
 ];
 

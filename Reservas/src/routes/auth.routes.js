@@ -16,6 +16,8 @@ import {
   deleteServicio,
   updateServicio
 } from "../controllers/auth.controller.js";
+import { generarEnlace, getBySlug } from "../controllers/auth.controller.js";
+import { auth } from "../middlewares/auth.middleware.js";
 import { validateSchema } from "../middlewares/validator.middleware.js";
 import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
 
@@ -35,6 +37,10 @@ router.delete("/notifications/:id", deleteNotifications);
 router.post("/servicios/:id", addServicio);
 router.put("/servicios/:id/:index", updateServicio);
 router.delete("/servicios/:id/:index", deleteServicio);
+// Generar enlace público del usuario
+router.post("/:id/generar-enlace", auth, generarEnlace);
+// Obtener perfil público por slug (página de reservas personalizada)
+router.get("/by-slug/:slug", getBySlug);
 router.get("/", getAllProfiles);
 
 export default router;

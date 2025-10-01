@@ -480,3 +480,120 @@ export const getReservasParaExportacion = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Crear paciente desde flujo público (sin req.user)
+export const publicCreatePaciente = async (req, res) => {
+    try {
+        const { nombre, rut, telefono, direccion, edad, email, estado, eventId, profesional: profesionalId } = req.body;
+
+        if (!rut || !nombre || !profesionalId) {
+            return res.status(400).json({ message: "Datos insuficientes (rut, nombre y profesional requeridos)" });
+        }
+
+        // Si existe, devolver existente (idempotente)
+        const existente = await Paciente.findOne({ rut });
+        if (existente) {
+            return res.status(200).json(existente);
+        }
+
+        // Validar profesional
+        const profesional = await User.findById(profesionalId);
+        if (!profesional) {
+            return res.status(400).json({ message: "Profesional inválido" });
+        }
+
+        const telefonoNormalizado = normalizarTelefono(telefono);
+
+        const newPaciente = new Paciente({
+            nombre,
+            rut,
+            telefono: telefonoNormalizado,
+            direccion,
+            edad,
+            email,
+            estado: estado || "Pendiente",
+            eventId,
+            profesional: profesionalId,
+            diaPrimeraCita: new Date()
+        });
+
+        const pacienteGuardado = await newPaciente.save();
+
+        // Asociar a sucursal o al profesional independiente
+        if (profesional.sucursal) {
+            await Sucursal.findByIdAndUpdate(
+                profesional.sucursal,
+                { $addToSet: { pacientes: pacienteGuardado._id } }
+            );
+        } else {
+            await User.findByIdAndUpdate(
+                profesionalId,
+                { $addToSet: { pacientes: pacienteGuardado._id } }
+            );
+        }
+
+        res.status(201).json(pacienteGuardado);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Crear reserva desde flujo público (sin autenticación)
+export const publicCreateReserva = async (req, res) => {
+    try {
+        const { rut, profesional: profesionalId, diaPrimeraCita, siguienteCita, hora, mensajePaciente, diagnostico, anamnesis, historial, eventId, modalidad, servicio } = req.body;
+
+        if (!rut || !profesionalId || !siguienteCita || !hora) {
+            return res.status(400).json({ message: "Datos insuficientes para crear la reserva" });
+        }
+
+        const paciente = await Paciente.findOne({ rut });
+        if (!paciente) {
+            return res.status(404).json({ message: "Paciente not found" });
+        }
+
+        const profesional = await User.findById(profesionalId);
+        if (!profesional) {
+            return res.status(400).json({ message: "Profesional inválido" });
+        }
+
+        // Buscar sucursal del profesional (si aplica)
+        const sucursal = await Sucursal.findOne({ profesionales: profesionalId });
+        let sucursalId = null;
+        if (sucursal) {
+            sucursalId = sucursal._id;
+            if (!sucursal.pacientes.includes(paciente._id)) {
+                sucursal.pacientes.push(paciente._id);
+                await sucursal.save();
+            }
+        } else {
+            if (!profesional.pacientes.includes(paciente._id)) {
+                profesional.pacientes.push(paciente._id);
+                await profesional.save();
+            }
+        }
+
+        const nuevaReserva = new Reserva({
+            paciente: paciente._id,
+            diaPrimeraCita,
+            siguienteCita,
+            hora,
+            mensajePaciente,
+            profesional: profesionalId,
+            diagnostico,
+            anamnesis,
+            historial,
+            eventId,
+            modalidad: modalidad || 'Presencial',
+            servicio: servicio || 'Consulta',
+        });
+
+        if (sucursalId) nuevaReserva.sucursal = sucursalId;
+
+        await nuevaReserva.save();
+
+        res.status(201).json(nuevaReserva);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

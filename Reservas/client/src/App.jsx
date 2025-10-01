@@ -30,6 +30,7 @@ import Telemedicina from "./pages/Telemedicina";
 import PatientSession from "./pages/PatientSession";
 import FrontUsers from "./pages/FrontUsers";
 import ConfirmationPage from './pages/ConfirmationPage';
+import LinkPage from "./pages/LinkPage";
 
 
 const theme = createTheme({
@@ -133,6 +134,7 @@ function AppContent() {
                           <Route path="/hoy" element={<TodayPage />} />
                           <Route path="/perfil" element={<PerfilPage />} />
                           <Route path="/pacientes" element={<PatientsPage />} />
+                          <Route path="/mi-enlace" element={<LinkPage />} />
                           <Route path="/sucursal/asistentes" element={<GestionarAsistentes />} />
                           <Route path="/sucursal/profesionales" element={<GestionarProfesionales />} />
                           <Route path="/reportes" element={<GraphicsPage />} />

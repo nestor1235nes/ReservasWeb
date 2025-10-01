@@ -35,6 +35,7 @@ import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import Rutificador from '../Rutificador';
 import { getPacientePorRutRequest, createPacienteRequest } from '../../api/pacientes';
 import { createReservaRequest, updateReservaRequest } from '../../api/reservas';
+import axios from '../../api/axios';
 import { createPaymentRequest } from '../../api/payment';
 import { getReservasPorRutRequest } from '../../api/reservas';
 import dayjs from 'dayjs';
@@ -124,11 +125,23 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       setError('Complete todos los campos obligatorios.');
       return;
     }
-  setError('');
-    if (activeStep === 1 && !paciente && !paciente._id) {
+    setError('');
+    // Si es el paso de datos de contacto y aún no existe paciente, crearlo
+    if (activeStep === 1 && !paciente._id) {
       setLoading(true);
       try {
-        await createPacienteRequest(paciente);
+        if (datosPreseleccionados?.publicFlow) {
+          // Usar axios instance con baseURL http://localhost:4000/api -> no anteponer "/api" ni "/"
+          const { data } = await axios.post('public/ficha', { ...paciente, profesional: datosPreseleccionados?.profesional?._id });
+          if (data && (data._id || data.id)) {
+            setPaciente(prev => ({ ...prev, _id: data._id || data.id }));
+          }
+        } else {
+          const { data } = await createPacienteRequest(paciente);
+          if (data && (data._id || data.id)) {
+            setPaciente(prev => ({ ...prev, _id: data._id || data.id }));
+          }
+        }
       } catch (e) {
         setError('Error al crear paciente');
         setLoading(false);
@@ -173,28 +186,36 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
         // Puedes agregar más campos si tu backend lo requiere
       };
 
-      // 2. Verificar si el paciente existe
-      const res = await getPacientePorRutRequest(paciente.rut);
+      // 2. Flujo público vs autenticado
       let pacienteId = paciente._id;
-      if (res.data && res.data._id) {
-        pacienteId = res.data._id;
-        // Paciente existe: actualizar reserva por rut (mantener comportamiento previo si necesario)
-        await updateReservaRequest(res.data.rut, reserva);
-        const pacienteActualizado = { ...paciente, _id: res.data._id };
-        setPaciente(pacienteActualizado);
-      } else {
-        // Paciente no existe: crear paciente
-        const response = await createPacienteRequest(paciente);
-        pacienteId = response.data._id;
-        setPaciente({ ...paciente, _id: pacienteId });
+      if (!datosPreseleccionados?.publicFlow) {
+        // Flujo autenticado: mantener lógica existente
+        const res = await getPacientePorRutRequest(paciente.rut);
+        if (res.data && res.data._id) {
+          pacienteId = res.data._id;
+          // Paciente existe: actualizar reserva por rut (mantener comportamiento previo si necesario)
+          await updateReservaRequest(res.data.rut, reserva);
+          const pacienteActualizado = { ...paciente, _id: res.data._id };
+          setPaciente(pacienteActualizado);
+        } else {
+          // Paciente no existe: crear paciente
+          const response = await createPacienteRequest(paciente);
+          pacienteId = response.data._id;
+          setPaciente({ ...paciente, _id: pacienteId });
+        }
       }
 
       // 3. Dependiendo método de pago: presencial -> guardar reserva y cerrar;
       //    webpay -> crear reserva primero, luego solicitar transacción y redirigir a Webpay
       if (paymentMethod === 'presencial') {
         // Crear reserva normalmente
-        await createReservaRequest(paciente.rut, reserva);
-        onReserva({ ...paciente, _id: pacienteId });
+        if (datosPreseleccionados?.publicFlow) {
+          await axios.post('public/reserva', { ...reserva, rut: paciente.rut });
+          onReserva({ ...paciente, _id: pacienteId || '' });
+        } else {
+          await createReservaRequest(paciente.rut, reserva);
+          onReserva({ ...paciente, _id: pacienteId });
+        }
       } else if (paymentMethod === 'webpay') {
         // Asegurarse que hay servicio seleccionado y precio
         if (!selectedService) {
@@ -204,7 +225,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
         }
 
         // Crear la reserva en estado pendiente en el backend
-        const createRes = await createReservaRequest(paciente.rut, reserva);
+        const createRes = datosPreseleccionados?.publicFlow
+          ? await axios.post('public/reserva', { ...reserva, rut: paciente.rut })
+          : await createReservaRequest(paciente.rut, reserva);
         const reservaCreada = createRes.data; // asume que el endpoint devuelve la reserva creada
         const reservaId = reservaCreada._id || reservaCreada.id;
 

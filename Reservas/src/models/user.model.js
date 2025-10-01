@@ -117,6 +117,26 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: "Estimado (nombre paciente), le recordarmos que mañana (fecha) a las (hora) tiene una hora agendada. Por favor de no poder asistir contáctese con nosotros o bien reagende su cita en nuestro sitio web www.siotioweb.cl."
     },
+    // Enlace público de reservas del profesional/clinica
+    miEnlace: {
+        type: String,
+        default: "",
+        trim: true,
+    },
+    // Slug único para identificar el enlace público
+    slug: {
+        type: String,
+        trim: true,
+        index: true,
+        unique: true,
+        sparse: true,
+    },
+    // Plantilla de página pública de reservas
+    bookingTemplate: {
+        type: String,
+        enum: ['template1', 'template2', 'template3'],
+        default: 'template1'
+    },
 });
 
 export default mongoose.model('User', userSchema);

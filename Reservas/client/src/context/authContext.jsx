@@ -14,6 +14,7 @@ import {
   updateServicioRequest,
   deleteServicioRequest
  } from "../api/auth";
+import { generateEnlaceRequest } from "../api/auth";
 import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/funcion";
 import { updateNotificationsRequest } from '../api/auth';
 import Cookies from "js-cookie";
@@ -218,6 +219,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const generateMiEnlace = async () => {
+    try {
+      const uid = user?.id || user?._id;
+      if (!uid) throw new Error("Usuario no autenticado");
+      const res = await generateEnlaceRequest(uid);
+      const miEnlace = res.data?.miEnlace;
+      if (miEnlace) {
+        setUser(prev => ({ ...(prev || {}), miEnlace }));
+      }
+      return miEnlace;
+    } catch (error) {
+      setErrors(error.response?.data?.message || "Error al generar enlace");
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (user && user.id) {
       checkEsAdmin(user.id);
@@ -274,6 +291,7 @@ export const AuthProvider = ({ children }) => {
         addServicio,
         updateServicio,
         deleteServicio,
+        generateMiEnlace,
 
       }}
     >
