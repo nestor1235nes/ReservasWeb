@@ -30,17 +30,19 @@ import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import { useReserva } from "../context/reservaContext";
-import { usePaciente } from "../context/pacienteContext";
+// import { usePaciente } from "../context/pacienteContext"; // ya no se usa para estado
 import { useAlert } from "../context/AlertContext";
 import DespliegueEventos from "../components/PanelDespliegue/DespliegueEventos";
+import { updateConfirmStatus as updateConfirmStatusApi, generateConfirmLink } from '../api/confirmation.js';
 
 const statusMap = {
-  confirmada: { color: "success", label: "Confirmada", icon: <CheckCircleIcon fontSize="small" /> },
-  pendiente: { color: "warning", label: "Pendiente", icon: <WarningAmberIcon fontSize="small" /> },
-  cancelada: { color: "error", label: "Cancelada", icon: <CancelIcon fontSize="small" /> }
+  confirmed: { color: "success", label: "Confirmada", icon: <CheckCircleIcon fontSize="small" /> },
+  pending: { color: "warning", label: "Pendiente", icon: <WarningAmberIcon fontSize="small" /> },
+  cancelled: { color: "error", label: "Cancelada", icon: <CancelIcon fontSize="small" /> },
+  reschedule_requested: { color: "info", label: "Solicitud Cambio", icon: <WarningAmberIcon fontSize="small" /> }
 };
 
-function AppointmentCard({ reserva, onClick, onChangeEstado }) {
+function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -50,9 +52,8 @@ function AppointmentCard({ reserva, onClick, onChangeEstado }) {
     reserva.tipoAtencion === "Telemedicina" ? <VideocamIcon fontSize="small" sx={{ mr: 0.5 }} /> :
     reserva.tipoAtencion === "Presencial" ? <PlaceIcon fontSize="small" sx={{ mr: 0.5 }} /> : null;
 
-  // Leer estado desde reserva.estado o desde el paciente (backend guarda en paciente.estado)
-  const estadoRaw = (reserva.estado || reserva.paciente?.estado || '').toString();
-  const status = statusMap[estadoRaw.toLowerCase()] || statusMap.pendiente;
+  const estadoRaw = (reserva.confirmStatus || 'pending').toString().toLowerCase();
+  const status = statusMap[estadoRaw] || statusMap.pending;
 
   return (
     <Card
@@ -140,9 +141,11 @@ function AppointmentCard({ reserva, onClick, onChangeEstado }) {
                 onClose={(e) => { e.stopPropagation(); handleMenuClose(); }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <MenuItem onClick={() => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'confirmada'); }}>Confirmar</MenuItem>
-                <MenuItem onClick={() => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'pendiente'); }}>Marcar Pendiente</MenuItem>
-                <MenuItem onClick={() => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'cancelada'); }}>Cancelar</MenuItem>
+                <MenuItem onClick={async () => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'confirmed'); }}>Confirmar</MenuItem>
+                <MenuItem onClick={async () => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'pending'); }}>Marcar Pendiente</MenuItem>
+                <MenuItem onClick={async () => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'cancelled'); }}>Cancelar</MenuItem>
+                <MenuItem onClick={async () => { handleMenuClose(); onChangeEstado && onChangeEstado(reserva, 'reschedule_requested'); }}>Marcar Solicitud Cambio</MenuItem>
+                <MenuItem onClick={async () => { handleMenuClose(); onCopyLink && onCopyLink(reserva); }}>Copiar Link Confirmación</MenuItem>
               </Menu>
             </Stack>
           </Stack>
@@ -175,7 +178,6 @@ function AppointmentCard({ reserva, onClick, onChangeEstado }) {
 
 export default function TodayPage() {
   const { getReservas } = useReserva();
-  const { updatePaciente } = usePaciente();
   const showAlert = useAlert();
   const [reservas, setReservas] = useState([]);
   const [tab, setTab] = useState(0);
@@ -199,17 +201,15 @@ export default function TodayPage() {
     fetchReservas();
   }, [getReservas]);
 
-  // Filtrado por estado
-  const getEstadoNormalized = (r) => {
-    const raw = (r.estado || r.paciente?.estado || '') || '';
-    return raw.toString().toLowerCase().trim();
-  };
+  // Filtrado por confirmStatus
+  const getEstadoNormalized = (r) => (r.confirmStatus || 'pending').toString().toLowerCase().trim();
 
   const filtered = reservas.filter(r => {
-    if (tab === 0) return true;
+    if (tab === 0) return true; // Todas
     const estado = getEstadoNormalized(r);
-    if (tab === 1) return estado === 'confirmada' || estado === 'confirmado';
-    if (tab === 2) return estado === 'pendiente';
+    if (tab === 1) return estado === 'confirmed';
+    if (tab === 2) return estado === 'pending';
+    if (tab === 3) return estado === 'cancelled';
     return true;
   });
 
@@ -223,21 +223,26 @@ export default function TodayPage() {
     setOpen(true);
   };
 
-  // Cambiar estado de la reserva/paciente
   const handleChangeEstado = async (reserva, nuevoEstado) => {
     try {
-      // Intentar actualizar el paciente (backend guarda estado en paciente.estado)
-      await updatePaciente(reserva.paciente._id, { estado: capitalizeEstado(nuevoEstado) });
-      showAlert('success', `Estado cambiado a ${capitalizeEstado(nuevoEstado)}`);
-      // Refrescar lista
+      await updateConfirmStatusApi(reserva._id, nuevoEstado);
+      showAlert('success', `Estado cambiado a ${nuevoEstado}`);
       fetchReservasAgain();
-    } catch (error) {
-      console.error('Error cambiando estado:', error);
-      showAlert('error', 'No fue posible cambiar el estado.');
+    } catch (e) {
+      console.error(e);
+      showAlert('error', 'No fue posible cambiar el estado');
     }
   };
 
-  const capitalizeEstado = (s) => s ? (s.charAt(0).toUpperCase() + s.slice(1)) : s;
+  const handleCopyLink = async (reserva) => {
+    try {
+      const { link } = await generateConfirmLink(reserva._id);
+      await navigator.clipboard.writeText(link);
+      showAlert('success', 'Link de confirmación copiado');
+    } catch (e) {
+      showAlert('error', 'No se pudo generar/copiar el link');
+    }
+  };
 
   const handleCloseDrawer = () => {
     setOpen(false);
@@ -276,15 +281,16 @@ export default function TodayPage() {
           />
           <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', mt:-2, backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
               <Tabs
-                  value={tab}
-                  onChange={(_, v) => setTab(v)}
-                  variant={isMobile ? "scrollable" : "standard"}
-                  scrollButtons={isMobile ? "auto" : false}
-                  aria-label="tabs"
-                  >
-                  <Tab label="Todas" />
-                  <Tab label="Confirmadas" />
-                  <Tab label="Pendientes" />
+                value={tab}
+                onChange={(_, v) => setTab(v)}
+                variant={isMobile ? 'scrollable' : 'standard'}
+                scrollButtons={isMobile ? 'auto' : false}
+                aria-label="tabs"
+              >
+                <Tab label="Todas" />
+                <Tab label="Confirmadas" />
+                <Tab label="Pendientes" />
+                <Tab label="Canceladas" />
               </Tabs>
           </Box>
           <CardContent>
@@ -298,7 +304,7 @@ export default function TodayPage() {
                 </Typography>
               ) : (
                 morning.map(reserva => (
-                  <AppointmentCard key={reserva._id} reserva={reserva} onClick={() => handleCardClick(reserva)} onChangeEstado={handleChangeEstado} />
+                  <AppointmentCard key={reserva._id} reserva={reserva} onClick={() => handleCardClick(reserva)} onChangeEstado={handleChangeEstado} onCopyLink={handleCopyLink} />
                 ))
               )}
             </Box>
@@ -312,7 +318,7 @@ export default function TodayPage() {
                 </Typography>
               ) : (
                 afternoon.map(reserva => (
-                  <AppointmentCard key={reserva._id} reserva={reserva} onClick={() => handleCardClick(reserva)} onChangeEstado={handleChangeEstado} />
+                  <AppointmentCard key={reserva._id} reserva={reserva} onClick={() => handleCardClick(reserva)} onChangeEstado={handleChangeEstado} onCopyLink={handleCopyLink} />
                 ))
               )}
             </Box>

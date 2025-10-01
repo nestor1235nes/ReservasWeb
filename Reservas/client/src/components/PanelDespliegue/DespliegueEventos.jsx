@@ -13,8 +13,9 @@ import { useAlert } from '../../context/AlertContext';
 import AgregarPaciente from '../Modales/AgregarPaciente';
 import AgregarSesion from './AgregarSesion';
 import VerHistorial from './VerHistorial';
+import sendWhatsAppMessage, { PLACEHOLDERS } from '../../sendWhatsAppMessage';
+import Cookies from 'js-cookie';
 import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import sendWhatsAppMessage from '../../sendWhatsAppMessage';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckIcon from '@mui/icons-material/Check';
@@ -46,6 +47,7 @@ import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import PaymentButton from '../../pages/PaymentButton';
 import { getPaymentStatusRequest } from '../../api/payment';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 
 dayjs.extend(localeData);
@@ -106,6 +108,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const [openUploadModal, setOpenUploadModal] = useState(false);
   const [uploadFiles, setUploadFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [showPlaceholdersHelp, setShowPlaceholdersHelp] = useState(false);
 
   // Configuración del dropzone
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -217,8 +220,6 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
     });
     setImagenes(event?.imagenes || []);
   }, [event]);
-
-  if (!event) return null;
 
   // Funciones para manejar imágenes
   const handlePrevImage = () => {
@@ -346,7 +347,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           }
 
           if (mensajePaciente) {
-            sendWhatsAppMessage([event], mensajePaciente, user);
+            const authToken = Cookies.get('token');
+            sendWhatsAppMessage([event], mensajePaciente, user, authToken);
           }
 
           // Verificar si la reserva tiene eventId y actualizar Google Calendar
@@ -432,6 +434,11 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const handleCloseSesionModal = () => setOpenSesionModal(false);
   const handleOpenHistorialModal = () => setOpenHistorialModal(true);
   const handleCloseHistorialModal = () => setOpenHistorialModal(false);
+
+  // Inserta placeholder en mensajePaciente
+  const handleInsertPlaceholder = (token) => {
+    setMensajePaciente(prev => (prev || '') + (prev?.endsWith(' ') || prev === '' ? '' : ' ') + token + ' ');
+  };
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
@@ -749,6 +756,18 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   }
                 }}
               />
+              {user?.idInstance && (
+                <Box mb={1} display="flex" flexWrap="wrap" gap={0.5} alignItems="center">
+                  {PLACEHOLDERS.map(ph => (
+                    <Chip key={ph.token} size="small" label={ph.token} onClick={() => handleInsertPlaceholder(ph.token)} clickable />
+                  ))}
+                  <Tooltip title="Ayuda placeholders">
+                    <IconButton size="small" onClick={() => setShowPlaceholdersHelp(true)}>
+                      <HelpOutlineIcon fontSize="inherit" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              )}
             </DialogContent>
             <DialogActions sx={{ p: 3, gap: 1 }}>
               <Button 
@@ -1561,6 +1580,26 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} gapi={gapi} />
           <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} gapi={gapi} eventId={event.eventId} />
           <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
+
+          <Dialog open={showPlaceholdersHelp} onClose={() => setShowPlaceholdersHelp(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Placeholders disponibles</DialogTitle>
+            <DialogContent dividers>
+              {PLACEHOLDERS.map(p => (
+                <Box key={p.token} mb={1}>
+                  <Typography variant="subtitle2" component="span" sx={{ mr: 1 }}>{p.token}</Typography>
+                  <Typography variant="body2" component="span" color="text.secondary">{p.descripcion}</Typography>
+                </Box>
+              ))}
+              <Box mt={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Si utilizas {'{enlaceConfirmacion}'} se generará y enviará un link único para que el paciente confirme o cancele su cita.
+                </Typography>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowPlaceholdersHelp(false)}>Cerrar</Button>
+            </DialogActions>
+          </Dialog>
         </Box>
       </Slide>
     </LocalizationProvider>

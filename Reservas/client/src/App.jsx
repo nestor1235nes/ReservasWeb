@@ -16,6 +16,7 @@ import CalendarioPage from "./pages/CalendarioPage";
 import SlideBar from "./components/SlideBar";
 import TodayPage from "./pages/TodayPage";
 import HomePage from "./pages/HomePage";
+import HomePageNew from "./pages/HomePageNew";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import PatientsPage from "./pages/PatientsPage";
@@ -28,6 +29,7 @@ import GestionarProfesionales from "./pages/Sucursales/GestionarProfesionales";
 import Telemedicina from "./pages/Telemedicina";
 import PatientSession from "./pages/PatientSession";
 import FrontUsers from "./pages/FrontUsers";
+import ConfirmationPage from './pages/ConfirmationPage';
 
 
 const theme = createTheme({
@@ -59,6 +61,7 @@ function AppContent() {
     location.pathname === "/login" ||
     location.pathname === "/register" ||
     location.pathname === "/front-users" ||
+    location.pathname.startsWith("/confirmacion/") ||
     location.pathname.startsWith("/telemedicina/join");
 
   return (
@@ -121,7 +124,7 @@ function AppContent() {
                         </IconButton>
                       )}
                       <Routes>
-                        <Route path="/" element={<HomePage />} />
+                        <Route path="/" element={<HomePageNew />} />
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
                         <Route path="/front-users" element={<FrontUsers />} />
@@ -138,6 +141,8 @@ function AppContent() {
                         <Route path="/telemedicina/join" element={<PatientSession />} />
                         {/* Ruta pública para confirmación de pago desde Webpay */}
                         <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
+                        {/* Ruta pública para confirmación de citas */}
+                        <Route path="/confirmacion/:token" element={<ConfirmationPage />} />
                         
                       </Routes>
                     </Box>

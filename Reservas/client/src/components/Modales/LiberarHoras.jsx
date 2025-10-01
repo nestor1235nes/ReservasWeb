@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Box, Typography, TextField, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Modal, Box, Typography, TextField, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Chip, IconButton, Tooltip } from '@mui/material';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { StaticDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
-import sendWhatsAppMessage from '../../sendWhatsAppMessage';
+import sendWhatsAppMessage, { PLACEHOLDERS } from '../../sendWhatsAppMessage';
+import Cookies from 'js-cookie';
 import { CSSTransition } from 'react-transition-group';
 import '../ui/LiberarHoras.css';
 
@@ -20,6 +22,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [showCalendar, setShowCalendar] = useState(true);
     const [customMessage, setCustomMessage] = useState('');
+    const [showPlaceholdersHelp, setShowPlaceholdersHelp] = useState(false);
 
     const handleFechaChange = (newValue) => {
         setFecha(newValue ? newValue.format('YYYY-MM-DD') : '');
@@ -61,18 +64,19 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
             }
     
             if (user.idInstance) {
+                const authToken = Cookies.get('token');
                 if(user.defaultMessage === '' && customMessage === '') {
                     showAlert('error', 'No hay mensaje por defecto ni mensaje personalizado. No se enviará mensaje a los pacientes.');
                     return;
                 }
                 if(customMessage){
-                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, customMessage, user);
+                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, customMessage, user, authToken);
                     showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
                     return;
                 }
                 else{
                     const message = user.defaultMessage;
-                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user);
+                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user, authToken);
                     showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
                     return;
                 }
@@ -100,6 +104,11 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
             setDiasDeTrabajo(dias);
         }
     }, [user]);
+
+    // Inserta placeholder en posición del cursor
+    const handleInsertPlaceholder = (token) => {
+        setCustomMessage(prev => (prev || '') + (prev?.endsWith(' ') || prev === '' ? '' : ' ') + token + ' ');
+    };
 
     return (
         <Modal open={open} onClose={onClose}>
@@ -195,19 +204,56 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                         unmountOnExit
                     >
                         <Box>
-                            <TextField
-                                label={(user && user.idInstance) ? "Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" : "Sin autorización"}
-                                multiline
-                                rows={8}
-                                value={customMessage}
-                                onChange={(e) => setCustomMessage(e.target.value)}
-                                fullWidth
-                                margin="normal"
-                                disabled={!(user && user.idInstance)}
-                            />
-                            <Button variant="contained" color="primary" onClick={handleConfirmOpen} fullWidth>
-                                Enviar día
-                            </Button>
+                            {/* Sección de placeholders y mensaje personalizado */}
+                            {!showCalendar && (
+                                <Box>
+                                    {user?.idInstance && (
+                                        <Box mb={1} display="flex" alignItems="center" flexWrap="wrap" gap={0.5}>
+                                            {PLACEHOLDERS.map(ph => (
+                                                <Chip key={ph.token} size="small" label={ph.token} onClick={() => handleInsertPlaceholder(ph.token)} clickable />
+                                            ))}
+                                            <Tooltip title="Ayuda placeholders">
+                                                <IconButton size="small" onClick={() => setShowPlaceholdersHelp(true)}>
+                                                    <HelpOutlineIcon fontSize="inherit" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Box>
+                                    )}
+                                    <TextField
+                                        label={(user && user.idInstance) ? "Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" : "Sin autorización"}
+                                        multiline
+                                        rows={8}
+                                        value={customMessage}
+                                        onChange={(e) => setCustomMessage(e.target.value)}
+                                        fullWidth
+                                        margin="normal"
+                                        disabled={!(user && user.idInstance)}
+                                    />
+                                    <Button variant="contained" color="primary" onClick={handleConfirmOpen} fullWidth>
+                                        Enviar día
+                                    </Button>
+                                </Box>
+                            )}
+
+                            <Dialog open={showPlaceholdersHelp} onClose={() => setShowPlaceholdersHelp(false)} maxWidth="sm" fullWidth>
+                                <DialogTitle>Placeholders disponibles</DialogTitle>
+                                <DialogContent dividers>
+                                    {PLACEHOLDERS.map(p => (
+                                        <Box key={p.token} mb={1}>
+                                            <Typography variant="subtitle2" component="span" sx={{ mr: 1 }}>{p.token}</Typography>
+                                            <Typography variant="body2" component="span" color="text.secondary">{p.descripcion}</Typography>
+                                        </Box>
+                                    ))}
+                                    <Box mt={2}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Si utilizas {'{enlaceConfirmacion}'} se generará y enviará un link único para que el paciente confirme o cancele su cita.
+                                        </Typography>
+                                    </Box>
+                                </DialogContent>
+                                <DialogActions>
+                                    <Button onClick={() => setShowPlaceholdersHelp(false)}>Cerrar</Button>
+                                </DialogActions>
+                            </Dialog>
                         </Box>
                     </CSSTransition>
                 </Box>

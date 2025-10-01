@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Box, Button, Container, Grid, Typography, Stack, Card, CardContent, useMediaQuery, IconButton, Drawer, List, ListItem, ListItemButton, ListItemText, Divider, ListItemIcon, Avatar } from '@mui/material';
+import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, useMediaQuery, IconButton, Drawer, List, ListItem, ListItemButton, ListItemText, Divider, ListItemIcon, Avatar, Chip } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -13,6 +13,10 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import { Link as RouterLink } from 'react-router-dom';
 import LoginModal from '../components/LoginModal';
 import LoginIcon from '@mui/icons-material/Login';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SecurityIcon from '@mui/icons-material/Security';
+import Ilustracion from '../assets/ilustracion4.png';
+import Logo from '../assets/logopng.png';
 
 export default function FrontUsers() {
 	const theme = useTheme();
@@ -25,36 +29,48 @@ export default function FrontUsers() {
 	const [mobileOpen, setMobileOpen] = useState(false);
 
 	const features = [
-		{ icon: <CalendarTodayIcon sx={{ fontSize: 40, color: primary }} />, title: 'Gestión de Agenda', description: 'Sincroniza con Google Calendar y gestiona tus citas fácilmente.' },
-		{ icon: <MessageIcon sx={{ fontSize: 40, color: primary }} />, title: 'Recordatorios', description: 'Envía recordatorios automáticos por WhatsApp.' },
-		{ icon: <BarChartIcon sx={{ fontSize: 40, color: primary }} />, title: 'Reportes', description: 'Gráficos e informes para analizar tu consulta.' },
-		{ icon: <VideoCameraFrontIcon sx={{ fontSize: 40, color: primary }} />, title: 'Telemedicina', description: 'Consulta online mediante videollamadas integradas.' },
-		{ icon: <CreditCardIcon sx={{ fontSize: 40, color: primary }} />, title: 'Pagos Online', description: 'Integración con WebPay para cobros simples y seguros.' },
-		{ icon: <GroupsIcon sx={{ fontSize: 40, color: primary }} />, title: 'Perfiles', description: 'Perfiles profesionales personalizables.' }
+		{ icon: <CalendarTodayIcon />, title: 'Gestión de Agenda', description: 'Sincroniza tu calendario y libera horas en un clic.' },
+		{ icon: <MessageIcon />, title: 'Recordatorios automáticos', description: 'Reduce el ausentismo con avisos por WhatsApp.' },
+		{ icon: <VideoCameraFrontIcon />, title: 'Telemedicina', description: 'Videoconsultas seguras desde cualquier dispositivo.' },
+		{ icon: <CreditCardIcon />, title: 'Cobros online', description: 'WebPay integrado para pagos simples y seguros.' },
+		{ icon: <BarChartIcon />, title: 'Reportes y métricas', description: 'Monitorea asistencia, ingresos y tendencias.' },
+		{ icon: <GroupsIcon />, title: 'Perfiles profesionales', description: 'Destaca tu experiencia y servicios.' },
 	];
 
 	return (
-		<Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column'}}>
-			{/* Header */}
-				<Box component="header" borderRadius={1} sx={{ background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)' }}>
-					<Container maxWidth="lg" sx={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+		<Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f7fbfd' }}>
+			{/* Header (sticky like HomePageNew) */}
+			<AppBar
+				position="sticky"
+				elevation={0}
+				sx={{
+					background: 'transparent',
+					color: 'inherit',
+					borderBottom: '1px solid #e3f2fd',
+					backdropFilter: 'blur(8px)',
+				}}
+			>
+				<Toolbar sx={{ py: 1 }}>
+					<Container maxWidth="lg" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
 						<Stack direction="row" alignItems="center" spacing={1}>
-							<CalendarTodayIcon sx={{ color: 'white' }} />
-							<Typography variant="h6" fontWeight={700} color="white">Sessionly</Typography>
+							<img src={Logo} alt="Sessionly Logo" style={{ width: 150, height: 40 }} />
 						</Stack>
+
 						{/* Desktop actions */}
 						<Stack direction="row" spacing={2} alignItems="center" sx={{ display: { xs: 'none', md: 'flex' } }}>
-							<Button startIcon={<LoginIcon />} ref={loginButtonRef} onClick={(e) => { setAnchorEl(e.currentTarget); setLoginOpen(true); }} variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.6)', border: '2px solid rgba(255, 255, 255)' }}><strong>Iniciar sesión</strong></Button>
-							<Button component={RouterLink} to="/register" variant="contained" sx={{ backgroundColor: 'white', color: '#2596be', '&:hover': { backgroundColor: '#ffffffff' } }}>Registrarse</Button>
+							<Button startIcon={<LoginIcon />} ref={loginButtonRef} onClick={(e) => { setAnchorEl(e.currentTarget); setLoginOpen(true); }} variant="outlined" sx={{ borderColor: '#2596be', color: '#2596be' }}><strong>Iniciar sesión</strong></Button>
+							<Button component={RouterLink} to="/register" variant="contained" sx={{ backgroundColor: '#2596be', color: 'white', '&:hover': { backgroundColor: '#1e7fa0' } }}>Crear cuenta</Button>
 						</Stack>
+
 						{/* Mobile menu */}
 						<Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center' }}>
-							<IconButton onClick={() => setMobileOpen(true)} sx={{ color: 'white' }}>
+							<IconButton onClick={() => setMobileOpen(true)}>
 								<MenuIcon />
 							</IconButton>
 						</Box>
 					</Container>
-				</Box>
+				</Toolbar>
+			</AppBar>
 
 				<Drawer anchor="right" open={mobileOpen} onClose={() => setMobileOpen(false)}>
 					<Box sx={{ width: 280, height: '100%', display: 'flex', flexDirection: 'column' }} role="presentation">
@@ -75,7 +91,7 @@ export default function FrontUsers() {
 						<Box sx={{ p: 2, flex: 1, backgroundColor: '#f7fbfd' }}>
 							<List>
 								<ListItem disablePadding>
-									<ListItemButton onClick={(e) => { setAnchorEl(loginButtonRef.current); setLoginOpen(true); }} sx={{ borderRadius: 1, mb: 1 }}>
+									<ListItemButton onClick={() => { setAnchorEl(null); setLoginOpen(true); setMobileOpen(false); }} sx={{ borderRadius: 1, mb: 1 }}>
 										<ListItemIcon sx={{ minWidth: 40 }}>
 											<LoginIcon sx={{ color: '#2596be' }} />
 										</ListItemIcon>
@@ -106,19 +122,35 @@ export default function FrontUsers() {
 				<Container maxWidth="lg">
 					<Grid container spacing={4} alignItems="center">
 						<Grid item xs={12} md={6}>
-							<Typography variant={isMobile ? 'h4' : 'h3'} fontWeight={800} gutterBottom>
-								Gestiona tus citas médicas de forma eficiente
+							<Chip label="Para profesionales de la salud" sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700, mb: 1 }} />
+							<Typography variant={isMobile ? 'h4' : 'h3'} fontWeight={900} gutterBottom>
+								La forma más simple de gestionar tu consulta
 							</Typography>
-							<Typography color="text.secondary" sx={{ mb: 3 }}>
-								Plataforma para profesionales y clínicas que optimiza la gestión de citas, reduce el ausentismo y mejora la experiencia del paciente.
+							<Typography color="text.secondary" sx={{ mb: 3, maxWidth: 640 }}>
+								Sincroniza tu agenda, reduce el ausentismo con recordatorios y ofrece telemedicina. Todo en un solo lugar.
 							</Typography>
+							<Stack direction={isMobile ? 'column' : 'row'} spacing={1.5} sx={{ mb: 2 }}>
+								<Stack direction="row" spacing={1} alignItems="center">
+									<AccessTimeIcon sx={{ color: primary }} />
+									<Typography variant="body2">Agenda sincronizada</Typography>
+								</Stack>
+								<Stack direction="row" spacing={1} alignItems="center">
+									<MessageIcon sx={{ color: primary }} />
+									<Typography variant="body2">Recordatorios automáticos</Typography>
+								</Stack>
+								<Stack direction="row" spacing={1} alignItems="center">
+									<SecurityIcon sx={{ color: primary }} />
+									<Typography variant="body2">Datos seguros</Typography>
+								</Stack>
+							</Stack>
 							<Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
-								<Button fullWidth={isMobile} component={RouterLink} to="/register" variant="contained" sx={{ backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>Comenzar ahora</Button>
+								<Button fullWidth={isMobile} component={RouterLink} to="/register" variant="contained" sx={{ backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>Crear cuenta</Button>
+								<Button fullWidth={isMobile} startIcon={<LoginIcon />} onClick={(e) => { setAnchorEl(e.currentTarget); setLoginOpen(true); }} variant="outlined" sx={{ borderColor: primary, color: primary }}>Iniciar sesión</Button>
 							</Stack>
 						</Grid>
 						<Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: 'center' }}>
 							<Box sx={{ width: isMobile ? 300 : 420, height: isMobile ? 240 : 320, backgroundColor: '#eaf7fb', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 3 }}>
-								<img src="/vite.svg" alt="dashboard" style={{ width: '80%', height: 'auto' }} />
+								<img src={Ilustracion} alt="Sessionly ilustracion" style={{ width: '80%', height: 'auto' }} />
 							</Box>
 						</Grid>
 					</Grid>
@@ -126,19 +158,28 @@ export default function FrontUsers() {
 			</Box>
 
 			{/* Features */}
-			<Box sx={{ py: 8 }}>
+			<Box id="features" sx={{ py: 8 }}>
 				<Container maxWidth="lg">
-					<Typography variant="h5" align="center" fontWeight={700} sx={{ mb: 3 }}>Características</Typography>
-					<Typography align="center" color="text.secondary" sx={{ maxWidth: 900, mx: 'auto', mb: 4 }}>Todas las herramientas para optimizar la gestión de tu consulta y la experiencia del paciente.</Typography>
+					<Stack spacing={1} alignItems="center" sx={{ mb: 3 }}>
+						<Chip label="Características" sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700 }} />
+						<Typography variant="h4" fontWeight={900} textAlign="center">Todo lo que necesitas</Typography>
+						<Typography align="center" color="text.secondary" sx={{ maxWidth: 900 }}>
+							Optimiza tu consulta, reduce no-shows y mejora la experiencia del paciente.
+						</Typography>
+					</Stack>
 					<Grid container spacing={2}>
 						{features.map((f, i) => (
 							<Grid key={i} item xs={12} sm={6} md={4}>
-								<Card variant="outlined" sx={{ height: '100%' }}>
+								<Card elevation={0} sx={{ border: '1px solid #e3f2fd', height: '100%', borderRadius: 3 }}>
 									<CardContent>
-										<Stack spacing={2} alignItems="center" textAlign="center">
-											{f.icon}
-											<Typography fontWeight={700}>{f.title}</Typography>
-											<Typography color="text.secondary">{f.description}</Typography>
+										<Stack direction="row" spacing={2}>
+											<Box sx={{ width: 48, height: 48, borderRadius: 2, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)', boxShadow: 2, flexShrink: 0 }}>
+												{f.icon}
+											</Box>
+											<Box>
+												<Typography fontWeight={800} gutterBottom>{f.title}</Typography>
+												<Typography color="text.secondary" variant="body2">{f.description}</Typography>
+											</Box>
 										</Stack>
 									</CardContent>
 								</Card>
@@ -148,55 +189,58 @@ export default function FrontUsers() {
 				</Container>
 			</Box>
 
-			{/* CTA */}
-			<Box sx={{ py: 8, backgroundColor: primary, color: '#fff' }}>
-				<Container maxWidth="lg" sx={{ textAlign: 'center' }}>
-					<Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>Comienza a optimizar tu consulta hoy mismo</Typography>
-					<Typography sx={{ mb: 3, color: 'rgba(255,255,255,0.85)' }}>Regístrate ahora y obtén 14 días de prueba gratuita. Sin compromisos.</Typography>
-					<Stack direction={isMobile ? 'column' : 'row'} spacing={2} justifyContent="center">
-						<Button component={RouterLink} to="/register" variant="contained" sx={{ backgroundColor: '#fff', color: primary, '&:hover': { backgroundColor: '#f3f3f3' } }}>Comenzar ahora</Button>
-						<Button component={RouterLink} to="/contact" variant="outlined" sx={{ borderColor: 'rgba(255,255,255,0.6)', color: '#fff' }}>Contactar con ventas</Button>
+			{/* How it works */}
+			<Box id="como-funciona" sx={{ py: 8, backgroundColor: '#ffffff' }}>
+				<Container maxWidth="lg">
+					<Stack spacing={1} alignItems="center" sx={{ mb: 3 }}>
+						<Chip label="¿Cómo funciona?" sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700 }} />
+						<Typography variant="h4" fontWeight={900} textAlign="center">Ponte en marcha en minutos</Typography>
+						<Typography color="text.secondary" textAlign="center" sx={{ maxWidth: 720 }}>
+							Configura tu perfil, define horarios y empieza a recibir reservas al instante.
+						</Typography>
 					</Stack>
+					<Grid container spacing={2}>
+						{[
+							{ n: 1, t: 'Crea tu cuenta', d: 'Regístrate y completa tu perfil profesional.' },
+							{ n: 2, t: 'Configura tu agenda', d: 'Define tus horarios y modalidades de atención.' },
+							{ n: 3, t: 'Recibe reservas', d: 'Comparte tu enlace y confirma citas fácilmente.' },
+						].map(s => (
+							<Grid item xs={12} md={4} key={s.n}>
+								<Card elevation={0} sx={{ border: '1px solid #e3f2fd', borderRadius: 3, height: '100%' }}>
+									<CardContent>
+										<Stack spacing={1.5}>
+											<Chip label={`Paso ${s.n}`} sx={{ alignSelf: 'flex-start', bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700 }} />
+											<Typography variant="h6" fontWeight={800}>{s.t}</Typography>
+											<Typography variant="body2" color="text.secondary">{s.d}</Typography>
+										</Stack>
+									</CardContent>
+								</Card>
+							</Grid>
+						))}
+					</Grid>
 				</Container>
 			</Box>
 
-			<LoginModal open={loginOpen} anchorEl={anchorEl} onClose={() => { setLoginOpen(false); setAnchorEl(null); }} />
-
+			
 			{/* Footer */}
-			<Box component="footer" sx={{ py: 4, backgroundColor: '#f5f5f5' }}>
+			<Box component="footer" sx={{ py: 4, borderTop: '1px solid #e3f2fd', bgcolor: '#fff' }}>
 				<Container maxWidth="lg">
-					<Grid container spacing={3} alignItems="flex-start">
-						<Grid item xs={12} md={4}>
+					<Grid container spacing={3} alignItems="center" justifyContent="space-between">
+						<Grid item>
 							<Stack direction="row" spacing={1} alignItems="center">
-								<CalendarTodayIcon sx={{ color: primary }} />
+								<Box sx={{ width: 28, height: 28, borderRadius: 1, background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)' }} />
 								<Typography fontWeight={700}>Sessionly</Typography>
 							</Stack>
-							<Typography color="text.secondary" sx={{ mt: 1 }}>Plataforma de gestión de citas médicas para profesionales y clínicas.</Typography>
 						</Grid>
-						<Grid item xs={6} sm={4} md={2}>
-							<Typography fontWeight={700}>Producto</Typography>
-							<Stack component="ul" spacing={1} sx={{ listStyle: 'none', p: 0, mt: 1 }}>
-								<li><RouterLink to="#features" style={{ textDecoration: 'none', color: 'inherit' }}>Características</RouterLink></li>
-								<li><RouterLink to="#contact" style={{ textDecoration: 'none', color: 'inherit' }}>Contacto</RouterLink></li>
-							</Stack>
-						</Grid>
-						<Grid item xs={6} sm={4} md={2}>
-							<Typography fontWeight={700}>Empresa</Typography>
-							<Stack component="ul" spacing={1} sx={{ listStyle: 'none', p: 0, mt: 1 }}>
-								<li><RouterLink to="/about" style={{ textDecoration: 'none', color: 'inherit' }}>Sobre nosotros</RouterLink></li>
-								<li><RouterLink to="/blog" style={{ textDecoration: 'none', color: 'inherit' }}>Blog</RouterLink></li>
-							</Stack>
-						</Grid>
-						<Grid item xs={12} sm={4} md={4}>
-							<Typography fontWeight={700}>Legal</Typography>
-							<Stack component="ul" spacing={1} sx={{ listStyle: 'none', p: 0, mt: 1 }}>
-								<li><RouterLink to="/privacy" style={{ textDecoration: 'none', color: 'inherit' }}>Política de privacidad</RouterLink></li>
-								<li><RouterLink to="/terms" style={{ textDecoration: 'none', color: 'inherit' }}>Términos de servicio</RouterLink></li>
-							</Stack>
+						<Grid item>
+							<Typography variant="body2" color="text.secondary">© {new Date().getFullYear()} Sessionly. Todos los derechos reservados.</Typography>
 						</Grid>
 					</Grid>
 				</Container>
 			</Box>
+
+			{/* Login modal */}
+			<LoginModal open={loginOpen} anchorEl={anchorEl} onClose={() => { setLoginOpen(false); setAnchorEl(null); }} />
 		</Box>
 	);
 }

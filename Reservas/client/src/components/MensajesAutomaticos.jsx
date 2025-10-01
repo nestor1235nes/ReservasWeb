@@ -14,6 +14,7 @@ const PLACEHOLDERS = [
   { key: 'servicio', desc: 'Nombre del servicio o motivo' },
   { key: 'profesional', desc: 'Nombre del profesional' },
   { key: 'sucursal', desc: 'Nombre de la sucursal (si aplica)' },
+  { key: 'enlaceConfirmacion', desc: 'URL única para confirmar la cita' },
 ];
 
 // Reemplazos de ejemplo para vista previa sin acceder a datos reales
@@ -23,7 +24,8 @@ const previewSample = {
   hora: '15:30',
   servicio: 'Consulta General',
   profesional: 'Dra. Gómez',
-  sucursal: 'Centro Salud Central'
+  sucursal: 'Centro Salud Central',
+  enlaceConfirmacion: 'https://midominio.cl/confirmacion/ABC123'
 };
 
 const applyPreview = (template) => {
@@ -31,7 +33,17 @@ const applyPreview = (template) => {
   return template.replace(/\{(\w+)\}/g, (_, key) => previewSample[key] || `{${key}}`);
 };
 
-const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile }) => {
+// Sufijo obligatorio para recordatorios
+const FORCED_SUFFIX = '\n\nPor favor, confirme su cita a través del siguiente enlace: {enlaceConfirmacion}';
+const ensureForcedSuffix = (message) => {
+  if (!message) return '';
+  const normalized = message.trimEnd();
+  const suffixPlain = 'Por favor, confirme su cita a través del siguiente enlace:';
+  if (normalized.includes(suffixPlain)) return normalized; // evita duplicados
+  return normalized + FORCED_SUFFIX;
+};
+
+const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, reservaDemo }) => {
   const { updatePerfil, user } = useAuth();
   const [editing, setEditing] = useState(false); // edición local
   const [saving, setSaving] = useState(false);
@@ -108,9 +120,15 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile }) 
     });
   };
 
+
   const handleSave = async () => {
     setError(null);
-    const { idInstance, apiTokenInstance, defaultMessage, reminderMessage } = localData;
+    const { idInstance, apiTokenInstance, defaultMessage } = localData;
+    // Aseguramos sufijo obligatorio antes de persistir
+    const reminderMessageWithSuffix = ensureForcedSuffix(localData.reminderMessage);
+    setLocalData(prev => ({ ...prev, reminderMessage: reminderMessageWithSuffix }));
+    propagate('reminderMessage', reminderMessageWithSuffix);
+    const reminderMessage = reminderMessageWithSuffix;
     const mensajesConfigurados = [defaultMessage, reminderMessage].some(m => m && m.trim() !== '');
     if (mensajesConfigurados && (!idInstance || !apiTokenInstance)) {
       setError('Debes ingresar ID Instance y API Token para guardar mensajes.');
@@ -118,26 +136,13 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile }) 
     }
     try {
       setSaving(true);
-      // Forzar inclusión de la línea obligatoria al final del mensaje de recordatorio
-      const REQUIRED_LINE_PREFIX = 'Por favor, confirme su cita a través del siguiente enlace:';
-      let finalReminder = reminderMessage || '';
-      const alreadyHas = finalReminder.toLowerCase().includes(REQUIRED_LINE_PREFIX.toLowerCase());
-      if (!alreadyHas) {
-        if (finalReminder.trim().length > 0 && !finalReminder.trim().endsWith('\n')) {
-          finalReminder += '\n';
-        }
-        finalReminder += `${REQUIRED_LINE_PREFIX} (enlace)`;
-      }
       await updatePerfil(user.id || user._id, {
         idInstance,
         apiTokenInstance,
         defaultMessage,
-        reminderMessage: finalReminder
+        reminderMessage
       });
       setEditing(false);
-      // Sincronizar local state y formData ascendiente
-      setLocalData(prev => ({ ...prev, reminderMessage: finalReminder }));
-      propagate('reminderMessage', finalReminder);
     } catch (e) {
       setError('Error al guardar cambios.');
     } finally {
@@ -263,8 +268,11 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile }) 
               multiline
               minRows={3}
               disabled={!editing}
-              placeholder="Ej: Estimado {nombre}, le recordamos su cita de {servicio} el {fecha} a las {hora}."
+              placeholder="Ej: Estimado {nombre}, le recordamos su cita de {servicio} el {fecha} a las {hora}. (el enlace de confirmación se agregará automáticamente)"
             />
+            <Typography variant="caption" color="text.secondary">
+              Nota: Al guardar, siempre se añadirá la línea final con el texto: "Por favor, confirme su cita a través del siguiente enlace: {'{enlaceConfirmacion}'}".
+            </Typography>
             <Divider />
             <Typography variant="subtitle1" fontWeight={600}>Vista Previa (Ejemplo)</Typography>
             <Paper variant="outlined" sx={{ p:2, background:'#f9f9f9' }}>
@@ -273,10 +281,21 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile }) 
                 {applyPreview(localData.defaultMessage)}
               </Typography>
               <Typography variant="caption" color="text.secondary">Recordatorio</Typography>
-              <Typography variant="body2">
-                {applyPreview(localData.reminderMessage)}
+              <Typography variant="body2" sx={{ whiteSpace:'pre-line' }}>
+                {applyPreview(ensureForcedSuffix(localData.reminderMessage))}
               </Typography>
             </Paper>
+            {reservaDemo && (
+              <Paper variant="outlined" sx={{ p:2, background:'#f1f8e9' }}>
+                <Typography variant="caption" color="text.secondary">Vista con datos de ejemplo de una reserva</Typography>
+                <Typography variant="body2" sx={{ whiteSpace:'pre-line', mt:1 }}>
+                  {applyPreview(
+                    ensureForcedSuffix(localData.reminderMessage)
+                      .replace('{enlaceConfirmacion}', 'https://midominio.cl/confirmacion/DEMO123')
+                  )}
+                </Typography>
+              </Paper>
+            )}
             {credsMissing && (
               <Typography variant="body2" color="warning.main">
                 Ingresa tus credenciales de Green API para habilitar el envío automático.

@@ -13,6 +13,7 @@ import calendarSyncRoutes from './routes/calendarsync.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import transbankRoutes from './routes/transbank.routes.js';
 import dailyRoutes from './routes/daily.routes.js';
+import confirmationRoutes from './routes/confirmation.routes.js';
 
 
 const app = express();
@@ -45,9 +46,18 @@ app.use("/api/calendarsync", calendarSyncRoutes);
 app.use("/api/", analyticsRoutes);
 app.use("/api/transbank", transbankRoutes);
 app.use('/api/daily', dailyRoutes);
+app.use('/api/', confirmationRoutes);
 
 app.use('/uploads', express.static('uploads'))
 app.use('/imagenesPacientes', express.static('imagenesPacientes'))
+
+// Redirección en desarrollo: si llegan directamente a backend con /confirmacion/:token
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/confirmacion/:token', (req, res) => {
+    const frontend = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
+    return res.redirect(`${frontend.replace(/\/$/, '')}/confirmacion/${req.params.token}`);
+  });
+}
 
 if (process.env.NODE_ENV === "production") {
   const path = await import("path");

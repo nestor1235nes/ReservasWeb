@@ -8,11 +8,8 @@ import {
     getHistorial,
     addHistorial,
     getReservasPorRut, // Importar la nueva función
-    getReservasParaExportacion, // Nueva función para exportación ICS
-    getEstadoConfirmacion,
-    confirmReservaPorToken,
-    cancelarReservaPorToken,
-    solicitarReagendarPorToken
+    getReservasParaExportacion // Nueva función para exportación ICS
+    
 } from "../controllers/ficha.controller.js";
 import { obtenerPacientesSinSesiones, getFeriados } from "../controllers/funciones.controller.js";
 import { auth } from "../middlewares/auth.middleware.js"; // Importa el middleware de autenticación
@@ -32,11 +29,5 @@ router.get("/reservas-exportacion", auth, getReservasParaExportacion); // Nueva 
 ////////////////////// Funciones //////////////////////
 router.get("/pacientes-sin-sesiones", auth, obtenerPacientesSinSesiones); // Aplica el middleware de autenticación
 router.get('/feriados', getFeriados);
-
-// Rutas públicas de confirmación (no requieren auth)
-router.get('/reserva/confirmacion/:token', getEstadoConfirmacion);
-router.post('/reserva/confirmacion/:token/confirmar', confirmReservaPorToken);
-router.post('/reserva/confirmacion/:token/cancelar', cancelarReservaPorToken);
-router.post('/reserva/confirmacion/:token/reagendar', solicitarReagendarPorToken);
 
 export default router;

@@ -142,6 +142,38 @@ const ReservasSchema = new mongoose.Schema({
         type: Number,
         default: 0
     }
+    ,
+    // --- Confirmación de cita ---
+    confirmStatus: {
+        type: String,
+        enum: ['pending','confirmed','cancelled','reschedule_requested'],
+        default: 'pending',
+        index: true
+    },
+    confirmTokenHash: {
+        type: String,
+        index: true
+    },
+    confirmTokenExpires: {
+        type: Date,
+        index: true
+    },
+    confirmedAt: {
+        type: Date
+    },
+    confirmationLog: [
+        {
+            action: { type: String }, // generated, confirmed, cancelled, link_resent, reschedule_requested
+            at: { type: Date, default: Date.now },
+            meta: { type: Object }
+        }
+    ],
+    rescheduleRequest: {
+        requestedDate: { type: Date },
+        requestedTime: { type: String },
+        reason: { type: String },
+        status: { type: String, enum: ['open','approved','rejected'], default: 'open' }
+    }
 }, {
     timestamps: true // Agrega createdAt y updatedAt automáticamente
 });
