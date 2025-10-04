@@ -1,8 +1,8 @@
-import axios from "axios";
+import axios from "./axios";
 
-export const getPacientePorRutRequest = async (rut) => axios.get(`/api/ficha/rut/${rut}`);
-export const getPacientesRequest = async () => axios.get(`/api/ficha/`);
-export const getPacienteRequest = async (id) => axios.get(`/api/ficha/${id}`);
-export const createPacienteRequest = async (paciente) => axios.post(`/api/ficha`, paciente);
-export const updatePacienteRequest = async (id, paciente) => axios.put(`/api/ficha/${id}`, paciente); // Cambiar de rut a id
-export const getPacientesUsuarioRequest = async () => axios.get(`/api/pacientes-usuario`);
+export const getPacientePorRutRequest = async (rut) => axios.get(`/ficha/rut/${rut}`);
+export const getPacientesRequest = async () => axios.get(`/ficha/`);
+export const getPacienteRequest = async (id) => axios.get(`/ficha/${id}`);
+export const createPacienteRequest = async (paciente) => axios.post(`/ficha`, paciente);
+export const updatePacienteRequest = async (id, paciente) => axios.put(`/ficha/${id}`, paciente); // Cambiar de rut a id
+export const getPacientesUsuarioRequest = async () => axios.get(`/pacientes-usuario`);

@@ -1,16 +1,16 @@
-import axios from "axios";
+import axios from "./axios";
 
-export const getReservasRequest = async () => axios.get(`/api/reserva/`);
-export const getReservaRequest = async (rut) => axios.get(`/api/reserva/${rut}`);
-export const createReservaRequest = async (rut, reserva) => axios.post(`/api/reserva/${rut}`, reserva);
-export const deleteReservaRequest = async (id) => axios.delete(`/api/reserva/${id}`);
-export const updateReservaRequest = async (rut, reserva) => axios.put(`/api/reserva/${rut}`, reserva);
-export const getHistorialRequest = async (rut) => axios.get(`/api/reserva/${rut}/historial`);
-export const addHistorialRequest = async (rut, data) => axios.post(`/api/reserva/${rut}/historial`, data);
+export const getReservasRequest = async () => axios.get(`/reserva/`);
+export const getReservaRequest = async (rut) => axios.get(`/reserva/${rut}`);
+export const createReservaRequest = async (rut, reserva) => axios.post(`/reserva/${rut}`, reserva);
+export const deleteReservaRequest = async (id) => axios.delete(`/reserva/${id}`);
+export const updateReservaRequest = async (rut, reserva) => axios.put(`/reserva/${rut}`, reserva);
+export const getHistorialRequest = async (rut) => axios.get(`/reserva/${rut}/historial`);
+export const addHistorialRequest = async (rut, data) => axios.post(`/reserva/${rut}/historial`, data);
 
 // Funciones
 
-export const obtenerPacientesSinSesionesRequest = async () => axios.get(`/api/pacientes-sin-sesiones`);
-export const getFeriadosRequest = async (year, country) => axios.get(`/api/feriados`, { params: { year, country } });
-export const getReservasPorRutRequest = async (rut) => axios.get(`/api/reserva/${rut}/todas`);
-export const getReservasParaExportacionRequest = async () => axios.get(`/api/reservas-exportacion`);
+export const obtenerPacientesSinSesionesRequest = async () => axios.get(`/pacientes-sin-sesiones`);
+export const getFeriadosRequest = async (year, country) => axios.get(`/feriados`, { params: { year, country } });
+export const getReservasPorRutRequest = async (rut) => axios.get(`/reserva/${rut}/todas`);
+export const getReservasParaExportacionRequest = async () => axios.get(`/reservas-exportacion`);
