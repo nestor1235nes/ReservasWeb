@@ -64,21 +64,48 @@ export const obtenerHorasDisponibles = async (req, res) => {
       return res.status(400).json({ message: "Profesional no encontrado" });
     }
 
-    // Día de la semana en español
-    const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-    const diaSemana = dias[new Date(fecha).getDay()];
+    // Día de la semana en español (alineado con getDay(): 0=Domingo)
+    const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    // Parseo robusto de fecha 'YYYY-MM-DD' a fecha local para evitar desfases por zona horaria
+    const [year, month, day] = (fecha || "").split("-").map(Number);
+    const dateLocal = new Date(year, (month || 1) - 1, day || 1);
+    const diaSemana = dias[dateLocal.getDay()];
 
     // Filtra solo los bloques que atienden ese día
     const bloquesDia = profesional.timetable.filter(b => b.days.includes(diaSemana));
 
-    // Junta todos los times de los bloques de ese día
-    let horas = bloquesDia.flatMap(b => b.times);
+    // Helper para generar horas si no están precomputadas en el bloque
+    const generateTimes = (fromTime, toTime, breakFrom, breakTo, interval) => {
+      if (!fromTime || !toTime || !interval) return [];
+      const times = [];
+      let currentTime = fromTime;
+      const addMinutes = (time, minutes) => {
+        const [h, m] = time.split(":").map(Number);
+        const total = h * 60 + m + minutes;
+        const nh = String(Math.floor(total / 60)).padStart(2, "0");
+        const nm = String(total % 60).padStart(2, "0");
+        return `${nh}:${nm}`;
+      };
+      while (currentTime < toTime) {
+        if (breakFrom && breakTo && currentTime >= breakFrom && currentTime < breakTo) {
+          currentTime = breakTo;
+        } else {
+          times.push(currentTime);
+          currentTime = addMinutes(currentTime, interval);
+        }
+      }
+      return times;
+    };
+
+    // Junta todos los times de los bloques de ese día, generándolos si faltan
+    let horas = bloquesDia.flatMap(b => {
+      if (Array.isArray(b.times) && b.times.length) return b.times;
+      return generateTimes(b.fromTime, b.toTime, b.breakFrom, b.breakTo, b.interval || 30);
+    });
 
     // Buscar reservas dentro del rango de fechas
-    const startOfDay = new Date(fecha);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(fecha);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = new Date(year, (month || 1) - 1, day || 1, 0, 0, 0, 0);
+    const endOfDay = new Date(year, (month || 1) - 1, day || 1, 23, 59, 59, 999);
 
     const reservas = await Reserva.find({
       profesional: id,
