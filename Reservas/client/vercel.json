@@ -1,5 +1,6 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }],
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm run build",
+  "outputDirectory": "dist"
 }
