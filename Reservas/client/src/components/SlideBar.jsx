@@ -8,7 +8,12 @@ import {
   Typography,
   Divider,
   Collapse,
+  Stack,
+  Toolbar,
+  Button,
+
 } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import TodayIcon from '@mui/icons-material/Today';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon from '@mui/icons-material/People';
@@ -25,6 +30,7 @@ import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
+import Logo from '../assets/logopng.png';
 
 const baseMenuItems = [
   { label: 'Día Actual', icon: <TodayIcon />, path: '/hoy' },
@@ -107,9 +113,16 @@ const SlideBar = ({ selected, onSelect }) => {
         overflowY: 'auto',
       }}
     >
-      <Typography variant="h6" color="#2596be" fontWeight="bold" mb={3}>
-        Sessionly
-      </Typography>
+      <Toolbar sx={{ py: 1 }}>
+                <Stack direction="row" alignItems="center" spacing={1} component={RouterLink} to="/" sx={{ textDecoration: 'none', color: 'inherit' }}>
+                  <img src={Logo} alt="Sessionly Logo" style={{ width: 150, height: 40 }} />
+                </Stack>
+      
+                <Box sx={{ flex: 1 }} />
+      
+                            <Stack direction="row" spacing={1} alignItems="center">
+                </Stack>
+              </Toolbar>
       <Divider sx={{ mb: 2 }} />
       <List>
         {menuItems.map((item) => (
