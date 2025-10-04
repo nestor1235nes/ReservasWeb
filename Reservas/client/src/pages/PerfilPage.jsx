@@ -336,14 +336,7 @@ export function PerfilPage() {
     const prevValue = user.adminAtiendePersonas || false;
     const newValue = formData.adminAtiendePersonas || false;
 
-    // Validación básica credenciales Green API
-    const mensajesConfigurados = (formData.defaultMessage && formData.defaultMessage.trim() !== '') || (formData.reminderMessage && formData.reminderMessage.trim() !== '');
-    if (mensajesConfigurados) {
-      if (!formData.idInstance || !formData.apiTokenInstance) {
-        alert('Para guardar mensajes automáticos necesitas ID Instance y API Token de Green API.');
-        return;
-      }
-    }
+    // Nota: Se eliminó la validación que exigía idInstance/apiTokenInstance para permitir guardar sin credenciales
 
     await updatePerfil(user.id || user._id, formData);
 
