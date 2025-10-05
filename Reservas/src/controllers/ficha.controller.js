@@ -428,7 +428,8 @@ export const getReservasPorRut = async (req, res) => {
   try {
     const paciente = await Paciente.findOne({ rut: req.params.rut });
     if (!paciente) {
-      return res.status(404).json({ message: "Paciente not found" });
+            // Si no existe el paciente, devolver lista vacía para no romper flujos públicos
+            return res.status(200).json([]);
     }
     const reservas = await Reserva.find({ paciente: paciente._id }).populate('paciente').populate('profesional');
     res.json(reservas);

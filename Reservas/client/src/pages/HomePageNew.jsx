@@ -147,7 +147,8 @@ export default function HomePageNew() {
 				profesional: prof,
 				fecha: seleccionState[prof._id]?.fecha,
 				hora: seleccionState[prof._id]?.horaSeleccionada,
-				modalidad: seleccionState[prof._id]?.modalidad
+				modalidad: seleccionState[prof._id]?.modalidad,
+				publicFlow: true
 			});
 			setModalReservaOpen(true);
 		};
