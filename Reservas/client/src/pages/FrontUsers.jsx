@@ -16,7 +16,8 @@ import LoginIcon from '@mui/icons-material/Login';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SecurityIcon from '@mui/icons-material/Security';
 import Ilustracion from '../assets/ilustracion4.png';
-import Logo from '../assets/logopng.png';
+import Logo from '../assets/LOGO.png';
+import logo_simple from '../assets/logo_simple.png';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
@@ -238,9 +239,9 @@ export default function FrontUsers() {
 						<Box sx={{ p: 2, background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
 							<Stack direction="row" alignItems="center" spacing={1}>
 								<Avatar sx={{ bgcolor: 'white', color: '#2596be', width: 34, height: 34 }}>
-									<CalendarTodayIcon />
+									<img src={logo_simple} alt="Logo" style={{ width: '70%', height: '65%' }} />
 								</Avatar>
-								<Typography variant="subtitle1" fontWeight={700} color="white">Sessionly</Typography>
+								<Typography variant="subtitle1" fontWeight={700} color="white">VITALINK</Typography>
 							</Stack>
 							<IconButton onClick={() => setMobileOpen(false)} sx={{ color: 'white' }}>
 								<CloseIcon />
@@ -389,7 +390,7 @@ export default function FrontUsers() {
 						<Grid item>
 							<Stack direction="row" spacing={1} alignItems="center">
 								<Box sx={{ width: 28, height: 28, borderRadius: 1, background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)' }} />
-								<Typography fontWeight={700}>Sessionly</Typography>
+								<Typography fontWeight={700}>VITALINK</Typography>
 							</Stack>
 						</Grid>
 						<Grid item>

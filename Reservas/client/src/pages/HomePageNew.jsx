@@ -53,7 +53,7 @@ import ModalPerfilProfesional from '../components/Surcursales/ModalPerfilProfesi
 import ModalReservarCita from '../components/Surcursales/ModalReservarCita';
 import DescargarICSModal from '../components/Modales/DescargarICSModal';
 import { generateICS } from '../utils/icalendar';
-import Logo from '../assets/logopng.png';
+import Logo from '../assets/LOGO.png';
 
 // Simple, static homepage design. No business logic or data fetching.
 export default function HomePageNew() {

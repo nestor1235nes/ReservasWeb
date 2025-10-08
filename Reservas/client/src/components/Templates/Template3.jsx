@@ -5,7 +5,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
-import Logo from '../../assets/logopng.png';
+import Logo from '../../assets/LOGO.png';
 
 export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate }) {
   return (
