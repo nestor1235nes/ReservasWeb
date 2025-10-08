@@ -104,7 +104,7 @@ export default function HomePageNew() {
 				setProfesionales(users);
 				setEspecialidades([...new Set(users.map(u => u.especialidad).filter(Boolean))]);
 				const feriadosRes = await getFeriados();
-				setFeriados(feriadosRes.data || []);
+				setFeriados(Array.isArray(feriadosRes) ? feriadosRes : (feriadosRes?.data || []));
 			};
 			fetchData();
 		}, [getAllUsers, getFeriados]);

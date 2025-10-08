@@ -69,7 +69,7 @@ export default function FrontUsers() {
 				const res = await getUserBySlugRequest(slug);
 				setProf(res.data);
 				const fer = await getFeriados();
-				setFeriados(fer.data || []);
+				setFeriados(Array.isArray(fer) ? fer : (fer?.data || []));
 			} catch (e) {
 				setProf(null);
 			}

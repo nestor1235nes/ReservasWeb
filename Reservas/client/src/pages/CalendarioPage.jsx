@@ -42,6 +42,7 @@ const localizer = dateFnsLocalizer({
 export function CalendarioPage() {
   const [reservas, setReservas] = useState([]);
   const [events, setEvents] = useState([]);
+  const [visibleTypes, setVisibleTypes] = useState({ primera: true, pendiente: true, historial: true });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const { getReservas, getFeriados } = useReserva();
   const { getReservasSucursal } = useSucursal();
@@ -86,27 +87,45 @@ export function CalendarioPage() {
           localStartDate = startDate.hour(hours).minute(minutes).second(0).toDate();
         }
 
-        transformedEvents.push({
-          id: `${reserva._id}-siguiente`,
-          title: `${reserva.paciente.nombre}`,
-          start: localStartDate,
-          end: dayjs(localStartDate).add(interval, 'minute').toDate(),
-          tipo: 'pendiente',
-          color: '#2596be', // Azul para citas pendientes
-          ...reserva,
-        });
+        // Determinar si coincide con el primer día de consulta (no duplicar)
+        let isFirstConsultSameDay = false;
+        if (reserva.diaPrimeraCita) {
+          const d1 = dayjs(localStartDate).format('YYYY-MM-DD');
+          const d2 = dayjs(reserva.diaPrimeraCita).format('YYYY-MM-DD');
+          isFirstConsultSameDay = d1 === d2;
+        }
+
+        if (!isFirstConsultSameDay) {
+          transformedEvents.push({
+            id: `${reserva._id}-siguiente`,
+            title: `${reserva.paciente.nombre}`,
+            start: localStartDate,
+            end: dayjs(localStartDate).add(interval, 'minute').toDate(),
+            tipo: 'pendiente',
+            color: '#2596be', // Azul para citas pendientes
+            ...reserva,
+          });
+        }
       }
 
       // 2. Agregar primera cita si existe diaPrimeraCita
       if (reserva.diaPrimeraCita) {
         let primeraCitaDate;
-        
-        if (reserva.diaPrimeraCita.endsWith && reserva.diaPrimeraCita.endsWith('Z')) {
-          primeraCitaDate = dayjs(reserva.diaPrimeraCita).utc().tz('America/Santiago');
+
+        if (typeof reserva.diaPrimeraCita === 'string') {
+          if (reserva.diaPrimeraCita.endsWith('Z') && reserva.diaPrimeraCita.includes('T00:00:00')) {
+            // Fecha en UTC a medianoche: construir fecha local usando la hora de la reserva
+            const dateOnly = reserva.diaPrimeraCita.slice(0, 10);
+            primeraCitaDate = dayjs(`${dateOnly}T00:00:00`).utc().tz('America/Santiago');
+          } else if (reserva.diaPrimeraCita.endsWith('Z')) {
+            primeraCitaDate = dayjs(reserva.diaPrimeraCita).utc().tz('America/Santiago');
+          } else {
+            primeraCitaDate = dayjs(reserva.diaPrimeraCita);
+          }
         } else {
           primeraCitaDate = dayjs(reserva.diaPrimeraCita);
         }
-        
+
         // Usar hora por defecto si no tiene hora específica para la primera cita
         const hora = reserva.hora || '09:00';
         const [hours, minutes] = hora.split(":").map(Number);
@@ -123,40 +142,48 @@ export function CalendarioPage() {
         });
       }
 
-      // 3. Agregar todas las citas del historial
+      // 3. Agregar todas las citas del historial (aplanando si es array de arrays)
       if (reserva.historial && reserva.historial.length > 0) {
-        reserva.historial.forEach((sesion, index) => {
-          if (sesion.fecha) {
-            let sesionDate;
-            
-            if (sesion.fecha.endsWith && sesion.fecha.endsWith('Z')) {
-              sesionDate = dayjs(sesion.fecha).utc().tz('America/Santiago');
-            } else {
-              sesionDate = dayjs(sesion.fecha);
-            }
-            
-            // Usar hora de la sesión o hora por defecto
-            const hora = sesion.hora || reserva.hora || '09:00';
-            const [hours, minutes] = hora.split(":").map(Number);
-            sesionDate = sesionDate.hour(hours).minute(minutes).second(0);
+        const sesiones = Array.isArray(reserva.historial[0])
+          ? reserva.historial.flat()
+          : reserva.historial;
 
-            transformedEvents.push({
-              id: `${reserva._id}-historial-${index}`,
-              title: `📝 ${reserva.paciente.nombre} (Sesión ${index + 1})`,
-              start: sesionDate.toDate(),
-              end: sesionDate.add(interval, 'minute').toDate(),
-              tipo: 'historial',
-              color: '#8b5cf6', // Morado para sesiones del historial
-              sesion: sesion,
-              ...reserva,
-            });
+        sesiones.forEach((sesion, index) => {
+          if (!sesion || !sesion.fecha) return;
+
+          // Usar hora de la sesión si existiera, si no hora de reserva o por defecto
+          const horaSesion = sesion.hora || reserva.hora || '09:00';
+          const [hH, hM] = String(horaSesion).split(":").map(Number);
+
+          let startDate;
+          if (typeof sesion.fecha === 'string' && sesion.fecha.endsWith('Z') && sesion.fecha.includes('T00:00:00')) {
+            // Caso especial: fecha en UTC a medianoche => construir local con la hora
+            const dateOnly = sesion.fecha.slice(0, 10);
+            startDate = dayjs(`${dateOnly}T${String(hH).padStart(2,'0')}:${String(hM).padStart(2,'0')}:00`);
+          } else if (typeof sesion.fecha === 'string' && sesion.fecha.endsWith('Z')) {
+            // Fecha UTC no medianoche => ajustar a zona y luego fijar hora
+            startDate = dayjs(sesion.fecha).utc().tz('America/Santiago').hour(hH || 9).minute(hM || 0).second(0);
+          } else {
+            // Fecha local o Date => usar directamente y fijar hora
+            startDate = dayjs(sesion.fecha).hour(hH || 9).minute(hM || 0).second(0);
           }
+
+          transformedEvents.push({
+            id: `${reserva._id}-historial-${index}`,
+            title: `📝 ${reserva.paciente?.nombre || 'Paciente'} (Sesión ${index + 1})`,
+            start: startDate.toDate(),
+            end: startDate.add(interval, 'minute').toDate(),
+            tipo: 'historial',
+            color: '#8b5cf6', // Morado para sesiones del historial
+            sesion,
+            ...reserva,
+          });
         });
       }
     });
 
-    const feriados = await getFeriados();
-    setFeriados(feriados.data);
+  const feriadosResp = await getFeriados();
+  setFeriados(Array.isArray(feriadosResp) ? feriadosResp : (feriadosResp?.data || []));
 
     setEvents(transformedEvents);
   };
@@ -272,6 +299,16 @@ export function CalendarioPage() {
     };
   };
 
+  // Filtrar eventos según selección de tipos
+  const filteredEvents = events.filter(ev => {
+    if (ev.tipo === 'primera') return visibleTypes.primera;
+    if (ev.tipo === 'pendiente') return visibleTypes.pendiente;
+    if (ev.tipo === 'historial') return visibleTypes.historial;
+    return true;
+  });
+
+  const toggleType = (key) => setVisibleTypes(prev => ({ ...prev, [key]: !prev[key] }));
+
   return (
     <Box display="flex" flexDirection="column" height="100%" backgroundColor="white">
       <Stack p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
@@ -279,39 +316,45 @@ export function CalendarioPage() {
           <Typography variant="h5" fontWeight={700} color="white">
             Calendario
           </Typography>
-          {/* Leyenda de colores */}
+          {/* Leyenda de colores con filtros */}
           <Stack direction="row" spacing={1}>
             <Chip 
               label="Pendientes" 
               size="small" 
+              onClick={() => toggleType('pendiente')}
               sx={{ 
                 bgcolor: '#2596be', 
                 color: 'white',
                 fontSize: '15px',
                 height: '30px',
-                border: '1px solid #1e7a9b'
+                border: `${visibleTypes.pendiente ? 2 : 1}px solid ${visibleTypes.pendiente ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
+                cursor: 'pointer'
               }} 
             />
             <Chip 
               label="Primera consulta" 
               size="small" 
+              onClick={() => toggleType('primera')}
               sx={{ 
                 bgcolor: '#10b981', 
                 color: 'white',
                 fontSize: '15px',
                 height: '30px',
-                border: '1px solid #059669'
+                border: `${visibleTypes.primera ? 2 : 1}px solid ${visibleTypes.primera ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
+                cursor: 'pointer'
               }} 
             />
             <Chip 
               label="Historial" 
               size="small" 
+              onClick={() => toggleType('historial')}
               sx={{ 
                 bgcolor: '#8b5cf6', 
                 color: 'white',
                 fontSize: '15px',
                 height: '30px',
-                border: '1px solid #7c3aed'
+                border: `${visibleTypes.historial ? 2 : 1}px solid ${visibleTypes.historial ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
+                cursor: 'pointer'
               }} 
             />
           </Stack>
@@ -320,7 +363,7 @@ export function CalendarioPage() {
       <Box flex="1" display="flex" justifyContent="center" alignItems="center" p={2}>
         <Calendar
           localizer={localizer}
-          events={events}
+          events={filteredEvents}
           startAccessor="start"
           endAccessor="end"
           culture="es"

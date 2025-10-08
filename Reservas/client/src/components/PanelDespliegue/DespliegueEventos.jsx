@@ -54,10 +54,29 @@ dayjs.extend(localeData);
 dayjs.locale('es');
 
 function getInitialDate(event) {
-  // Si viene de PatientsPage, puede que event.start sea null o string
-  if (event?.start instanceof Date) return dayjs(event.start).format('YYYY-MM-DD');
+  // Preferir fecha desde start si existe
   if (event?.start) return dayjs(event.start).format('YYYY-MM-DD');
-  if (event?.paciente?.siguienteCita) return dayjs(event.paciente.siguienteCita).format('YYYY-MM-DD');
+  // Luego intentar con siguienteCita en la reserva
+  const fecha = event?.siguienteCita || event?.paciente?.siguienteCita;
+  if (fecha) {
+    if (typeof fecha === 'string' && fecha.endsWith('Z') && fecha.includes('T00:00:00')) {
+      // Evitar desfase: usar solo la parte de fecha (local)
+      return fecha.slice(0, 10);
+    }
+    return dayjs(fecha).format('YYYY-MM-DD');
+  }
+  // Como último recurso, usar diaPrimeraCita si existe
+  if (event?.diaPrimeraCita) {
+    const f = event.diaPrimeraCita;
+    if (typeof f === 'string' && f.endsWith('Z') && f.includes('T00:00:00')) {
+      return f.slice(0, 10);
+    }
+    return dayjs(f).format('YYYY-MM-DD');
+  }
+  // Fallback específico: si no hay fecha pero sí hay hora (caso TodayPage), usar hoy
+  if (event?.hora) {
+    return dayjs().format('YYYY-MM-DD');
+  }
   return '';
 }
 function getInitialHour(event) {
@@ -203,8 +222,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
-      const feriados = await getFeriados();
-      setFeriados(feriados.data);
+  const feriados = await getFeriados();
+  setFeriados(Array.isArray(feriados) ? feriados : (feriados?.data || []));
     };
     fetchHorasDisponibles();
   }, [profesionalActual, editableFields.fecha, obtenerHorasDisponibles]);
@@ -1104,7 +1123,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                         Fecha
                       </Typography>
                       <Typography variant="body1" fontWeight={600}>
-                        {event.start ? dayjs(event.start).format('DD/MM/YYYY') : 'No especificada'}
+                        {getInitialDate(event) ? dayjs(getInitialDate(event)).format('DD/MM/YYYY') : 'No especificada'}
                       </Typography>
                     </Paper>
                   </Grid>

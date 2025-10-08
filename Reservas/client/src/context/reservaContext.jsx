@@ -92,7 +92,8 @@ export const ReservaProvider = ({ children }) => {
       const response = await getFeriadosRequest(year, country);
       return response.data;
     } catch (error) {
-      console.error(error);
+      console.error('Error obteniendo feriados, usando []:', error);
+      return [];
     }
   }
 

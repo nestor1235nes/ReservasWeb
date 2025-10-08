@@ -24,9 +24,10 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
-      const feriados = await getFeriados();
-      setFeriados(feriados.data);
-      console.log('Feriados:', feriados.data);  
+  const feriados = await getFeriados();
+  const arr = Array.isArray(feriados) ? feriados : (feriados?.data || []);
+  setFeriados(arr);
+  console.log('Feriados:', arr);
     };
     fetchHorasDisponibles();
   }, [formData.profesional, formData.diaPrimeraCita, obtenerHorasDisponibles]);

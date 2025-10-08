@@ -86,12 +86,23 @@ export default function PatientsPage() {
 
     if (reserva) {
       // Asegúrate de que 'start' sea un objeto Date igual que en CalendarioPage
-      let start = null;
-      if (reserva.siguienteCita && reserva.hora) {
-        const startDate = dayjs(reserva.siguienteCita).tz('America/Santiago');
-        const [hours, minutes] = reserva.hora.split(":").map(Number);
-        start = startDate.hour(hours).minute(minutes).second(0).toDate();
-      }
+      // Evitar desfase de un día cuando siguienteCita viene como "T00:00:00Z" (UTC medianoche)
+      const buildLocalStart = (fecha, horaStr) => {
+        if (!fecha || !horaStr) return null;
+        const [hours, minutes] = horaStr.split(":").map(Number);
+        if (typeof fecha === 'string') {
+          const dateOnlyMatch = fecha.match(/^\d{4}-\d{2}-\d{2}$/);
+          const zMidnight = fecha.includes('T00:00:00') && fecha.endsWith('Z');
+          if (dateOnlyMatch || zMidnight) {
+            const [y, m, d] = fecha.substring(0, 10).split('-').map(Number);
+            return new Date(y, m - 1, d, hours, minutes, 0, 0);
+          }
+        }
+        // Caso general: usar dayjs sin cambio de zona horaria explícito
+        return dayjs(fecha).hour(hours).minute(minutes).second(0).toDate();
+      };
+
+      let start = buildLocalStart(reserva.siguienteCita, reserva.hora);
       setSelectedReserva({
         ...reserva,
         start, // Sobrescribe o agrega el campo start como Date
