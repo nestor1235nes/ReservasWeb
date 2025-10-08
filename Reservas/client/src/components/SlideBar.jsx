@@ -30,7 +30,7 @@ import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
-import Logo from '../assets/logopng.png';
+import Logo from '../assets/LOGO.png';
 
 const baseMenuItems = [
   { label: 'Día Actual', icon: <TodayIcon />, path: '/hoy' },
