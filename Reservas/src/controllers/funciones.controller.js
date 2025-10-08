@@ -165,9 +165,23 @@ export const liberarHoras = async (req, res) => {
 export const getFeriados = async (req, res) => {
   const { year = new Date().getFullYear(), country = "CL" } = req.query;
   try {
-    const response = await axios.get(`https://api.boostr.cl/holidays?year=${year}&country=${country}`);
-    res.json(response.data);
+    // Proveedor principal
+    try {
+      const response = await axios.get(`https://api.boostr.cl/holidays?year=${year}&country=${country}`);
+      return res.json(response.data || []);
+    } catch (primaryErr) {
+      // Fallback a Nager.Date
+      try {
+        const response2 = await axios.get(`https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`);
+        // Nager ya entrega objetos con campo 'date'
+        return res.json(response2.data || []);
+      } catch (secondaryErr) {
+        // Como último recurso, devolver arreglo vacío para no romper el frontend
+        return res.json([]);
+      }
+    }
   } catch (error) {
-    res.status(500).json({ message: "Error obteniendo feriados" });
+    // No debería entrar aquí por los catches internos, pero por seguridad
+    res.json([]);
   }
 };

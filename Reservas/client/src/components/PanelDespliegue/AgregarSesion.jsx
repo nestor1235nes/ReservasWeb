@@ -99,8 +99,8 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
         const horas = response.times || [];
         setHorasDisponibles(horas);
       }
-      const feriadosData = await getFeriados();
-      setFeriados(feriadosData.data);
+  const feriadosData = await getFeriados();
+  setFeriados(Array.isArray(feriadosData) ? feriadosData : (feriadosData?.data || []));
     };
     fetchHorasDisponibles();
   }, [fecha, user.id || user._id, obtenerHorasDisponibles]);

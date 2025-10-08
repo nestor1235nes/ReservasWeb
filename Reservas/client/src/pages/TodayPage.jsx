@@ -218,8 +218,32 @@ export default function TodayPage() {
   const afternoon = filtered.filter(r => parseInt(r.hora.split(":")[0], 10) >= 13);
 
   // Manejo de click en tarjeta
+  // Construir Date local desde siguienteCita (+ posibles formatos) y hora para evitar 'fecha no especificada'
+  const buildLocalStart = (fecha, horaStr) => {
+    if (!fecha || !horaStr) return null;
+    const [hours, minutes] = horaStr.split(":").map(Number);
+    if (typeof fecha === 'string') {
+      const dateOnlyMatch = fecha.match(/^\d{4}-\d{2}-\d{2}$/);
+      const zMidnight = fecha.includes('T00:00:00') && fecha.endsWith('Z');
+      if (dateOnlyMatch || zMidnight) {
+        const [y, m, d] = fecha.substring(0, 10).split('-').map(Number);
+        return new Date(y, m - 1, d, hours, minutes, 0, 0);
+      }
+    }
+    return dayjs(fecha).hour(hours).minute(minutes).second(0).toDate();
+  };
+
   const handleCardClick = (reserva) => {
-    setSelectedEvent(reserva);
+    // Fallback: si no hay siguienteCita, usar la fecha de hoy (esta página solo muestra citas de hoy)
+    const fechaBase = reserva.siguienteCita || dayjs().format('YYYY-MM-DD');
+    const start = buildLocalStart(fechaBase, reserva.hora);
+    setSelectedEvent({
+      ...reserva,
+      siguienteCita: fechaBase,
+      start,
+      end: start ? dayjs(start).add(1, 'hour').toDate() : null,
+      title: reserva.paciente?.nombre
+    });
     setOpen(true);
   };
 

@@ -71,6 +71,10 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [files, setFiles] = useState([]);
   const [agendarNuevaCita, setAgendarNuevaCita] = useState(false); // Switch para nueva cita
+  // Control independiente para "Primer día de consulta"
+  const [cambiarDiaPrimera, setCambiarDiaPrimera] = useState(false);
+  const [diaPrimeraCitaOverride, setDiaPrimeraCitaOverride] = useState(dayjs().format('YYYY-MM-DD'));
+  const [reservaExistente, setReservaExistente] = useState(null);
 
   useEffect(() => {
     if (user && user.id) {
@@ -103,13 +107,23 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
             profesional: response.profesional,
           });
           setPacienteExistente(true);
+          setReservaExistente(response);
+          // Establecer base por defecto para primer día de consulta: existente.diaPrimeraCita -> existente.siguienteCita -> hoy
+          const basePrimera = (response.diaPrimeraCita
+            ? dayjs(response.diaPrimeraCita).format('YYYY-MM-DD')
+            : (response.siguienteCita ? dayjs(response.siguienteCita).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD')));
+          setDiaPrimeraCitaOverride(basePrimera);
         }
         else {
           setPacienteExistente(false);
           setPatientData({ ...patientData, profesional: user.id });
+          setReservaExistente(null);
+          setDiaPrimeraCitaOverride(dayjs().format('YYYY-MM-DD'));
         }
       } catch (error) {
         setPacienteExistente(false);
+        setReservaExistente(null);
+        setDiaPrimeraCitaOverride(dayjs().format('YYYY-MM-DD'));
       }
     }
     if (validateStep()) {
@@ -149,6 +163,19 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     }
   };
 
+  const handleToggleCambiarDiaPrimera = (event) => {
+    setCambiarDiaPrimera(event.target.checked);
+    if (!event.target.checked) {
+      // Al apagar, volver al valor por defecto calculado
+      const basePrimera = reservaExistente
+        ? (reservaExistente.diaPrimeraCita
+            ? dayjs(reservaExistente.diaPrimeraCita).format('YYYY-MM-DD')
+            : (reservaExistente.siguienteCita ? dayjs(reservaExistente.siguienteCita).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD')))
+        : dayjs().format('YYYY-MM-DD');
+      setDiaPrimeraCitaOverride(basePrimera);
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       // Preparar los datos
@@ -160,7 +187,33 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
 
       // 1. Crear o actualizar paciente
       if (data) {
-        await updateReserva(patientData.rut, dataToSave);
+        // Actualizar reserva existente sin perder campos no modificados
+        const updatePayload = {};
+
+        // Diagnóstico/Anamnesis si se agregan
+        if (patientData.diagnostico) updatePayload.diagnostico = patientData.diagnostico;
+        if (patientData.anamnesis) updatePayload.anamnesis = patientData.anamnesis;
+
+        // Primer día de consulta: solo si se quiere cambiar o si no existe aún
+        if (cambiarDiaPrimera) {
+          updatePayload.diaPrimeraCita = diaPrimeraCitaOverride;
+        } else if (!reservaExistente?.diaPrimeraCita) {
+          // Autodefinir si no existía
+          updatePayload.diaPrimeraCita = reservaExistente?.siguienteCita
+            ? dayjs(reservaExistente.siguienteCita).format('YYYY-MM-DD')
+            : dayjs().format('YYYY-MM-DD');
+        }
+
+        // Próxima cita: solo si se activa el agendamiento
+        if (agendarNuevaCita && patientData.diaPrimeraCita && patientData.hora) {
+          updatePayload.siguienteCita = patientData.diaPrimeraCita;
+          updatePayload.hora = patientData.hora;
+        }
+
+        // Evitar enviar payload vacío
+        if (Object.keys(updatePayload).length > 0) {
+          await updateReserva(patientData.rut, updatePayload);
+        }
         pacienteId = data._id;
       } else {
         // Crear nuevo paciente
@@ -185,14 +238,16 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
           console.log('agendarNuevaCita:', agendarNuevaCita);
           console.log('patientData.diaPrimeraCita:', patientData.diaPrimeraCita);
           console.log('patientData.hora:', patientData.hora);
-          
-          // Preparar datos de la reserva
+
+          // Reglas:
+          // - Primer día de consulta independiente: si usuario lo cambia, usar override; si no, usar HOY
+          const hoyYmd = dayjs().format('YYYY-MM-DD');
+          const diaPrimeraCitaValue = cambiarDiaPrimera ? (diaPrimeraCitaOverride || hoyYmd) : hoyYmd;
+
           const reservaData = {
             ...dataToSave,
-            // diaPrimeraCita siempre es la fecha actual (cuando se registra)
-            diaPrimeraCita: new Date().toISOString().split('T')[0],
-            // siguienteCita es la fecha seleccionada por el usuario si agenda cita
-            siguienteCita: agendarNuevaCita ? patientData.diaPrimeraCita : '',
+            diaPrimeraCita: diaPrimeraCitaValue,
+            siguienteCita: agendarNuevaCita ? (patientData.diaPrimeraCita || '') : '',
             hora: agendarNuevaCita ? patientData.hora : null
           };
           console.log('Creando reserva con datos:', reservaData);
