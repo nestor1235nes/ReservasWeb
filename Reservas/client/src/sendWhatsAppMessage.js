@@ -1,5 +1,4 @@
 import axios from 'axios';
-import Cookies from 'js-cookie';
 
 // Placeholders soportados y su descripción (para futura UI de ayuda)
 export const PLACEHOLDERS = [
@@ -13,12 +12,10 @@ export const PLACEHOLDERS = [
 ];
 
 // Obtiene/genera link de confirmación para una reserva (devuelve placeholder si falla)
-export async function fetchConfirmationLink(reservaId, authToken) {
-    if (!authToken) return '{enlaceConfirmacion}';
+export async function fetchConfirmationLink(reservaId, _authToken) {
     try {
-        const resp = await axios.post(`/api/reserva/${reservaId}/confirm-link`, {}, {
-            headers: { Authorization: `Bearer ${authToken}` }
-        });
+        // Cookie httpOnly se envía automáticamente en misma-origin; no necesitamos Authorization
+        const resp = await axios.post(`/api/reserva/${reservaId}/confirm-link`);
         return resp.data.link;
     } catch (e) {
         console.error('No se pudo generar link de confirmación', e);
@@ -44,15 +41,12 @@ export function buildMessage(template, reserva, link) {
     return Object.entries(map).reduce((acc, [k,v]) => acc.replaceAll(k, v), normalized);
 }
 
-const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, authToken) => {
+const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, _authToken) => {
     const { idInstance, apiTokenInstance } = user;
     if (!idInstance || !apiTokenInstance) {
         console.warn('Faltan credenciales de Green API');
         return;
     }
-
-    // Fallback al token en cookies si no se proporcionó explícito
-    const token = authToken || Cookies.get('token');
 
     for (const reserva of reservasLiberadas) {
         const phoneNumber = reserva?.paciente?.telefono;
@@ -63,7 +57,7 @@ const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, aut
         // Normalizar para detección case-insensitive
         const needsLink = /\{enlaceconfirmacion\}/i.test(messageTemplate);
         if (needsLink) {
-            link = await fetchConfirmationLink(reserva._id, token);
+            link = await fetchConfirmationLink(reserva._id);
         }
 
         const finalMessage = buildMessage(messageTemplate, reserva, link);

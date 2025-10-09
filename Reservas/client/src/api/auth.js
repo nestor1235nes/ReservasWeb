@@ -6,6 +6,9 @@ export const registerUserOnlyRequest = async (user) => axios.post(`/auth/registe
 
 export const loginRequest = async (user) => axios.post(`/auth/login`, user);
 
+// Cierra la sesión en el servidor (borra cookie httpOnly)
+export const logoutRequest = async () => axios.post(`/auth/logout`);
+
 export const deleteUserRequest = async (id) => axios.delete(`/auth/${id}`);
 
 export const verifyTokenRequest = async () => axios.get(`/auth/verify`);

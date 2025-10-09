@@ -14,6 +14,7 @@ import {
   updateServicioRequest,
   deleteServicioRequest
  } from "../api/auth";
+import { logoutRequest } from "../api/auth";
 import { generateEnlaceRequest } from "../api/auth";
 import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/funcion";
 import { updateNotificationsRequest } from '../api/auth';
@@ -72,10 +73,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    Cookies.remove("token");
-    setUser(null);
-    setIsAuthenticated(false);
+  const logout = async () => {
+    try {
+      await logoutRequest();
+    } catch (e) {
+      // ignora errores de red aquí
+    } finally {
+      Cookies.remove("token"); // por si existiera una cookie no httpOnly en ambientes antiguos
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
   const updatePerfil = async (id, data) => {
@@ -243,26 +250,23 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
-    const checkLogin = async () => {
-      const cookies = Cookies.get();
-      if (!cookies.token) {
-        setIsAuthenticated(false);
-        setLoading(false);
-        return;
-      }
-
+    const rehydrate = async () => {
       try {
-        const res = await verifyTokenRequest(cookies.token);
-        if (!res.data) return setIsAuthenticated(false);
-        setIsAuthenticated(true);
-        setUser(res.data);
-        setLoading(false);
-      } catch (error) {
+        // No pasamos token; el servidor lo lee de la cookie httpOnly si withCredentials=true
+        const res = await verifyTokenRequest();
+        if (res?.data) {
+          setUser(res.data);
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (e) {
         setIsAuthenticated(false);
+      } finally {
         setLoading(false);
       }
     };
-    checkLogin();
+    rehydrate();
   }, []);
 
   return (

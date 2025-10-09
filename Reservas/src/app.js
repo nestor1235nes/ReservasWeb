@@ -31,6 +31,8 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
+  // Producción Vercel
+  'https://sessionlyv1.vercel.app',
   // Agrega dinámicamente la IP local si se despliega en red (acepta cualquier origen que empiece con http://192.168.)
 ];
 

@@ -8,7 +8,6 @@ import 'dayjs/locale/es';
 import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
 import sendWhatsAppMessage, { PLACEHOLDERS } from '../../sendWhatsAppMessage';
-import Cookies from 'js-cookie';
 import { CSSTransition } from 'react-transition-group';
 import '../ui/LiberarHoras.css';
 
@@ -64,19 +63,18 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
             }
     
             if (user.idInstance) {
-                const authToken = Cookies.get('token');
                 if(user.defaultMessage === '' && customMessage === '') {
                     showAlert('error', 'No hay mensaje por defecto ni mensaje personalizado. No se enviará mensaje a los pacientes.');
                     return;
                 }
                 if(customMessage){
-                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, customMessage, user, authToken);
+                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, customMessage, user);
                     showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
                     return;
                 }
                 else{
                     const message = user.defaultMessage;
-                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user, authToken);
+                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user);
                     showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
                     return;
                 }

@@ -14,7 +14,6 @@ import AgregarPaciente from '../Modales/AgregarPaciente';
 import AgregarSesion from './AgregarSesion';
 import VerHistorial from './VerHistorial';
 import sendWhatsAppMessage, { PLACEHOLDERS } from '../../sendWhatsAppMessage';
-import Cookies from 'js-cookie';
 import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
@@ -366,8 +365,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           }
 
           if (mensajePaciente) {
-            const authToken = Cookies.get('token');
-            sendWhatsAppMessage([event], mensajePaciente, user, authToken);
+            sendWhatsAppMessage([event], mensajePaciente, user);
           }
 
           // Verificar si la reserva tiene eventId y actualizar Google Calendar

@@ -29,7 +29,8 @@ router.post("/login", validateSchema(loginSchema), login);
 router.delete("/:id", deleteUser);
 router.post("/google-auth", googleAuth);
 router.get("/verify", verifyToken);
-router.post("/logout", verifyToken, logout);
+// No necesitamos verificar antes de cerrar sesión; si existe cookie se elimina
+router.post("/logout", logout);
 router.put("/:id", updatePerfil);
 router.put("/:id/timetable/:index", deleteBloqueHorario);
 router.post("/notifications/:id", updateNotifications);
