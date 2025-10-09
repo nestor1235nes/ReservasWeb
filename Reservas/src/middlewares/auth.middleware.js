@@ -3,7 +3,13 @@ import { TOKEN_SECRET } from "../config.js";
 
 export const auth = (req, res, next) => {
   try {
-    const { token } = req.cookies;
+    let token = req.cookies?.token;
+    if (!token && req.headers?.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.toLowerCase().startsWith('bearer ')) {
+        token = authHeader.slice(7);
+      }
+    }
 
     if (!token)
       return res

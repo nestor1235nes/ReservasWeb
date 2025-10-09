@@ -15,6 +15,7 @@ import {
   deleteServicioRequest
  } from "../api/auth";
 import { logoutRequest } from "../api/auth";
+import api from "../api/axios";
 import { generateEnlaceRequest } from "../api/auth";
 import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/funcion";
 import { updateNotificationsRequest } from '../api/auth';
@@ -67,6 +68,11 @@ export const AuthProvider = ({ children }) => {
       const res = await loginRequest(user);
       setUser(res.data);
       setIsAuthenticated(true);
+      // Guardar token como respaldo para móviles (iOS/Android) y setear header Authorization
+      if (res?.data?.token) {
+        localStorage.setItem('auth_token', res.data.token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+      }
     } catch (error) {
       console.log(error);
       setErrors(error.response.data.message);
@@ -82,6 +88,8 @@ export const AuthProvider = ({ children }) => {
       Cookies.remove("token"); // por si existiera una cookie no httpOnly en ambientes antiguos
       setUser(null);
       setIsAuthenticated(false);
+      localStorage.removeItem('auth_token');
+      delete api.defaults.headers.common['Authorization'];
     }
   };
 
@@ -257,11 +265,49 @@ export const AuthProvider = ({ children }) => {
         if (res?.data) {
           setUser(res.data);
           setIsAuthenticated(true);
+          // si ya tenemos token local, reinstalar Authorization
+          const t = localStorage.getItem('auth_token');
+          if (t) api.defaults.headers.common['Authorization'] = `Bearer ${t}`;
+        } else {
+          // Fallback: si hay token en localStorage, lo usamos para bootstrapping en móvil
+          const t = localStorage.getItem('auth_token');
+          if (t) {
+            api.defaults.headers.common['Authorization'] = `Bearer ${t}`;
+            // Intentar verificar de nuevo usando Authorization
+            try {
+              const res2 = await verifyTokenRequest();
+              if (res2?.data) {
+                setUser(res2.data);
+                setIsAuthenticated(true);
+              } else {
+                setIsAuthenticated(false);
+              }
+            } catch {
+              setIsAuthenticated(false);
+            }
+          } else {
+            setIsAuthenticated(false);
+          }
+        }
+      } catch (e) {
+        // Fallback con token local en caso de error de cookie
+        const t = localStorage.getItem('auth_token');
+        if (t) {
+          api.defaults.headers.common['Authorization'] = `Bearer ${t}`;
+          try {
+            const res2 = await verifyTokenRequest();
+            if (res2?.data) {
+              setUser(res2.data);
+              setIsAuthenticated(true);
+            } else {
+              setIsAuthenticated(false);
+            }
+          } catch {
+            setIsAuthenticated(false);
+          }
         } else {
           setIsAuthenticated(false);
         }
-      } catch (e) {
-        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
