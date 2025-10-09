@@ -166,7 +166,7 @@ export default function GraphicsPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
+    <Box sx={{ p: { xs: 1.5, md: 3 } }}>
       {/* Header (same style as TodayPage) */}
       <Stack direction={isMobile ? "column" : "row"} justifyContent="space-between" alignItems={isMobile ? "stretch" : "center"} spacing={2} p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
         <Typography variant="h5" fontWeight={700} color="white">
@@ -192,7 +192,7 @@ export default function GraphicsPage() {
       </Box>
 
       {/* KPIs Cards */}
-      <Grid container spacing={3} mb={4}>
+      <Grid container spacing={2} mb={3}>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
             <CardContent>
@@ -270,7 +270,7 @@ export default function GraphicsPage() {
       <Grid container spacing={3}>
         {/* Estado de Pacientes */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: 400 }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: { xs: 360, md: 400 } }}>
             <Typography variant="h6" mb={2} fontWeight="bold">
               Estado de Pacientes
             </Typography>
@@ -282,7 +282,7 @@ export default function GraphicsPage() {
                     highlightScope: { faded: 'global', highlighted: 'item' },
                   },
                 ]}
-                height={300}
+                height={isMobile ? 260 : 300}
               />
             ) : (
               <Typography color="text.secondary">No hay datos disponibles</Typography>
@@ -292,7 +292,7 @@ export default function GraphicsPage() {
 
         {/* Distribución por Edad */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: 400 }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: { xs: 360, md: 400 } }}>
             <Typography variant="h6" mb={2} fontWeight="bold">
               Distribución por Edad
             </Typography>
@@ -304,7 +304,7 @@ export default function GraphicsPage() {
                     highlightScope: { faded: 'global', highlighted: 'item' },
                   },
                 ]}
-                height={300}
+                height={isMobile ? 260 : 300}
               />
             ) : (
               <Typography color="text.secondary">No hay datos disponibles</Typography>
@@ -314,7 +314,7 @@ export default function GraphicsPage() {
 
         {/* Reservas por Mes */}
         <Grid item xs={12}>
-          <Paper sx={{ p: 3, height: 400 }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: { xs: 380, md: 400 }, overflowX: 'auto' }}>
             <Typography variant="h6" mb={2} fontWeight="bold">
               Tendencia de Reservas por Mes
             </Typography>
@@ -332,8 +332,8 @@ export default function GraphicsPage() {
                     color: theme.palette.primary.main,
                   },
                 ]}
-                height={300}
-                margin={{ left: 50, right: 50, top: 50, bottom: 100 }}
+                height={isMobile ? 280 : 300}
+                margin={{ left: 40, right: 30, top: 30, bottom: isMobile ? 60 : 80 }}
               />
             ) : (
               <Typography color="text.secondary">No hay datos disponibles</Typography>
@@ -343,7 +343,7 @@ export default function GraphicsPage() {
 
         {/* Comportamiento de Pacientes */}
         <Grid item xs={12}>
-          <Paper sx={{ p: 3, height: 400 }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: { xs: 380, md: 400 }, overflowX: 'auto' }}>
             <Typography variant="h6" mb={2} fontWeight="bold">
               Comportamiento de Asistencia
             </Typography>
@@ -361,8 +361,8 @@ export default function GraphicsPage() {
                     color: theme.palette.secondary.main,
                   },
                 ]}
-                height={300}
-                margin={{ left: 50, right: 50, top: 50, bottom: 120 }}
+                height={isMobile ? 280 : 300}
+                margin={{ left: 40, right: 30, top: 30, bottom: isMobile ? 80 : 100 }}
               />
             ) : (
               <Typography color="text.secondary">No hay datos disponibles</Typography>
@@ -372,7 +372,7 @@ export default function GraphicsPage() {
 
         {/* Pagos por Mes */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: 400 }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: { xs: 380, md: 400 }, overflowX: 'auto' }}>
             <Typography variant="h6" mb={2} fontWeight="bold">
               Pagos procesados (últimos 12 meses)
             </Typography>
@@ -390,8 +390,8 @@ export default function GraphicsPage() {
                     color: theme.palette.success.main,
                   },
                 ]}
-                height={300}
-                margin={{ left: 50, right: 50, top: 50, bottom: 100 }}
+                height={isMobile ? 280 : 300}
+                margin={{ left: 40, right: 30, top: 30, bottom: isMobile ? 60 : 80 }}
               />
             ) : (
               <Typography color="text.secondary">No hay datos de pagos disponibles</Typography>

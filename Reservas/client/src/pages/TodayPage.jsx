@@ -59,7 +59,7 @@ function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
     <Card
       variant="outlined"
       sx={{
-        mb: 2,
+        mb: 1.5,
         cursor: 'pointer',
         transition: 'box-shadow 0.2s, border-color 0.2s, background 0.2s',
         '&:hover': {
@@ -70,29 +70,29 @@ function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
       }}
       onClick={onClick}
     >
-      <CardContent sx={{ display: "flex", alignItems: "flex-start", p: 2 }}>
+      <CardContent sx={{ display: 'flex', alignItems: 'flex-start', p: { xs: 1.5, sm: 2 } }}>
         <Box
           sx={{
             bgcolor: "primary.light",
             color: "primary.main",
             borderRadius: "50%",
-            width: 48,
-            height: 48,
+            width: { xs: 40, sm: 48 },
+            height: { xs: 40, sm: 48 },
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            mr: 2
+            mr: { xs: 1.5, sm: 2 }
           }}
         >
           <AccessTimeIcon />
         </Box>
-        <Box flex={1}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+        <Box flex={1} minWidth={0}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }} gap={1}>
             <Box>
               <Typography fontWeight={600}>
                 {reserva.hora} - {dayjs(reserva.hora, "HH:mm").add(30, "minute").format("HH:mm")}
               </Typography>
-              <Stack direction="row" spacing={1} mt={0.5}>
+              <Stack direction="row" spacing={1} mt={0.5} sx={{ flexWrap: 'wrap' }}>
                 <Chip
                   label={reserva.tipoCita || "Consulta"}
                   size="small"
@@ -117,7 +117,7 @@ function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
                 )}
               </Stack>
             </Box>
-            <Stack direction="row" alignItems="center" spacing={1}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' } }}>
               <Chip
                 icon={status.icon}
                 label={status.label}
@@ -153,11 +153,11 @@ function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
             <Avatar sx={{ width: 32, height: 32, mr: 1 }}>
               {reserva.paciente?.nombre?.[0] || "?"}
             </Avatar>
-            <Box>
+            <Box minWidth={0}>
               <Typography variant="body2" fontWeight={500}>
                 {reserva.paciente?.nombre}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: { xs: '68vw', sm: '40vw' } }}>
                 {reserva.paciente?.email}
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -292,24 +292,26 @@ export default function TodayPage() {
         mx="auto"
         px={isMobile ? 0 : 0}
         py={isMobile ? 0 : 0}
+        sx={{ overflowX: 'hidden', maxWidth: '100vw' }}
       >
         <Stack direction={isMobile ? "column" : "row"} justifyContent="space-between" alignItems={isMobile ? "stretch" : "center"} spacing={2} p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
           <Typography variant="h5" fontWeight={700} color="white">
             Citas del día: {dayjs().locale("es").format("dddd, D [de] MMMM [de] YYYY")}
           </Typography>
         </Stack>
-        <Card>
+        <Card sx={{ borderRadius: { xs: 0, sm: 2 } }}>
           <CardHeader
               sx={{ pb: 0 }}
               title={null}
           />
-          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', mt:-2, backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
+          <Box sx={{ width: '100%', mt:-2, backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0', overflowX: 'auto' }}>
               <Tabs
                 value={tab}
                 onChange={(_, v) => setTab(v)}
                 variant={isMobile ? 'scrollable' : 'standard'}
                 scrollButtons={isMobile ? 'auto' : false}
                 aria-label="tabs"
+                sx={{ width: '100%', maxWidth: '100%' }}
               >
                 <Tab label="Todas" />
                 <Tab label="Confirmadas" />
@@ -317,7 +319,7 @@ export default function TodayPage() {
                 <Tab label="Canceladas" />
               </Tabs>
           </Box>
-          <CardContent>
+          <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
             <Box>
               <Typography variant="subtitle2" color="text.secondary" mb={1} mt={2}>
                 Mañana
@@ -354,6 +356,12 @@ export default function TodayPage() {
         anchor={isMobile ? 'bottom' : 'right'}
         open={open}
         onClose={handleCloseDrawer}
+        PaperProps={{
+          sx: {
+            height: isMobile ? '80dvh' : '100%',
+            maxHeight: isMobile ? '80dvh' : '100%',
+          }
+        }}
       >
         <Slide
           direction={isMobile ? 'down' : 'left'}
@@ -362,7 +370,7 @@ export default function TodayPage() {
           unmountOnExit
           timeout={500}
         >
-          <Box>
+          <Box sx={{ height: '100%', overflow: 'auto' }}>
             {selectedEvent && (
               <DespliegueEventos
                 event={selectedEvent}
