@@ -53,12 +53,9 @@ app.use(express.json());
 app.use(morgan('dev'));
 app.use(cookieParser());
 
-// COOP/COEP si lo necesitas (p.ej., SharedArrayBuffer); mantenido como en tu código
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  next();
-});
+// Nota: COOP/COEP puede bloquear carga de recursos desde otros orígenes (especialmente en Safari/iOS).
+// Habilítalo solo si realmente requieres SharedArrayBuffer, etc. Por ahora lo desactivamos para evitar problemas en móvil.
+// Si requieres COOP/COEP, asegúrate de servir TODOS los recursos como cross-origin isolated.
 
 // Health endpoint
 app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));

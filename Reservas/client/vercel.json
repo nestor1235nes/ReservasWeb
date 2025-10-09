@@ -1,6 +1,8 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://reservas-backend-286462538213.us-central1.run.app/api/$1" },
+    { "source": "/uploads/(.*)", "destination": "https://reservas-backend-286462538213.us-central1.run.app/uploads/$1" },
+    { "source": "/imagenesPacientes/(.*)", "destination": "https://reservas-backend-286462538213.us-central1.run.app/imagenesPacientes/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "installCommand": "pnpm install --no-frozen-lockfile",
