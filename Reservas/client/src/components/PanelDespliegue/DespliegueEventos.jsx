@@ -40,6 +40,7 @@ import 'dayjs/locale/es';
 import ReactQuill from 'react-quill';
 import '../ui/AgregarSesionCSS.css';
 import MostrarImagenes from '../MostrarImagenes';
+import { ASSETS_BASE } from '../../config';
 import localeData from 'dayjs/plugin/localeData';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { useDropzone } from 'react-dropzone';
@@ -605,7 +606,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   >
                     <Box
                       component="img"
-                      src={`http://localhost:4000${imagenes[currentImageIndex]}`}
+                      src={`${ASSETS_BASE}${imagenes[currentImageIndex]}`}
                       alt={`Imagen ${currentImageIndex + 1}`}
                       className="image-carousel-fade"
                       sx={{
@@ -675,7 +676,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                         <Grid item xs={3} key={index}>
                           <Box
                             component="img"
-                            src={`http://localhost:4000${imagen}`}
+                            src={`${ASSETS_BASE}${imagen}`}
                             alt={`Miniatura ${index + 1}`}
                             className={`thumbnail-image ${index === currentImageIndex ? 'active' : ''}`}
                             sx={{
@@ -1578,7 +1579,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 {imagenes.length > 0 && (
                   <Box
                     component="img"
-                    src={`http://localhost:4000${imagenes[currentImageIndex]}`}
+                    src={`${ASSETS_BASE}${imagenes[currentImageIndex]}`}
                     alt={`Imagen ${currentImageIndex + 1}`}
                     sx={{
                       width: '100%',

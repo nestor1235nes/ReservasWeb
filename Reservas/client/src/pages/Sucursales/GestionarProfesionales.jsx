@@ -32,6 +32,7 @@ import { useSucursal } from "../../context/sucursalContext";
 import { useAuth } from "../../context/authContext";
 import RegisterProfesional from "../../components/Surcursales/RegisterProfesional";
 import { useTheme } from "@mui/material/styles";
+import { ASSETS_BASE } from "../../config";
 
 export default function GestionarProfesionales() {
   const { user, deleteUser } = useAuth();
@@ -190,7 +191,7 @@ export default function GestionarProfesionales() {
         }}
       >
         <Avatar
-          src={profesional.fotoPerfil ? `http://localhost:4000${profesional.fotoPerfil}` : undefined}
+          src={profesional.fotoPerfil ? `${ASSETS_BASE}${profesional.fotoPerfil}` : undefined}
           sx={{
             bgcolor: profesional.fotoPerfil ? "white" : "#2596be",
             color: profesional.fotoPerfil ? "#2596be" : "white",

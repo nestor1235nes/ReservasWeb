@@ -30,6 +30,7 @@ import { useSucursal } from "../../context/sucursalContext";
 import { useAuth } from "../../context/authContext";
 import RegisterAsistente from "../../components/Surcursales/RegisterAsistente";
 import { useTheme } from "@mui/material/styles";
+import { ASSETS_BASE } from "../../config";
 
 export default function GestionarAsistentes() {
   const { user, deleteUser } = useAuth();
@@ -187,7 +188,7 @@ export default function GestionarAsistentes() {
         }}
       >
         <Avatar
-          src={asistente.fotoPerfil ? `http://localhost:4000${asistente.fotoPerfil}` : undefined}
+          src={asistente.fotoPerfil ? `${ASSETS_BASE}${asistente.fotoPerfil}` : undefined}
           sx={{
             bgcolor: asistente.fotoPerfil ? "white" : "#2596be",
             color: asistente.fotoPerfil ? "#2596be" : "white",

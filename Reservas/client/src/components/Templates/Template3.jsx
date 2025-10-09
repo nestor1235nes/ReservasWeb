@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar, Chip, Divider } from '@mui/material';
+import { ASSETS_BASE } from '../../config';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -25,7 +26,7 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
               <Box sx={{ height: 110, background: 'linear-gradient(135deg, #2596be, #21cbe6)' }} />
               <CardContent sx={{ pt: 0 }}>
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: -6 }}>
-                  <Avatar src={prof.fotoPerfil ? `http://localhost:4000${prof.fotoPerfil}` : undefined} sx={{ width: 88, height: 88, boxShadow: '0 0 0 4px #fff' }} />
+                  <Avatar src={prof.fotoPerfil ? `${ASSETS_BASE}${prof.fotoPerfil}` : undefined} sx={{ width: 88, height: 88, boxShadow: '0 0 0 4px #fff' }} />
                   <Box>
                     <Typography variant="h6" fontWeight={900}>{prof.username}</Typography>
                     <Typography color="text.secondary">{prof.especialidad}</Typography>

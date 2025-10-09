@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar } from '@mui/material';
+import { ASSETS_BASE } from '../../config';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
@@ -25,7 +26,7 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
             <Grid container>
               <Grid item xs={12} md={4} sx={{ borderRight: { md: '1px solid #eee' }, background: 'linear-gradient(90deg, #2596be 60%, #21cbe6 100%)' }}>
                 <Box p={2} display="flex" flexDirection="column" alignItems="center">
-                  <Avatar src={prof.fotoPerfil ? `http://localhost:4000${prof.fotoPerfil}` : undefined} sx={{ width: 80, height: 80, mb: 1 }} />
+                  <Avatar src={prof.fotoPerfil ? `${ASSETS_BASE}${prof.fotoPerfil}` : undefined} sx={{ width: 80, height: 80, mb: 1 }} />
                   <Typography fontWeight={600} color='white'>{prof.username}</Typography>
                   <Typography color="white" fontSize={14}>{prof.especialidad}</Typography>
                   <Box display="flex" alignItems="center" mt={1} fontSize={13}>

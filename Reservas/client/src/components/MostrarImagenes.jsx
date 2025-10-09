@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ASSETS_BASE } from '../config';
 import { Box, IconButton, Dialog, Typography } from '@mui/material';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
@@ -41,7 +42,7 @@ const MostrarImagenes = ({ imagenes }) => {
         </IconButton>
       )}
       <img
-        src={`http://localhost:4000${imagenes[currentIndex]}`}
+  src={`${ASSETS_BASE}${imagenes[currentIndex]}`}
         style={{ maxWidth: '100%', maxHeight: '200px', cursor: 'pointer' }}
         onClick={handleZoomOpen}
       />
@@ -51,7 +52,7 @@ const MostrarImagenes = ({ imagenes }) => {
         </IconButton>
       )}
       <Dialog open={openZoom} onClose={handleZoomClose} maxWidth="lg">
-        <img src={`http://localhost:4000${imagenes[currentIndex]}`} style={{ width: '100%', height: 'auto' }} />
+  <img src={`${ASSETS_BASE}${imagenes[currentIndex]}`} style={{ width: '100%', height: 'auto' }} />
       </Dialog>
     </Box>
   );

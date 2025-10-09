@@ -6,6 +6,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import Logo from '../../assets/LOGO.png';
+import { ASSETS_BASE } from '../../config';
 
 export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate }) {
   return (
@@ -22,7 +23,7 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
       <Box sx={{ py: 6, background: 'linear-gradient(180deg, #ffffff 0%, #f0fbff 100%)', borderBottom: '1px solid #e3f2fd' }}>
         <Container maxWidth="md">
           <Stack spacing={1} alignItems="center">
-            <Avatar src={prof.fotoPerfil ? `http://localhost:4000${prof.fotoPerfil}` : undefined} sx={{ width: 110, height: 110, boxShadow: '0 0 0 4px #fff, 0 4px 18px rgba(37,150,190,0.25)' }} />
+            <Avatar src={prof.fotoPerfil ? `${ASSETS_BASE}${prof.fotoPerfil}` : undefined} sx={{ width: 110, height: 110, boxShadow: '0 0 0 4px #fff, 0 4px 18px rgba(37,150,190,0.25)' }} />
             <Typography variant="h5" fontWeight={900}>{prof.username}</Typography>
             <Typography color="text.secondary">{prof.especialidad}</Typography>
             <Chip size="small" label={prof.sucursal?.nombre || 'Independiente'} sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: '#2596be', fontWeight: 700 }} />

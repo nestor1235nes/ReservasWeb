@@ -21,3 +21,16 @@ if (!resolvedApiUrl) {
 }
 
 export const API_URL = resolvedApiUrl;
+
+// URL base para recursos estáticos servidos por el backend (uploads, imagenesPacientes)
+// - En desarrollo (vite) apunta a http://localhost:4000
+// - En producción usa mismo origen (''), y Vercel reescribe a Cloud Run si se configura
+export const ASSETS_BASE = (() => {
+	if (typeof window !== 'undefined') {
+		const { origin } = window.location;
+		if (/localhost:5(1|2)73/.test(origin)) {
+			return 'http://localhost:4000';
+		}
+	}
+	return '';
+})();

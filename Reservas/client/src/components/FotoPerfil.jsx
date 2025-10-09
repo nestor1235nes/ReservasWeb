@@ -5,6 +5,7 @@ import { useAuth } from '../context/authContext';
 import { useAlert } from '../context/AlertContext'; 
 import axios from '../api/axios';
 import AvatarEditor from 'react-avatar-editor';
+import { ASSETS_BASE } from '../config';
 
 const FotoPerfil = () => {
   const { user, updatePerfil } = useAuth();
@@ -64,7 +65,7 @@ const FotoPerfil = () => {
       <label htmlFor="icon-button-file">
         <Tooltip title="Agregar foto de perfil" arrow>
           <IconButton color="primary" component="span">
-            <Avatar src={user.fotoPerfil ? `http://localhost:4000${user.fotoPerfil}` : undefined} style={{ width: '100%', height: '100%' }}>
+            <Avatar src={user.fotoPerfil ? `${ASSETS_BASE}${user.fotoPerfil}` : undefined} style={{ width: '100%', height: '100%' }}>
               {!user.fotoPerfil && <AddPhotoAlternateIcon />}
             </Avatar>
           </IconButton>
