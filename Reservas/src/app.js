@@ -24,12 +24,26 @@ const app = express();
 // Si corres detrás de proxy (Cloud Run) permite cookies seguras y IP correcta
 app.set('trust proxy', 1);
 
-// CORS: usa FRONTEND_URL si existe, fallback a localhost
+// CORS: permitir lista de orígenes (frontend principal + localhost + posibles IPs locales)
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+const allowedOrigins = [
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  // Agrega dinámicamente la IP local si se despliega en red (acepta cualquier origen que empiece con http://192.168.)
+];
+
 app.use(
   cors({
     credentials: true,
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // mobile apps webview a veces no mandan origin
+      if (allowedOrigins.includes(origin) || /http:\/\/192\.168\./.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('CORS not allowed for origin ' + origin));
+    },
   })
 );
 

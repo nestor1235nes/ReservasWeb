@@ -241,19 +241,22 @@ export default function HomePage() {
     <Box display="flex" flexDirection="column" minHeight="100vh">
       {/* Header */}
       <Stack
-        direction="row"
-        alignItems="center"
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
         p={2}
         borderRadius={1}
         sx={{
           background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)",
-          display: 'flex'
+          display: 'flex',
+          gap: 1
         }}
       >
-        <CalendarToday sx={{ color: 'white', mr: 1 }} />
-        <Typography variant="h5" fontWeight={700} color="white">
-          Reservas de Citas Médicas
-        </Typography>
+        <Box display="flex" alignItems="center">
+          <CalendarToday sx={{ color: 'white', mr: 1 }} />
+          <Typography variant={{ xs: 'h6', sm: 'h5' }} fontWeight={700} color="white">
+            Reservas de Citas Médicas
+          </Typography>
+        </Box>
       </Stack>
       {/* Main Content */}
       <Box flex={1} py={2}>
@@ -413,7 +416,7 @@ export default function HomePage() {
                               ))}
                             </Box>
                           </Box>
-                          <Box mt={2} display="flex" gap={1} alignItems="center">
+                          <Box mt={2} display="flex" gap={1} alignItems="center" flexWrap="wrap">
                             <Typography fontWeight={500} mb={1}><strong>Modalidad de atención: </strong></Typography>
                             <Button
                               startIcon={<PersonPinCircleIcon />}
@@ -484,8 +487,8 @@ export default function HomePage() {
                                 seleccion[prof._id]?.modalidad
                                   ? 'auto'
                                   : 'none',
+                              width: { xs: '100%', md: 'auto' }
                             }}
-                            fullWidth
                             onClick={() => handleAbrirReserva(prof, seleccion)}
                           >
                             Reservar cita

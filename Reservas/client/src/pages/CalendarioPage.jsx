@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { AppBar, Toolbar, Typography, Box, Drawer, Slide, Stack, Chip, Paper } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Drawer, Slide, Stack, Chip, Paper, useMediaQuery } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import es from 'date-fns/locale/es';
 import { useReserva } from '../context/reservaContext';
@@ -40,6 +41,8 @@ const localizer = dateFnsLocalizer({
 });
 
 export function CalendarioPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [reservas, setReservas] = useState([]);
   const [events, setEvents] = useState([]);
   const [visibleTypes, setVisibleTypes] = useState({ primera: true, pendiente: true, historial: true });
@@ -312,12 +315,12 @@ export function CalendarioPage() {
   return (
     <Box display="flex" flexDirection="column" height="100%" backgroundColor="white">
       <Stack p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={1}>
           <Typography variant="h5" fontWeight={700} color="white">
             Calendario
           </Typography>
           {/* Leyenda de colores con filtros */}
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <Chip 
               label="Pendientes" 
               size="small" 
@@ -327,6 +330,7 @@ export function CalendarioPage() {
                 color: 'white',
                 fontSize: '15px',
                 height: '30px',
+                m: 0.5,
                 border: `${visibleTypes.pendiente ? 2 : 1}px solid ${visibleTypes.pendiente ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
                 cursor: 'pointer'
               }} 
@@ -340,6 +344,7 @@ export function CalendarioPage() {
                 color: 'white',
                 fontSize: '15px',
                 height: '30px',
+                m: 0.5,
                 border: `${visibleTypes.primera ? 2 : 1}px solid ${visibleTypes.primera ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
                 cursor: 'pointer'
               }} 
@@ -353,6 +358,7 @@ export function CalendarioPage() {
                 color: 'white',
                 fontSize: '15px',
                 height: '30px',
+                m: 0.5,
                 border: `${visibleTypes.historial ? 2 : 1}px solid ${visibleTypes.historial ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
                 cursor: 'pointer'
               }} 
@@ -367,7 +373,7 @@ export function CalendarioPage() {
           startAccessor="start"
           endAccessor="end"
           culture="es"
-          style={{ height: '80vh', width: '100%' }}
+          style={{ height: isMobile ? 'calc(100dvh - 220px)' : 'calc(100vh - 220px)', width: '100%' }}
           messages={{
             next: "Siguiente",
             previous: "Anterior",
@@ -385,12 +391,12 @@ export function CalendarioPage() {
       </Box>
 
       <Drawer
-        anchor={window.innerWidth < 600 ? 'bottom' : 'right'}
+        anchor={isMobile ? 'bottom' : 'right'}
         open={open}
         onClose={handleCloseDrawer}
       >
         <Slide
-          direction={window.innerWidth < 600 ? 'down' : 'left'}
+          direction={isMobile ? 'down' : 'left'}
           in={open}
           mountOnEnter
           unmountOnExit

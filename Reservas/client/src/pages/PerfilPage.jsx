@@ -493,11 +493,12 @@ export function PerfilPage() {
 
   return (
     <Box
-      maxWidth={isMobile ? "80%" : "100%"}
-      px={isMobile ? 0 : 2}
-      py={isMobile ? 0 : 2}
+      maxWidth={"100%"}
+      px={{ xs: 1, sm: 2 }}
+      py={{ xs: 1, sm: 2 }}
       sx={{
         overflowX: "hidden",
+        maxWidth: '100vw',
         boxSizing: 'border-box',
       }}
     >
@@ -518,7 +519,7 @@ export function PerfilPage() {
         <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} color="white">
           {esAsistente ? "Mi Perfil Personal" : "Mi Perfil Profesional"}
         </Typography>
-        <Box display="flex" gap={1} flexWrap="wrap">
+  <Box display="flex" gap={1} flexWrap="wrap" sx={{ '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}>
           {!esAsistente && (
             <Button startIcon={<PreviewIcon />} variant="contained" sx={{ background: 'white', color: '#2596be' }} onClick={() => setModalOpen(true)}>
               Vista previa
@@ -566,6 +567,7 @@ export function PerfilPage() {
           backgroundColor: '#f5f5f5',
           borderBottom: '1px solid #e0e0e0',
           mb: 0,
+          overflowX: 'auto'
         }}
       >
         <Tabs
@@ -574,6 +576,7 @@ export function PerfilPage() {
           variant={isMobile ? "scrollable" : "standard"}
           scrollButtons={isMobile ? "auto" : false}
           aria-label="tabs"
+          sx={{ width: '100%', maxWidth: '100%' }}
         >
           <Tab label="Información Personal" />
           {!esAsistente && <Tab label="Información Profesional" />}
@@ -585,7 +588,7 @@ export function PerfilPage() {
 
       {/* Información Personal */}
       {tab === 0 && (
-        <Box display="flex" flexDirection={isMobile ? "column" : "row"} gap={3} flexWrap="wrap" mt={2}>
+  <Box display="flex" flexDirection={isMobile ? "column" : "row"} gap={2} flexWrap="wrap" mt={2}>
           <Card 
             sx={{ 
               flex: 1, 
@@ -607,14 +610,15 @@ export function PerfilPage() {
             </CardContent>
           </Card>
           <Card 
-          sx={{ 
-            flex: 2, width: isMobile ? "100%" : "auto",
-            border: "2px solid #e3f2fd",
-            "&:hover": {
-              boxShadow: 3,
-              borderColor: "#2596be",
-            },
-          }}>
+            sx={{ 
+              flex: 2,
+              width: '100%',
+              border: "2px solid #e3f2fd",
+              "&:hover": {
+                boxShadow: 3,
+                borderColor: "#2596be",
+              },
+            }}>
             <CardHeader title="Datos Personales" subheader="Información básica de contacto" />
             <CardContent>
               <Stack spacing={2}>
@@ -650,7 +654,7 @@ export function PerfilPage() {
 
       {/* Información Profesional */}
       {!esAsistente && tab === 1 && (
-        <Box display="flex" flexDirection={isMobile ? "column" : "row"} gap={3} flexWrap="wrap" mt={2}>
+  <Box display="flex" flexDirection={isMobile ? "column" : "row"} gap={2} flexWrap="wrap" mt={2}>
           <Card 
           sx={{ flex: 1,
            width: isMobile ? "100%" : "auto", 
@@ -726,7 +730,7 @@ export function PerfilPage() {
           </Card>
           <Card 
           sx={{ flex: 1, 
-            width: isMobile ? "100%" : "auto",
+            width: '100%',
             border: "2px solid #e3f2fd",
             "&:hover": {
               boxShadow: 3,
@@ -847,13 +851,13 @@ export function PerfilPage() {
           )}
           {/* Resumen de horarios */}
           {formData.timetable.length > 0 && (
-            <Card sx={{ mt: 3, background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
+            <Card sx={{ mt: 3, background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)", overflow: 'hidden' }}>
               <CardContent>
                 <Typography variant="h6" color="white" gutterBottom>
                   📊 Resumen de Disponibilidad
                 </Typography>
-                <Box display="flex" flexWrap="wrap" gap={4}>
-                  <Box textAlign="center" flex={1}>
+                <Box display="flex" flexWrap="wrap" gap={{ xs: 2, sm: 4 }}>
+                  <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       {formData.timetable.length}
                     </Typography>
@@ -861,7 +865,7 @@ export function PerfilPage() {
                       Bloques de horario
                     </Typography>
                   </Box>
-                  <Box textAlign="center" flex={1}>
+                  <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       {formData.timetable.reduce(
                         (total, schedule) => total + (schedule.times ? schedule.times.length : 0),
@@ -872,7 +876,7 @@ export function PerfilPage() {
                       Total de horas disponibles
                     </Typography>
                   </Box>
-                  <Box textAlign="center" flex={1}>
+                  <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       {[...new Set(formData.timetable.flatMap((s) => s.days || []))].length}
                     </Typography>
@@ -880,7 +884,7 @@ export function PerfilPage() {
                       Días únicos de atención
                     </Typography>
                   </Box>
-                  <Box textAlign="center" flex={1}>
+                  <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       {formData.timetable.length > 0
                         ? Math.min(...formData.timetable.map((s) => s.interval || 30))
@@ -1057,13 +1061,13 @@ export function PerfilPage() {
           
           {/* Resumen de servicios */}
           {user.servicios && user.servicios.length > 0 && (
-            <Card sx={{ mt: 3, background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
+            <Card sx={{ mt: 3, background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)", overflow: 'hidden' }}>
               <CardContent>
                 <Typography variant="h6" color="white" gutterBottom>
                   📋 Resumen de Servicios
                 </Typography>
-                <Box display="flex" flexWrap="wrap" gap={4}>
-                  <Box textAlign="center" flex={1}>
+                <Box display="flex" flexWrap="wrap" gap={{ xs: 2, sm: 4 }}>
+                  <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       {user.servicios.length}
                     </Typography>
@@ -1071,7 +1075,7 @@ export function PerfilPage() {
                       Servicios disponibles
                     </Typography>
                   </Box>
-                  <Box textAlign="center" flex={1}>
+                  <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       ${Math.min(...user.servicios.map(s => parseInt(s.precio) || 0)).toLocaleString()}
                     </Typography>
@@ -1079,7 +1083,7 @@ export function PerfilPage() {
                       Precio mínimo
                     </Typography>
                   </Box>
-                  <Box textAlign="center" flex={1}>
+                  <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       {[...new Set(user.servicios.map(s => s.modalidad))].length}
                     </Typography>
@@ -1087,7 +1091,7 @@ export function PerfilPage() {
                       Modalidades únicas
                     </Typography>
                   </Box>
-                  <Box textAlign="center" flex={1}>
+                  <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       {Math.round(user.servicios.reduce((acc, s) => {
                         const minutes = parseInt(s.duracion.match(/\d+/)?.[0]) || 60;
