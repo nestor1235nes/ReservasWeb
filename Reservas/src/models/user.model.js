@@ -137,6 +137,11 @@ const userSchema = new mongoose.Schema({
         enum: ['template1', 'template2', 'template3'],
         default: 'template1'
     },
+    // Días bloqueados (no se puede agendar)
+    blockedDays: {
+        type: [Date],
+        default: [],
+    },
 });
 
 export default mongoose.model('User', userSchema);

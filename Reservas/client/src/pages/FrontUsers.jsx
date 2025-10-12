@@ -31,6 +31,7 @@ import Template1 from '../components/Templates/Template1';
 import Template2 from '../components/Templates/Template2';
 import Template3 from '../components/Templates/Template3';
 import { generateICS } from '../utils/icalendar';
+import { getBlockedDaysRequest } from '../api/funcion';
 
 export default function FrontUsers() {
 	const theme = useTheme();
@@ -48,6 +49,7 @@ export default function FrontUsers() {
 	const { getFeriados } = useReserva();
 	const [prof, setProf] = useState(null);
 	const [feriados, setFeriados] = useState([]);
+	const [blockedDays, setBlockedDays] = useState([]);
 	const [seleccion, setSeleccion] = useState({ fecha: null, horasDisponibles: [], horaSeleccionada: undefined, modalidad: undefined });
 	const [modalReservaOpen, setModalReservaOpen] = useState(false);
 	const [datosPreseleccionados, setDatosPreseleccionados] = useState({});
@@ -71,6 +73,13 @@ export default function FrontUsers() {
 				setProf(res.data);
 				const fer = await getFeriados();
 				setFeriados(Array.isArray(fer) ? fer : (fer?.data || []));
+				// Cargar días bloqueados del profesional
+				try {
+					const b = await getBlockedDaysRequest(res.data?._id);
+					setBlockedDays(b?.data?.blockedDays || []);
+				} catch (e) {
+					setBlockedDays([]);
+				}
 			} catch (e) {
 				setProf(null);
 			}
@@ -86,7 +95,9 @@ export default function FrontUsers() {
 	const handleFechaChange = async (fecha) => {
 		setSeleccion(prev => ({ ...prev, fecha, horasDisponibles: [], horaSeleccionada: undefined }));
 		if (fecha && prof?._id) {
-			const res = await obtenerHorasDisponibles(prof._id, dayjs(fecha).format('YYYY-MM-DD'));
+			// Normalizar a cadena local YYYY-MM-DD para evitar desfases
+			const fechaStr = dayjs(fecha).startOf('day').format('YYYY-MM-DD');
+			const res = await obtenerHorasDisponibles(prof._id, fechaStr);
 			setSeleccion(prev => ({ ...prev, fecha, horasDisponibles: res.times || [], horaSeleccionada: undefined }));
 		}
 	};
@@ -110,7 +121,8 @@ export default function FrontUsers() {
 			const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 			const dia = diasSemana[date.day()];
 			const diasDisponibles = getDiasDisponibles(prof?.timetable);
-			return !diasDisponibles.includes(dia) || esFeriado(date);
+			const isBlockedDay = blockedDays.includes(dayjs(date).format('YYYY-MM-DD'));
+			return !diasDisponibles.includes(dia) || esFeriado(date) || isBlockedDay;
 		};
 
 	const handleReservaFinalizada = async (paciente, error = null) => {

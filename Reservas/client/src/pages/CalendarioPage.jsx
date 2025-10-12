@@ -22,6 +22,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import VentanaNotificaciones from '../components/VentanaNotificaciones';
 import { gapi } from 'gapi-script';
+import { getBlockedDaysRequest } from '../api/funcion';
 import { initClient } from '../googleCalendarConfig';
 import { useSucursal } from '../context/sucursalContext';
 
@@ -55,6 +56,7 @@ export function CalendarioPage() {
   const [showModal, setShowModal] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [feriados, setFeriados] = useState([]);
+  const [blockedDays, setBlockedDays] = useState([]);
   const interval = user?.timetable?.[0]?.interval || 60; // valor por defecto 60 minutos
 
   const fetchReservas = async () => {
@@ -188,6 +190,16 @@ export function CalendarioPage() {
   const feriadosResp = await getFeriados();
   setFeriados(Array.isArray(feriadosResp) ? feriadosResp : (feriadosResp?.data || []));
 
+    // Cargar días bloqueados del profesional actual si no es asistente
+    if (!esAsistente && (user?.id || user?._id)) {
+      try {
+        const res = await getBlockedDaysRequest(user.id || user._id);
+        setBlockedDays(res?.data?.blockedDays || []);
+      } catch (e) {
+        setBlockedDays([]);
+      }
+    }
+
     setEvents(transformedEvents);
   };
 
@@ -247,9 +259,21 @@ export function CalendarioPage() {
       .map(f => dayjs(f.date).format("YYYY-MM-DD"))
   );
 
+  const blockedDaysSet = new Set((blockedDays || []).map(d => dayjs(d).format("YYYY-MM-DD")));
+
   // Esta función se usa para cambiar el estilo de los días feriados
   const dayPropGetter = (date) => {
     const dateStr = dayjs(date).format("YYYY-MM-DD");
+    if (blockedDaysSet.has(dateStr)) {
+      return {
+        style: {
+          backgroundColor: "#ffe0b2", // naranja suave para distinguir de feriados
+          color: "#e65100",
+          cursor: "not-allowed",
+        },
+        className: "blocked-day"
+      };
+    }
     if (feriadosSet.has(dateStr)) {
       return {
         style: {
@@ -313,7 +337,7 @@ export function CalendarioPage() {
   const toggleType = (key) => setVisibleTypes(prev => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <Box display="flex" flexDirection="column" height="100%" backgroundColor="white">
+  <Box display="flex" flexDirection="column" height="100%" backgroundColor="white" sx={{ position: 'relative', overflow: 'visible' }}>
       <Stack p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={1}>
           <Typography variant="h5" fontWeight={700} color="white">
@@ -417,6 +441,11 @@ export function CalendarioPage() {
       {!esAsistente && (
         <SinDatos open={showModal} />)
         }
+
+      {/* Botón flotante para liberar horas / agregar paciente / etc. */}
+      {!esAsistente && (
+        <BotonFlotante onClick={handleFabClick} fetchReservas={fetchReservas} gapi={gapi} />
+      )}
     </Box>
   );
 }

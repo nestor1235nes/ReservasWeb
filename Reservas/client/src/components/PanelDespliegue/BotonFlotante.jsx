@@ -1,100 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { Fab, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
-import AlarmOffIcon from '@mui/icons-material/AlarmOff';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import SearchIcon from '@mui/icons-material/Search';
-import AgregarPaciente from '../Modales/AgregarPaciente';
-import BuscarTodosPacientes from '../Modales/BuscarTodosPacientes';
+import React, { useState } from 'react';
+import { Fab, Tooltip, Portal } from '@mui/material';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import LiberarHoras from '../Modales/LiberarHoras';
-import { useSucursal } from '../../context/sucursalContext';
-import { useAuth } from '../../context/authContext';
-
-
+ 
 const BotonFlotante = ({ onClick, fetchReservas, gapi }) => {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [openAgregarPacienteSin, setOpenAgregarPacienteSin] = useState(false);
-  const [openBuscarTodosLosPacientes, setOpenBuscarTodosLosPacientes] = useState(false);
   const [openLiberarHoras, setOpenLiberarHoras] = useState(false);
-  const [sucursal, setSucursal] = useState(null);
-  const { esAdmin } = useSucursal();
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (!user || !user.id) return; // <-- Evita el error si user no está listo
-    const fetchEsAdmin = async () => {
-      const res = await esAdmin(user.id);
-      setSucursal(res);
-      console.log(res);
-    }
-    fetchEsAdmin();
-  }, [user, esAdmin]);
-
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleMenuItemClick = (option) => {
-    if (option === 'Agregar paciente sin hora previa') {
-      setOpenAgregarPacienteSin(true);
-    } else if (option === 'Buscar paciente') {
-      setOpenBuscarTodosLosPacientes(true);
-    } else if (option === 'Liberar horas') {
-      setOpenLiberarHoras(true);
-    } else if( option === 'Registrar nuevo empleado') {
-      onClick();
-    }
-    handleClose();
-  };
+  const handleClick = () => setOpenLiberarHoras(true);
 
   return (
     <>
-      <Tooltip title="Desplegar opciones" placement="top">
-        <Fab color="primary" aria-label="add" style={{ bottom: '50px', right: '30px' }} onClick={handleClick}>
-          <AddIcon />
-        </Fab>
-      </Tooltip>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-        style={{ top: '-90px', right: '10px' }}
-      >
-        <MenuItem onClick={() => handleMenuItemClick('Agregar paciente sin hora previa')}>
-          <ListItemIcon>
-            <AlarmOffIcon />
-          </ListItemIcon>
-          <ListItemText primary="Agregar paciente sin hora previa" />
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuItemClick('Buscar paciente')}>
-          <ListItemIcon>
-            <SearchIcon />
-          </ListItemIcon>
-          <ListItemText primary="Buscar paciente" />
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuItemClick('Liberar horas')}>
-          <ListItemIcon>
-            <LockOpenIcon />
-          </ListItemIcon>
-          <ListItemText primary="Liberar horas" />
-        </MenuItem>
-        {sucursal && (
-          <MenuItem onClick={() => handleMenuItemClick('Registrar nuevo empleado')}>
-            <ListItemIcon>
-              <PersonAddIcon />
-            </ListItemIcon>
-            <ListItemText primary="Registrar nuevo empleado" />
-          </MenuItem>
-        )}
-      </Menu>
-      
-      <AgregarPaciente open={openAgregarPacienteSin} onClose={() => setOpenAgregarPacienteSin(false)} fetchReservas={fetchReservas} gapi={gapi}/>
-      <BuscarTodosPacientes open={openBuscarTodosLosPacientes} onClose={() => setOpenBuscarTodosLosPacientes(false)} />
+      <Portal>
+        <Tooltip title="Bloquea un día en tu calendario" placement="top">
+          <Fab
+            color="primary"
+            aria-label="bloquear dia"
+            onClick={handleClick}
+            sx={{
+              position: 'fixed',
+              bottom: { xs: '96px', sm: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' },
+              right: { xs: '16px', sm: 'calc(env(safe-area-inset-right, 0px) + 16px)' },
+              zIndex: (theme) => theme.zIndex.drawer - 1, // debajo de Drawer/DespliegueEventos
+              width: { xs: 56, sm: 64 },
+              height: { xs: 56, sm: 64 },
+              borderRadius: 2,
+              // Hexagon shape via clip-path
+              clipPath: 'polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: 6,
+              background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+              color: 'white',
+              pointerEvents: 'auto',
+              '&:hover': { filter: 'brightness(0.95)' }
+            }}
+          >
+            <PriorityHighIcon sx={{ fontSize: { xs: 30, sm: 36 }, color: 'inherit' }} />
+          </Fab>
+        </Tooltip>
+      </Portal>
+
       <LiberarHoras open={openLiberarHoras} onClose={() => setOpenLiberarHoras(false)} fetchReservas={fetchReservas} gapi={gapi} />
     </>
   );

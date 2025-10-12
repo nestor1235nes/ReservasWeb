@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Box, Typography, TextField, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Chip, IconButton, Tooltip } from '@mui/material';
+import { Modal, Box, Typography, TextField, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Chip, IconButton, Tooltip, FormControlLabel, Checkbox, Divider } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { StaticDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -22,6 +22,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const [showCalendar, setShowCalendar] = useState(true);
     const [customMessage, setCustomMessage] = useState('');
     const [showPlaceholdersHelp, setShowPlaceholdersHelp] = useState(false);
+    const [blockDay, setBlockDay] = useState(true);
 
     const handleFechaChange = (newValue) => {
         const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
@@ -34,9 +35,10 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
             const data = {
                 id: user.id || user._id,
                 fecha,
+                blockDay,
             };
             const reservasLiberadas = await liberarHoras(data);
-            showAlert('success', 'Horas liberadas correctamente');
+            showAlert('success', blockDay ? 'Horas liberadas y día bloqueado' : 'Horas liberadas correctamente');
             fetchReservas();
             onClose();
             console.log(user);
@@ -112,22 +114,33 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     return (
         <Modal open={open} onClose={onClose}>
             <Box
-                p={1}
-                bgcolor="#eeee"
-                borderRadius={2}
-                boxShadow={3}
-                width={window.innerWidth < 600 ? '90%' : 530}
-                minHeight={window.innerHeight < 600 ? '90%' : 600}
-                maxheight={window.innerHeight < 600 ? '90%' : 670}
-                overflow="auto"
-                mx="auto"
-                my="1%"
+                sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: { xs: '92vw', sm: 560 },
+                    maxHeight: { xs: '90vh', sm: '90vh' },
+                    bgcolor: 'transparent',
+                    borderRadius: 2,
+                    boxShadow: 8,
+                    overflow: 'hidden',
+                }}
             >
-                <Box backgroundColor="primary.main" borderRadius={'5px'} color={"white"} p={0.5} mb={0}>
-                    <Typography variant="h6" textAlign={'center'} gutterBottom>Liberar Horas</Typography>
+                {/* Header con gradiente como el de Calendario */}
+                <Box
+                    sx={{
+                        background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                        color: 'white',
+                        px: 2,
+                        py: 1.2,
+                    }}
+                >
+                    <Typography variant="h6" fontWeight={700} textAlign="center">Bloquear día / Liberar horas</Typography>
                 </Box>
-                
-                <Box backgroundColor="white" borderRadius={'5px'} p={1} mb={0}>
+
+                {/* Contenido en tarjeta blanca con scroll */}
+                <Box sx={{ backgroundColor: 'white', p: { xs: 1.5, sm: 2 }, maxHeight: { xs: 'calc(90vh - 58px)', sm: 'calc(90vh - 58px)' }, overflowY: 'auto' }}>
                     <Box p={1} mb={0}>
                         <Typography variant="body1" gutterBottom>
                             Seleccione el día que desea liberar horas
@@ -136,36 +149,37 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                     <Box p={1} mb={1}>
                         {(user && user.idInstance) ? (
                             <Box>
-                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
+                                <Typography variant="body2" gutterBottom sx={{ fontWeight: 700, opacity: 0.7 }}>
                                     ¡Importante!
                                 </Typography>
-                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
-                                    - Se les notificará a través de un mensaje por WhatsApp a cada paciente que se le liberó su hora.
+                                <Typography variant="body2" gutterBottom sx={{ opacity: 0.7 }}>
+                                    • Las reservas del día seleccionado no aparecerán en el calendario, pero sí en 'Pacientes'.
                                 </Typography>
-                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
-                                    - Las reservas del dia eliminado no aparecerán en el calendario, pero si en 'Buscar Paciente'.
+                                <Typography variant="body2" gutterBottom sx={{ opacity: 0.7 }}>
+                                    • Al confirmar, se bloqueará el día seleccionado y se eliminarán todas las reservas agendadas para ese día.
                                 </Typography>
-                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4 }}>
-                                    - Al seleccionar un dia, se eliminarán todas las reservas agendadas para ese día. Deberá estar atento si un paciente agenda nuevamente para ese día, ya que las horas estarán liberadas.
+                                <Typography variant="body2" gutterBottom sx={{ opacity: 0.7 }}>
+                                    • Se notificará por WhatsApp a cada paciente afectado (si tienes Green API configurado).
                                 </Typography>
                             </Box>
                         ) : (
                             <Box>
-                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4}}>
+                                <Typography variant="body2" gutterBottom sx={{ fontWeight: 700, opacity: 0.7 }}>
                                     ¡Importante!
                                 </Typography>
-                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4, textDecoration: 'line-through' }}>
-                                    - Se les notificará a través de un mensaje por WhatsApp a cada paciente que se le liberó su hora.
+                                <Typography variant="body2" gutterBottom sx={{ opacity: 0.7 }}>
+                                    • Las reservas del día seleccionado no aparecerán en el calendario, pero sí en 'Pacientes'.
                                 </Typography>
-                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4}}>
-                                    - Las reservas del dia eliminado no aparecerán en el calendario, pero si en 'Buscar Paciente'.
+                                <Typography variant="body2" gutterBottom sx={{ opacity: 0.7 }}>
+                                    • Al confirmar, se bloqueará el día seleccionado y se eliminarán todas las reservas agendadas para ese día.
                                 </Typography>
-                                <Typography variant="body2" gutterBottom style={{ fontWeight: 'bold', opacity: 0.4}}>
-                                    - Al seleccionar un dia, se eliminarán todas las reservas agendadas para ese día. Deberá estar atento si un paciente agenda nuevamente para ese día, ya que las horas estarán liberadas.
+                                <Typography variant="body2" gutterBottom sx={{ opacity: 0.7 }}>
+                                    • No se enviarán WhatsApps si no tienes Green API configurado.
                                 </Typography>
                             </Box>
                         )}
                     </Box>
+                    <Divider sx={{ my: 1 }} />
                     <CSSTransition
                         in={showCalendar}
                         timeout={300}
@@ -173,7 +187,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                         unmountOnExit
                     >
                         <LocalizationProvider dateAdapter={AdapterDayjs} locale="es">
-                                                        <StaticDatePicker
+                            <StaticDatePicker
                                 displayStaticWrapperAs="desktop"
                                 label="Fecha"
                                 value={fecha ? dayjs(fecha) : null}
@@ -192,14 +206,14 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                     const translatedDayName = translatedDays[dayName];
                                     return !diasDeTrabajo.includes(translatedDayName);
                                 }}
-                                                                slotProps={{
-                                                                    textField: {
-                                                                        fullWidth: true,
-                                                                        margin: 'normal',
-                                                                        required: true,
-                                                                        inputProps: { readOnly: true }
-                                                                    }
-                                                                }}
+                                slotProps={{
+                                    textField: {
+                                        fullWidth: true,
+                                        margin: 'normal',
+                                        required: true,
+                                        inputProps: { readOnly: true }
+                                    }
+                                }}
                             />
                         </LocalizationProvider>
                     </CSSTransition>
@@ -225,6 +239,10 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                             </Tooltip>
                                         </Box>
                                     )}
+                                    <FormControlLabel
+                                        control={<Checkbox checked={blockDay} onChange={(e) => setBlockDay(e.target.checked)} />}
+                                        label="Bloquear este día (impide nuevas reservas)"
+                                    />
                                     <TextField
                                         label={(user && user.idInstance) ? "Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" : "Sin autorización"}
                                         multiline
@@ -235,8 +253,22 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                         margin="normal"
                                         disabled={!(user && user.idInstance)}
                                     />
-                                    <Button variant="contained" color="primary" onClick={handleConfirmOpen} fullWidth>
-                                        Enviar día
+                                    <Button
+                                        variant="contained"
+                                        onClick={handleConfirmOpen}
+                                        fullWidth
+                                        sx={{
+                                            mt: 1,
+                                            py: 1,
+                                            background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                                            color: 'white',
+                                            fontWeight: 700,
+                                            '&:hover': {
+                                                filter: 'brightness(0.95)'
+                                            }
+                                        }}
+                                    >
+                                        Confirmar
                                     </Button>
                                 </Box>
                             )}
@@ -270,14 +302,14 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                     <DialogTitle>Confirmar Liberación de Horas</DialogTitle>
                     <DialogContent>
                         <DialogContentText>
-                            ¿Está seguro que desea liberar las horas del día seleccionado?
+                            {blockDay ? '¿Está seguro que desea liberar las horas y bloquear el día seleccionado?' : '¿Está seguro que desea liberar las horas del día seleccionado?'}
                         </DialogContentText>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={() => handleConfirmClose(false)} sx={{ backgroundColor: 'secondary.main', color:'white' }}>
+                        <Button onClick={() => handleConfirmClose(false)} sx={{ color: 'text.primary' }}>
                             Cancelar
                         </Button>
-                        <Button onClick={() => handleConfirmClose(true)} sx={{ backgroundColor: 'primary.main', color:'white' }}>
+                        <Button onClick={() => handleConfirmClose(true)} sx={{ background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)', color: 'white' }}>
                             Confirmar
                         </Button>
                     </DialogActions>

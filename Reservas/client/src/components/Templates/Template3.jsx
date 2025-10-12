@@ -65,7 +65,7 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
                       value={seleccion.fecha || null}
                       onChange={(v) => {
                         const valid = v && typeof v.isValid === 'function' && v.isValid();
-                        onFechaChange(valid ? v : null);
+                        onFechaChange(valid ? v.startOf('day') : null);
                       }}
                       shouldDisableDate={shouldDisableDate}
                       minDate={minDate}

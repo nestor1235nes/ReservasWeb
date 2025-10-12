@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import localeData from 'dayjs/plugin/localeData';
 import { useAuth } from '../context/authContext';
+import { getBlockedDaysRequest } from '../api/funcion';
 
 dayjs.extend(localeData);
 dayjs.locale('es');
@@ -14,6 +15,7 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
   const { user } = useAuth();
   const [diasDeTrabajo, setDiasDeTrabajo] = useState([]);
   const [horasDisponibles, setHorasDisponibles] = useState([]);
+  const [blockedDays, setBlockedDays] = useState([]);
 
   useEffect(() => {
     const fetchHorasDisponibles = async () => {
@@ -35,6 +37,20 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
       setDiasDeTrabajo(diasUnicos);
       console.log('Días de trabajo:', diasUnicos); // Debug
     }
+  }, [user]);
+
+  // Cargar días bloqueados del profesional
+  useEffect(() => {
+    const loadBlocked = async () => {
+      if (!user?.id && !user?._id) return;
+      try {
+        const res = await getBlockedDaysRequest(user.id || user._id);
+        setBlockedDays(res?.data?.blockedDays || []);
+      } catch (e) {
+        setBlockedDays([]);
+      }
+    };
+    loadBlocked();
   }, [user]);
 
   const handleChange = (e) => {
@@ -60,8 +76,12 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
           // Bloquear días pasados
           if (dayjs(date).isBefore(dayjs().startOf('day'), 'day')) return true;
           const dayName = diasSemana[date.day()];
-          console.log('Validando día:', dayName, 'en:', diasDeTrabajo); // Debug
-          return !diasDeTrabajo.includes(dayName);
+          // Bloquear días no laborables
+          const notWorking = !diasDeTrabajo.includes(dayName);
+          // Bloquear días bloqueados por el profesional
+          const dateStr = dayjs(date).format('YYYY-MM-DD');
+          const isBlocked = blockedDays.includes(dateStr);
+          return notWorking || isBlocked;
         }}
         slotProps={{
           textField: {

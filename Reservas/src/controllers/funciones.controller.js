@@ -64,6 +64,19 @@ export const obtenerHorasDisponibles = async (req, res) => {
       return res.status(400).json({ message: "Profesional no encontrado" });
     }
 
+    // Si el día está bloqueado, no hay horas disponibles (comparación por YYYY-MM-DD, usando UTC para evitar desfase)
+    if (Array.isArray(profesional.blockedDays) && fecha) {
+      const isBlocked = profesional.blockedDays.some(d => {
+        const dt = new Date(d);
+        const y = dt.getUTCFullYear();
+        const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(dt.getUTCDate()).padStart(2, '0');
+        const blockedStr = `${y}-${m}-${dd}`;
+        return blockedStr === fecha;
+      });
+      if (isBlocked) return res.status(200).json({ times: [] });
+    }
+
     // Día de la semana en español (alineado con getDay(): 0=Domingo)
     const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
     // Parseo robusto de fecha 'YYYY-MM-DD' a fecha local para evitar desfases por zona horaria
@@ -127,7 +140,7 @@ export const obtenerHorasDisponibles = async (req, res) => {
 
 export const liberarHoras = async (req, res) => {
   try {
-    const { id, fecha } = req.body;
+    const { id, fecha, blockDay } = req.body;
     const profesional = await User.findById(id);
 
     if (!profesional) {
@@ -153,6 +166,20 @@ export const liberarHoras = async (req, res) => {
         $unset: { siguienteCita: "" }
       }
     );
+
+    // Si se solicita, bloquear el día para evitar nuevas reservas
+    if (blockDay) {
+      // Guardar como UTC midnight del día seleccionado para evitar desfases
+      const blockDate = new Date(`${fecha}T00:00:00.000Z`);
+      const exists = (profesional.blockedDays || []).some(d => {
+        const dt = new Date(d);
+        return dt.getTime() === blockDate.getTime();
+      });
+      if (!exists) {
+        profesional.blockedDays = [...(profesional.blockedDays || []), blockDate];
+        await profesional.save();
+      }
+    }
 
     res.status(200).json({ reservasLiberadas });
   } catch (error) {
@@ -183,5 +210,26 @@ export const getFeriados = async (req, res) => {
   } catch (error) {
     // No debería entrar aquí por los catches internos, pero por seguridad
     res.json([]);
+  }
+};
+
+//////////////////// Obtener días bloqueados ////////////////////
+export const getBlockedDays = async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ message: 'Falta id de profesional' });
+    const user = await User.findById(id).select('blockedDays');
+    if (!user) return res.status(404).json({ message: 'Profesional no encontrado' });
+    // Devolver como strings ISO de fecha (solo día)
+    const days = (user.blockedDays || []).map(d => {
+      const dd = new Date(d);
+      const y = dd.getUTCFullYear();
+      const m = String(dd.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(dd.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    });
+    return res.json({ blockedDays: days });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
