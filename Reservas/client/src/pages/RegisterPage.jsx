@@ -3,11 +3,13 @@ import { useAuth } from "../context/authContext";
 import { useAlert } from "../context/AlertContext";
 import { useSucursal } from "../context/sucursalContext";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Card, CardContent, Typography, TextField, Button, Box, Alert, MenuItem, Select, InputLabel, FormControl, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@mui/material";
+import { Card, CardContent, Typography, TextField, Button, Box, Alert, Stack, Avatar, Container } from "@mui/material";
 import { registerSchema } from "../schemas/auth";
 import { z } from "zod";
 import RegisterSucursal from "../components/Surcursales/RegisterSurcursal";
-import { gapi } from 'gapi-script';
+import LoginIcon from '@mui/icons-material/Login';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import logo_simple from '../assets/logo_simple.png';
 //import { handleAuthClick } from '../googleCalendarConfig';
 
 export function RegisterPage() {
@@ -22,7 +24,6 @@ export function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    especialidad: "",
   });
 
   const [formErrors, setFormErrors] = useState({});
@@ -131,20 +132,42 @@ export function RegisterPage() {
 
   if (!registerType) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-        <Card sx={{ maxWidth: 400, width: '100%', padding: 2 }}>
-          <CardContent>
-            <Typography variant="h5" component="div" gutterBottom>
-              Seleccione el tipo de registro
-            </Typography>
-            <Button variant="contained" color="primary" fullWidth sx={{ mt: 2 }} onClick={() => setRegisterType('usuario')}>
-              Registrar Usuario
-            </Button>
-            <Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={() => setRegisterType('empresa')}>
-              Registrar Empresa
-            </Button>
-          </CardContent>
-        </Card>
+      <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #ffffff 0%, #f0fbff 100%)' }}>
+        <Box sx={{ borderBottom: '1px solid #e3f2fd', py: 2, position: 'sticky', top: 0, bgcolor: 'transparent', backdropFilter: 'blur(6px)' }}>
+          <Container maxWidth="sm">
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Avatar sx={{ bgcolor: 'white', width: 36, height: 36 }}>
+                <img src={logo_simple} alt="Logo" style={{ width: '70%', height: '65%' }} />
+              </Avatar>
+              <Typography variant="h6" fontWeight={800} sx={{ background: 'linear-gradient(135deg, #2596be, #21cbe6)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>VITALINK</Typography>
+            </Stack>
+          </Container>
+        </Box>
+        <Container maxWidth="sm" sx={{ flex: 1, display: 'grid', placeItems: 'center', py: 6 }}>
+          <Card elevation={0} sx={{ width: '100%', border: '1px solid #e3f2fd', borderRadius: 3, boxShadow: '0 8px 24px rgba(37,150,190,0.08)' }}>
+            <CardContent>
+              <Stack spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                <Avatar sx={{ bgcolor: '#2596be', width: 56, height: 56 }}>
+                  <PersonAddIcon />
+                </Avatar>
+                <Typography variant="h5" fontWeight={900}>Crear cuenta</Typography>
+                <Typography color="text.secondary" align="center">Elige qué quieres registrar</Typography>
+              </Stack>
+              <Stack spacing={1.5}>
+                <Button variant="contained" size="large" onClick={() => setRegisterType('usuario')} sx={{ background: 'linear-gradient(135deg, #2596be, #21cbe6)' }}>
+                  Registrar Usuario
+                </Button>
+                <Button variant="outlined" size="large" onClick={() => setRegisterType('empresa')}>
+                  Registrar Empresa
+                </Button>
+                <Stack direction="row" justifyContent="center" spacing={1} sx={{ mt: 1 }}>
+                  <Typography variant="body2">¿Ya tienes una cuenta?</Typography>
+                  <Link to="/login" style={{ color: '#1976d2', fontWeight: 600 }}>Iniciar sesión</Link>
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Container>
       </Box>
     );
   }
@@ -154,105 +177,55 @@ export function RegisterPage() {
   }
 
   return (
-    <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-      <Card sx={{ maxWidth: 400, width: '100%', padding: 2 }}>
-        <CardContent>
-          {registerErrors.map((error, i) => (
-            <Alert severity="error" key={i}>{error}</Alert>
-          ))}
-          <Typography variant="h5" component="div" gutterBottom>
-            {registerType === 'admin' ? 'Registro del Administrador' : 'Registro'}
-          </Typography>
-          <form onSubmit={handleSubmit}>
-            <TextField
-              label="Nombre de usuario"
-              type="text"
-              name="username"
-              fullWidth
-              margin="normal"
-              value={formData.username}
-              onChange={handleChange}
-              error={!!formErrors.username}
-              helperText={formErrors.username}
-              autoFocus
-            />
-            <TextField
-              label="Correo electrónico"
-              type="email"
-              name="email"
-              fullWidth
-              margin="normal"
-              value={formData.email}
-              onChange={handleChange}
-              error={!!formErrors.email}
-              helperText={formErrors.email}
-            />
-            <TextField
-              label="Contraseña"
-              type="password"
-              name="password"
-              fullWidth
-              margin="normal"
-              value={formData.password}
-              onChange={handleChange}
-              error={!!formErrors.password}
-              helperText={formErrors.password}
-            />
-            <TextField
-              label="Confirmar contraseña"
-              type="password"
-              name="confirmPassword"
-              fullWidth
-              margin="normal"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              error={!!formErrors.confirmPassword}
-              helperText={formErrors.confirmPassword}
-            />
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="especialidad-label">Especialidad</InputLabel>
-              <Select
-                labelId="especialidad-label"
-                id="especialidad"
-                name="especialidad"
-                value={formData.especialidad}
-                onChange={handleChange}
-                error={!!formErrors.especialidad}
-              >
-                <MenuItem value="Kinesiólogo">Kinesiólogo</MenuItem>
-                <MenuItem value="Nutricionista">Nutricionista</MenuItem>
-                <MenuItem value="Terapeuta Ocupacional">Terapeuta Ocupacional</MenuItem>
-              </Select>
-              {formErrors.especialidad && <Typography color="error">{formErrors.especialidad}</Typography>}
-            </FormControl>
-            <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 2 }}>
-              Registrarse
-            </Button>
-          </form>
-          {/*<Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleClickOpen}>
-            Registrarse con Google
-          </Button>*/}
-          <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-            ¿Ya tienes una cuenta? <Link to="/login" style={{ color: '#1976d2' }}>Iniciar sesión</Link>
-          </Typography>
-        </CardContent>
-      </Card>
-      {/*<Dialog open={open} onClose={handleClose}>
-        <DialogTitle>Confirmación</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Al conectarte a Google, se sincronizará con Google Calendar, ¿estás seguro de continuar?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} sx={{ backgroundColor:'secondary.main', color: 'white' }}>
-            Cancelar
-          </Button>
-          <Button onClick={handleConfirm} sx={{ backgroundColor:'primary.main', color: 'white' }}>
-            Confirmar
-          </Button>
-        </DialogActions>
-      </Dialog>*/}
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #ffffff 0%, #f0fbff 100%)' }}>
+      <Box sx={{ borderBottom: '1px solid #e3f2fd', py: 2, position: 'sticky', top: 0, bgcolor: 'transparent', backdropFilter: 'blur(6px)' }}>
+        <Container maxWidth="sm">
+          <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Avatar sx={{ bgcolor: 'white', width: 36, height: 36 }}>
+                <img src={logo_simple} alt="Logo" style={{ width: '70%', height: '65%' }} />
+              </Avatar>
+              <Typography variant="h6" fontWeight={800} sx={{ background: 'linear-gradient(135deg, #2596be, #21cbe6)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>VITALINK</Typography>
+            </Stack>
+            <Button component={Link} to="/login" startIcon={<LoginIcon />} variant="outlined">Iniciar sesión</Button>
+          </Stack>
+        </Container>
+      </Box>
+      <Container maxWidth="sm" sx={{ flex: 1, display: 'grid', placeItems: 'center', py: 6 }}>
+        <Card elevation={0} sx={{ width: '100%', border: '1px solid #e3f2fd', borderRadius: 3, boxShadow: '0 8px 24px rgba(37,150,190,0.08)' }}>
+          <CardContent>
+            {registerErrors.map((error, i) => (
+              <Alert severity="error" key={i} sx={{ mb: 1 }}>{error}</Alert>
+            ))}
+            <Stack spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <Avatar sx={{ bgcolor: '#2596be', width: 56, height: 56 }}>
+                <PersonAddIcon />
+              </Avatar>
+              <Typography variant="h5" fontWeight={900}>
+                {registerType === 'admin' ? 'Registro del Administrador' : 'Crear tu cuenta'}
+              </Typography>
+              <Typography color="text.secondary" align="center" sx={{ maxWidth: 420 }}>
+                Completa los datos para comenzar. Podrás configurar tu especialidad y otros detalles más adelante.
+              </Typography>
+            </Stack>
+            <form onSubmit={handleSubmit}>
+              <Stack spacing={1.5}>
+                <TextField label="Nombre" type="text" name="username" fullWidth value={formData.username} onChange={handleChange} error={!!formErrors.username} helperText={formErrors.username} autoFocus />
+                <TextField label="Correo electrónico" type="email" name="email" fullWidth value={formData.email} onChange={handleChange} error={!!formErrors.email} helperText={formErrors.email} />
+                <TextField label="Contraseña" type="password" name="password" fullWidth value={formData.password} onChange={handleChange} error={!!formErrors.password} helperText={formErrors.password} />
+                <TextField label="Confirmar contraseña" type="password" name="confirmPassword" fullWidth value={formData.confirmPassword} onChange={handleChange} error={!!formErrors.confirmPassword} helperText={formErrors.confirmPassword} />
+                <Button type="submit" variant="contained" size="large" sx={{ mt: 1, background: 'linear-gradient(135deg, #2596be, #21cbe6)' }}>
+                  Registrarse
+                </Button>
+              </Stack>
+            </form>
+            <Stack direction="row" justifyContent="center" spacing={1} sx={{ mt: 2 }}>
+              <Typography variant="body2">¿Ya tienes una cuenta?</Typography>
+              <Link to="/login" style={{ color: '#1976d2', fontWeight: 600 }}>Iniciar sesión</Link>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Container>
     </Box>
   );
 }

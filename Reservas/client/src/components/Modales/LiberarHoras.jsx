@@ -24,7 +24,8 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const [showPlaceholdersHelp, setShowPlaceholdersHelp] = useState(false);
 
     const handleFechaChange = (newValue) => {
-        setFecha(newValue ? newValue.format('YYYY-MM-DD') : '');
+        const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
+        setFecha(valid ? newValue.format('YYYY-MM-DD') : '');
         setShowCalendar(false);
     };
 
@@ -172,7 +173,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                         unmountOnExit
                     >
                         <LocalizationProvider dateAdapter={AdapterDayjs} locale="es">
-                            <StaticDatePicker
+                                                        <StaticDatePicker
                                 displayStaticWrapperAs="desktop"
                                 label="Fecha"
                                 value={fecha ? dayjs(fecha) : null}
@@ -191,7 +192,14 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                     const translatedDayName = translatedDays[dayName];
                                     return !diasDeTrabajo.includes(translatedDayName);
                                 }}
-                                renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
+                                                                slotProps={{
+                                                                    textField: {
+                                                                        fullWidth: true,
+                                                                        margin: 'normal',
+                                                                        required: true,
+                                                                        inputProps: { readOnly: true }
+                                                                    }
+                                                                }}
                             />
                         </LocalizationProvider>
                     </CSSTransition>

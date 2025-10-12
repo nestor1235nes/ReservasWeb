@@ -188,15 +188,25 @@ export default function TodayPage() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [open, setOpen] = useState(false);
 
+  // Helper: determina si la reserva corresponde a HOY en hora local
+  const isReservaDeHoy = (r) => {
+    const fecha = r?.siguienteCita;
+    if (!fecha) return false; // Evitar que undefined cuente como hoy (dayjs(undefined) => ahora)
+    const hoyStr = dayjs().format('YYYY-MM-DD');
+    // Manejar strings especiales: fecha-only o T00:00:00Z
+    if (typeof fecha === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return fecha === hoyStr;
+      if (fecha.endsWith('Z') && fecha.includes('T00:00:00')) return fecha.slice(0, 10) === hoyStr;
+    }
+    const d = dayjs(fecha);
+    if (!d.isValid()) return false;
+    return d.format('YYYY-MM-DD') === hoyStr;
+  };
+
   useEffect(() => {
     const fetchReservas = async () => {
       const data = await getReservas();
-      const hoy = dayjs().format("YYYY-MM-DD");
-      setReservas(
-        (data || []).filter(r =>
-          dayjs(r.siguienteCita).format("YYYY-MM-DD") === hoy
-        )
-      );
+      setReservas((data || []).filter(isReservaDeHoy));
     };
     fetchReservas();
   }, [getReservas]);
@@ -276,12 +286,7 @@ export default function TodayPage() {
   // Puedes pasar fetchReservas si quieres refrescar desde el panel
   const fetchReservasAgain = async () => {
     const data = await getReservas();
-    const hoy = dayjs().format("YYYY-MM-DD");
-    setReservas(
-      (data || []).filter(r =>
-        dayjs(r.siguienteCita).format("YYYY-MM-DD") === hoy
-      )
-    );
+    setReservas((data || []).filter(isReservaDeHoy));
   };
 
   return (

@@ -78,7 +78,8 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
         label="Fecha de Cita"
         value={formData.diaPrimeraCita ? dayjs(formData.diaPrimeraCita) : null}
         onChange={(newValue) => {
-          setFormData({ ...formData, diaPrimeraCita: newValue ? newValue.format('YYYY-MM-DD') : '' });
+          const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
+          setFormData({ ...formData, diaPrimeraCita: valid ? newValue.format('YYYY-MM-DD') : '' });
         }}
         shouldDisableDate={(date) => {
           const dayName = diasSemana[date.day()];
@@ -88,7 +89,14 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
           const esFeriado = feriados.some(f => f.date && dayjs(f.date).isSame(date, 'day'));
           return noTrabaja || esFeriado;
         }}
-        renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
+        slotProps={{
+          textField: {
+            fullWidth: true,
+            margin: 'normal',
+            required: true,
+            inputProps: { readOnly: true }
+          }
+        }}
       />
       <FormControl fullWidth margin="normal">
         <InputLabel>Hora de Cita</InputLabel>

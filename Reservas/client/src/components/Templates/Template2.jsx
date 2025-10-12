@@ -8,7 +8,7 @@ import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import Logo from '../../assets/LOGO.png';
 import { ASSETS_BASE } from '../../config';
 
-export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate }) {
+export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate }) {
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={0} sx={{ background: 'transparent', color: 'inherit', borderBottom: '1px solid #e3f2fd', backdropFilter: 'blur(8px)' }}>
@@ -46,9 +46,13 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
                     <DatePicker
                       label="Fecha"
                       value={seleccion.fecha || null}
-                      onChange={onFechaChange}
+                      onChange={(v) => {
+                        const valid = v && typeof v.isValid === 'function' && v.isValid();
+                        onFechaChange(valid ? v : null);
+                      }}
                       shouldDisableDate={shouldDisableDate}
-                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                      minDate={minDate}
+                      slotProps={{ textField: { size: 'small', fullWidth: true, inputProps: { readOnly: true } } }}
                     />
                   </LocalizationProvider>
                 </Box>

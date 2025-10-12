@@ -103,6 +103,10 @@ export default function FrontUsers() {
 		};
 
 		const shouldDisableDate = (date) => {
+			// Bloquear días pasados (comparación por día en hora local)
+			const today = dayjs().startOf('day');
+			if (dayjs(date).isBefore(today, 'day')) return true;
+			// Restringir a días de trabajo y feriados
 			const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 			const dia = diasSemana[date.day()];
 			const diasDisponibles = getDiasDisponibles(prof?.timetable);
@@ -131,6 +135,7 @@ export default function FrontUsers() {
 							onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
 							onReservar={handleAbrirReserva}
 							shouldDisableDate={shouldDisableDate}
+							minDate={dayjs().startOf('day')}
 						/>
 						<ModalReservarCita open={modalReservaOpen} onClose={() => setModalReservaOpen(false)} onReserva={handleReservaFinalizada} datosPreseleccionados={datosPreseleccionados} />
 					</>
@@ -149,6 +154,7 @@ export default function FrontUsers() {
 							onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
 							onReservar={handleAbrirReserva}
 							shouldDisableDate={shouldDisableDate}
+							minDate={dayjs().startOf('day')}
 						/>
 						<ModalReservarCita open={modalReservaOpen} onClose={() => setModalReservaOpen(false)} onReserva={handleReservaFinalizada} datosPreseleccionados={datosPreseleccionados} />
 					</>
@@ -166,6 +172,7 @@ export default function FrontUsers() {
 						onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
 						onReservar={handleAbrirReserva}
 						shouldDisableDate={shouldDisableDate}
+						minDate={dayjs().startOf('day')}
 					/>
 					<ModalReservarCita
 						open={modalReservaOpen}

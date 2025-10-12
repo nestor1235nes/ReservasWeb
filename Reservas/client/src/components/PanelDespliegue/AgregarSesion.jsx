@@ -111,7 +111,8 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
   };
 
   const handleFechaChange = (newValue) => {
-    setFecha(newValue ? newValue.format('YYYY-MM-DD') : '');
+    const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
+    setFecha(valid ? newValue.format('YYYY-MM-DD') : '');
   };
 
   const handleHoraChange = (e) => {
@@ -486,12 +487,17 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
                   <DatePicker
                     label="Fecha de la Sesión"
                     value={ultimaFecha ? dayjs(ultimaFecha) : dayjs()}
-                    onChange={(newValue) => setUltimaFecha(newValue ? newValue.format('YYYY-MM-DD') : '')}
+                    onChange={(newValue) => {
+                      const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
+                      setUltimaFecha(valid ? newValue.format('YYYY-MM-DD') : '');
+                    }}
+                    minDate={dayjs().startOf('day')}
                     sx={{ width: '100%' }}
                     slotProps={{
                       textField: {
                         variant: 'outlined',
                         fullWidth: true,
+                        inputProps: { readOnly: true },
                         InputProps: {
                           startAdornment: <CalendarTodayIcon sx={{ mr: 1, color: 'text.secondary' }} />
                         }
@@ -577,7 +583,9 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
                             label="Fecha de la Nueva Cita"
                             value={fecha ? dayjs(fecha) : null}
                             onChange={handleFechaChange}
+                            minDate={dayjs().startOf('day')}
                             shouldDisableDate={(date) => {
+                              if (dayjs(date).isBefore(dayjs().startOf('day'), 'day')) return true;
                               const dayName = diasSemana[date.day()];
                               const noTrabaja = !diasDeTrabajo.includes(dayName);
                               const esFeriado = feriados.some(f => f.date && dayjs(f.date).isSame(date, 'day'));
@@ -588,6 +596,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
                               textField: {
                                 variant: 'outlined',
                                 fullWidth: true,
+                                inputProps: { readOnly: true },
                                 InputProps: {
                                   startAdornment: <CalendarTodayIcon sx={{ mr: 1, color: 'text.secondary' }} />
                                 }

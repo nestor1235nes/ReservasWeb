@@ -1,4 +1,7 @@
-import axios from 'axios';
+// Usamos dos instancias: una configurada para nuestro backend y otra cruda para Green API
+import externalAxios from 'axios';
+import api from './api/axios.js';
+import dayjs from 'dayjs';
 
 // Placeholders soportados y su descripción (para futura UI de ayuda)
 export const PLACEHOLDERS = [
@@ -14,8 +17,8 @@ export const PLACEHOLDERS = [
 // Obtiene/genera link de confirmación para una reserva (devuelve placeholder si falla)
 export async function fetchConfirmationLink(reservaId, _authToken) {
     try {
-        // Cookie httpOnly se envía automáticamente en misma-origin; no necesitamos Authorization
-        const resp = await axios.post(`/api/reserva/${reservaId}/confirm-link`);
+        // Importante: usar axios configurado (baseURL + withCredentials)
+        const resp = await api.post(`/reserva/${reservaId}/confirm-link`);
         return resp.data.link;
     } catch (e) {
         console.error('No se pudo generar link de confirmación', e);
@@ -29,9 +32,27 @@ export function buildMessage(template, reserva, link) {
     if (!template) return '';
     // Normalizamos todas las variantes de {enlaceconfirmacion} a la forma canónica {enlaceConfirmacion}
     let normalized = template.replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
+
+    // Formatea fecha a DD-MM-YYYY manejando distintos formatos de entrada
+    const formatFecha = (fecha) => {
+        if (!fecha) return '';
+        if (typeof fecha === 'string') {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                const [y, m, d] = fecha.split('-');
+                return `${d}-${m}-${y}`;
+            }
+            if (fecha.endsWith('Z') && fecha.includes('T')) {
+                const base = fecha.slice(0, 10);
+                const [y, m, d] = base.split('-');
+                return `${d}-${m}-${y}`;
+            }
+        }
+        const d = dayjs(fecha);
+        return d.isValid() ? d.format('DD-MM-YYYY') : '';
+    };
     const map = {
         '{nombre}': reserva?.paciente?.nombre || '',
-        '{fecha}': reserva?.siguienteCita || '',
+    '{fecha}': formatFecha(reserva?.siguienteCita),
         '{hora}': reserva?.hora || '',
         '{servicio}': reserva?.servicio || '',
         '{profesional}': reserva?.profesional?.username || '',
@@ -68,7 +89,7 @@ const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, _au
             message: finalMessage,
         };
         try {
-            await axios.post(url, data);
+            await externalAxios.post(url, data);
         } catch (error) {
             console.error(`Error sending WhatsApp message to ${phoneNumber}:`, error);
         }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Typography, IconButton, Slide, Button, TextField, Card, CardContent, CardHeader,
   FormControl, InputLabel, Select, MenuItem, Divider, Chip, Stack, Tooltip, Avatar,
@@ -357,6 +357,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           });
           event.diaPrimeraCita = new Date(editableFields.fecha);
           event.hora = editableFields.hora;
+          // Asegurar que el objeto usado para construir el WhatsApp tenga la fecha actualizada
+          event.siguienteCita = editableFields.fecha;
           
           // Actualizar el profesional en el evento
           if (esAsistente && profesionalSeleccionado) {
@@ -458,31 +460,87 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
     setMensajePaciente(prev => (prev || '') + (prev?.endsWith(' ') || prev === '' ? '' : ' ') + token + ' ');
   };
 
+  const scrollRef = useRef(null);
+  const touchStartYRef = useRef(null);
+  const draggingRef = useRef(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isAnimatingBack, setIsAnimatingBack] = useState(false);
+
+  const handleTouchStart = (e) => {
+    if (window.innerWidth >= 600) return;
+    if (!scrollRef.current) return;
+    if (scrollRef.current.scrollTop <= 0) {
+      touchStartYRef.current = e.touches[0].clientY;
+      draggingRef.current = true;
+      setIsAnimatingBack(false);
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (!draggingRef.current || touchStartYRef.current == null) return;
+    const delta = e.touches[0].clientY - touchStartYRef.current;
+    if (delta > 0) {
+      // mover hoja mientras se arrastra (limitamos para no separarla demasiado)
+      const limited = Math.min(delta, 200);
+      setDragOffset(limited);
+      // Si el arrastre supera un umbral, cerrar
+      if (limited > 140) {
+        draggingRef.current = false;
+        onClose && onClose();
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    draggingRef.current = false;
+    touchStartYRef.current = null;
+    // si no se cerró, animar retorno
+    if (dragOffset > 0) {
+      setIsAnimatingBack(true);
+      setDragOffset(0);
+      setTimeout(() => setIsAnimatingBack(false), 200);
+    }
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
       <Slide direction={window.innerWidth < 600 ? 'up' : 'right'} in={Boolean(event)} mountOnEnter unmountOnExit timeout={500}>
         <Box
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           width={window.innerWidth < 600 ? '100%' : 520}
-          maxHeight={window.innerWidth < 600 ? 800 : '100%'}
           sx={{
             background: '#e9f3f4',
-            borderRadius: 3,
+            borderRadius: { xs: '16px 16px 0 0', md: 3 },
             boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-            position: 'relative',
+            position: { xs: 'fixed', md: 'relative' },
+            left: { xs: 0, md: 'auto' },
+            right: { xs: 0, md: 'auto' },
+            bottom: { xs: 0, md: 'auto' },
+            top: { xs: '8vh', md: 'auto' },
+            margin: { xs: 0, md: 0 },
             border: '1px solid #e2e8f0',
             display: 'flex',
             flexDirection: 'column',
-            height: window.innerWidth < 600 ? '800px' : '100%'
+            maxHeight: { xs: '92vh', md: '100%' },
+            transform: { xs: `translateY(${dragOffset}px)`, md: 'none' },
+            transition: { xs: isAnimatingBack ? 'transform 0.2s ease' : 'none', md: 'none' }
           }}
         >
+          {/* Drag handle (mobile) */}
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, justifyContent: 'center', pt: 1 }}>
+            <Box sx={{ width: 44, height: 5, bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 3 }} />
+          </Box>
           {/* Contenido scrolleable */}
           <Box
             sx={{
               flex: 1,
               overflowY: 'auto',
               p: 3,
-              pb: 1, // Reducir padding bottom para el contenido
+              pb: { xs: '96px', md: 1 }, // espacio para el footer sticky en mobile
             }}
+            ref={scrollRef}
           >
           {/* Encabezado moderno */}
           <Paper
@@ -1083,15 +1141,24 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     label="Fecha de Cita"
                     value={editableFields.fecha ? dayjs(editableFields.fecha) : null}
                     onChange={(newValue) => {
-                      setEditableFields({ ...editableFields, fecha: newValue ? newValue.format('YYYY-MM-DD') : '' });
+                      const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
+                      setEditableFields({ ...editableFields, fecha: valid ? newValue.format('YYYY-MM-DD') : '' });
                     }}
+                    minDate={dayjs().startOf('day')}
                     shouldDisableDate={(date) => {
+                      // Bloquear días pasados
+                      if (dayjs(date).isBefore(dayjs().startOf('day'), 'day')) return true;
                       const dayName = diasSemana[date.day()];
                       const noTrabaja = !diasDeTrabajo.includes(dayName);
                       const esFeriado = feriados.some(f => f.date && dayjs(f.date).isSame(date, 'day'));
                       return noTrabaja || esFeriado;
                     }}
-                    renderInput={(params) => <TextField {...params} fullWidth />}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        inputProps: { readOnly: true }
+                      }
+                    }}
                   />
                   <FormControl fullWidth>
                     <InputLabel>Hora de Cita</InputLabel>
@@ -1289,11 +1356,12 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
               p: 1,
               background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
               borderTop: '1px solid #e2e8f0',
-              borderRadius: '0 0 12px 12px',
+              borderRadius: { xs: 0, md: '0 0 12px 12px' },
               boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
-              position: 'fixed',
+              position: 'sticky',
               bottom: 0,
-              width: '34%',
+              width: '100%',
+              pb: 'max(env(safe-area-inset-bottom), 8px)'
             }}
           >
             {esAsistente ? (
@@ -1364,7 +1432,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   </Button>
                 </Stack>
               ) : (
-                <Stack direction="row" spacing={1.5}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                   <Button
                     variant="contained"
                     fullWidth

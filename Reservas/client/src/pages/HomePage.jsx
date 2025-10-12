@@ -374,13 +374,16 @@ export default function HomePage() {
                             <DatePicker
                               label="Fecha"
                               value={seleccion[prof._id]?.fecha || null}
-                              onChange={fecha => handleFechaChange(prof._id, fecha, prof.timetable)}
+                              onChange={v => handleFechaChange(prof._id, (v && typeof v.isValid === 'function' && v.isValid()) ? v : null, prof.timetable)}
                               shouldDisableDate={date => {
+                                const today = dayjs().startOf('day');
+                                if (dayjs(date).isBefore(today, 'day')) return true;
                                 const dia = diasSemana[date.day()];
                                 const diasDisponibles = getDiasDisponibles(prof.timetable);
                                 return !diasDisponibles.includes(dia) || esFeriado(date);
                               }}
-                              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                              minDate={dayjs().startOf('day')}
+                              slotProps={{ textField: { size: 'small', fullWidth: true, inputProps: { readOnly: true } } }}
                             />
                           </LocalizationProvider>
                           <Box mt={2}>

@@ -52,14 +52,25 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
         label="Fecha de Cita"
         value={formData.diaPrimeraCita ? dayjs(formData.diaPrimeraCita) : null}
         onChange={(newValue) => {
-          setFormData({ ...formData, diaPrimeraCita: newValue ? newValue.format('YYYY-MM-DD') : '' });
+          const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
+          setFormData({ ...formData, diaPrimeraCita: valid ? newValue.format('YYYY-MM-DD') : '' });
         }}
+        minDate={dayjs().startOf('day')}
         shouldDisableDate={(date) => {
+          // Bloquear días pasados
+          if (dayjs(date).isBefore(dayjs().startOf('day'), 'day')) return true;
           const dayName = diasSemana[date.day()];
           console.log('Validando día:', dayName, 'en:', diasDeTrabajo); // Debug
           return !diasDeTrabajo.includes(dayName);
         }}
-        renderInput={(params) => <TextField {...params} fullWidth margin="normal" required />}
+        slotProps={{
+          textField: {
+            fullWidth: true,
+            margin: 'normal',
+            required: true,
+            inputProps: { readOnly: true }
+          }
+        }}
       />
       <FormControl fullWidth margin="normal">
         <InputLabel>Hora de Cita</InputLabel>
