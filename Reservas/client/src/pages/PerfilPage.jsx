@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Modal, Box, Card, CardContent, CardHeader, Typography, Tabs, Tab, Button, Stack, TextField, Select, MenuItem, InputLabel, FormControl, Checkbox, FormControlLabel, Paper, Divider, Chip, Switch as MuiSwitch, IconButton
 } from "@mui/material";
@@ -301,6 +301,7 @@ export function PerfilPage() {
   const [modalServicioOpen, setModalServicioOpen] = useState(false);
   const [servicioEditing, setServicioEditing] = useState(null);
   const [servicioEditingIndex, setServicioEditingIndex] = useState(null);
+  const fotoPerfilRef = useRef(null);
 
 
   const handleOpenPerfil = (profesional) => {
@@ -602,9 +603,9 @@ export function PerfilPage() {
             <CardHeader title="Foto de Perfil" subheader={esAsistente ? "Tu imagen de perfil personal" : "Esta imagen será visible para tus pacientes"} />
             <CardContent sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <Box mb={2}>
-                <FotoPerfil />
+                <FotoPerfil ref={fotoPerfilRef} size={isMobile ? 120 : 160} />
               </Box>
-              <Button variant="outlined" fullWidth>
+              <Button variant="outlined" fullWidth onClick={() => fotoPerfilRef.current?.openFileDialog?.()}>
                 Cambiar foto
               </Button>
             </CardContent>

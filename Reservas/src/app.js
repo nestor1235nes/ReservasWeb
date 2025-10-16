@@ -75,6 +75,14 @@ app.use('/api/daily', dailyRoutes);
 app.use('/api/', confirmationRoutes);
 
 // Archivos estáticos de uploads
+// Asegurar que existan las carpetas de subida
+try {
+  if (!fs.existsSync('uploads')) fs.mkdirSync('uploads', { recursive: true });
+  if (!fs.existsSync('imagenesPacientes')) fs.mkdirSync('imagenesPacientes', { recursive: true });
+} catch (e) {
+  console.warn('No se pudo crear carpeta de uploads/imagenesPacientes:', e?.message || e);
+}
+
 app.use('/uploads', express.static('uploads'));
 app.use('/imagenesPacientes', express.static('imagenesPacientes'));
 

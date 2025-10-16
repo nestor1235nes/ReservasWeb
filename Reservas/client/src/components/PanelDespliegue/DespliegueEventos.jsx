@@ -44,7 +44,7 @@ import { ASSETS_BASE } from '../../config';
 import localeData from 'dayjs/plugin/localeData';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { useDropzone } from 'react-dropzone';
-import axios from 'axios';
+import axios from '../../api/axios';
 import PaymentButton from '../../pages/PaymentButton';
 import { getPaymentStatusRequest } from '../../api/payment';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
@@ -277,7 +277,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
 
       // Debug: FormData preparado para envío
 
-      const response = await axios.post('/api/imagenesPacientes', formData, {
+      const response = await axios.post('/imagenesPacientes', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

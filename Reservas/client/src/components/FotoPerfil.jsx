@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Avatar, Tooltip, IconButton, Dialog, DialogActions, DialogContent, DialogTitle, Button, Slider } from '@mui/material';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import { useAuth } from '../context/authContext';
@@ -7,13 +7,20 @@ import axios from '../api/axios';
 import AvatarEditor from 'react-avatar-editor';
 import { ASSETS_BASE } from '../config';
 
-const FotoPerfil = () => {
+const FotoPerfil = forwardRef(({ size = 140 }, ref) => {
   const { user, updatePerfil } = useAuth();
   const showAlert = useAlert();
   const [selectedFile, setSelectedFile] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [scale, setScale] = useState(1);
   const editorRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    openFileDialog: () => {
+      if (inputRef.current) inputRef.current.click();
+    }
+  }));
 
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0]);
@@ -58,15 +65,26 @@ const FotoPerfil = () => {
       <input
         accept="image/*"
         style={{ display: 'none' }}
-        id="icon-button-file"
+        id="perfil-file-input"
         type="file"
+        ref={inputRef}
         onChange={handleFileChange}
       />
-      <label htmlFor="icon-button-file">
+      <label htmlFor="perfil-file-input">
         <Tooltip title="Agregar foto de perfil" arrow>
-          <IconButton color="primary" component="span">
-            <Avatar src={user.fotoPerfil ? `${ASSETS_BASE}${user.fotoPerfil}` : undefined} style={{ width: '100%', height: '100%' }}>
-              {!user.fotoPerfil && <AddPhotoAlternateIcon />}
+          <IconButton color="primary" component="span" sx={{ p: 0 }}>
+            <Avatar 
+              src={user.fotoPerfil ? `${ASSETS_BASE}${user.fotoPerfil}` : undefined}
+              sx={{ 
+                width: size, 
+                height: size,
+                bgcolor: user.fotoPerfil ? 'white' : '#e3f2fd',
+                border: user.fotoPerfil ? '2px solid #e0e0e0' : '2px dashed #2596be',
+              }}
+            >
+              {!user.fotoPerfil && (
+                <AddPhotoAlternateIcon sx={{ fontSize: Math.max(24, Math.floor(size * 0.35)), color: '#2596be' }} />
+              )}
             </Avatar>
           </IconButton>
         </Tooltip>
@@ -106,6 +124,6 @@ const FotoPerfil = () => {
       </Dialog>
     </div>
   );
-};
+});
 
 export default FotoPerfil;
