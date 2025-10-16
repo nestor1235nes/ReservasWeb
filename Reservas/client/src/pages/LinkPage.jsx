@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Card, CardContent, Stack, Typography, Button, TextField, IconButton, InputAdornment, Alert, Snackbar, useMediaQuery, ToggleButton, ToggleButtonGroup, Divider } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -8,6 +8,7 @@ import { useAuth } from '../context/authContext';
 import Template1Img from '../assets/referenciaTemplate/template1.png';
 import Template2Img from '../assets/referenciaTemplate/template2.png';
 import Template3Img from '../assets/referenciaTemplate/template3.png';
+import QRCode from 'qrcode';
 
 export default function LinkPage() {
 		const { user, generateMiEnlace, updatePerfil } = useAuth();
@@ -17,6 +18,8 @@ export default function LinkPage() {
 	const [copied, setCopied] = useState(false);
 	const [loading, setLoading] = useState(false);
 		const [template, setTemplate] = useState(user?.bookingTemplate || 'template1');
+	const [qrDataUrl, setQrDataUrl] = useState('');
+	const qrCanvasRef = useRef(null);
 	const templatePreview = useMemo(() => ({
 		template1: Template1Img,
 		template2: Template2Img,
@@ -40,6 +43,38 @@ export default function LinkPage() {
 		} catch (e) {
 			// fallback
 		}
+	};
+
+	// Generar QR automáticamente cuando haya enlace
+	useEffect(() => {
+		const generateQR = async () => {
+			try {
+				if (!miEnlace) {
+					setQrDataUrl('');
+					return;
+				}
+				const dataUrl = await QRCode.toDataURL(miEnlace, {
+					width: 512,
+					margin: 2,
+					color: {
+						dark: '#000000',
+						light: '#ffffffff'
+					}
+				});
+				setQrDataUrl(dataUrl);
+			} catch (e) {
+				setQrDataUrl('');
+			}
+		};
+		generateQR();
+	}, [miEnlace]);
+
+	const handleDownloadQR = () => {
+		if (!qrDataUrl) return;
+		const a = document.createElement('a');
+		a.href = qrDataUrl;
+		a.download = 'mi-enlace-qr.png';
+		a.click();
 	};
 
 		const handleTemplateChange = async (_e, value) => {
@@ -133,6 +168,25 @@ export default function LinkPage() {
 							)}
 
 										<Divider sx={{ my: 2 }} />
+										{/* QR Code Section */}
+										{miEnlace && (
+											<Box>
+												<Typography fontWeight={700} mb={1}>Código QR de tu enlace</Typography>
+												<Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+													<Box sx={{ p: 1, border: '1px solid #e3f2fd', borderRadius: 2, bgcolor: '#fff', width: { xs: 200, sm: 220 }, height: { xs: 200, sm: 220 }, display: 'grid', placeItems: 'center' }}>
+														{qrDataUrl ? (
+															<img src={qrDataUrl} alt="QR de tu enlace" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+														) : (
+															<Typography variant="body2" color="text.secondary">Generando QR…</Typography>
+														)}
+													</Box>
+													<Stack spacing={1} sx={{ flex: 1, alignSelf: 'stretch' }}>
+														<Typography variant="body2" color="text.secondary">Comparte este QR para que tus pacientes escaneen y agenden directamente.</Typography>
+														<Button variant="outlined" onClick={handleDownloadQR} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, borderColor: '#2596be', color: '#2596be' }}>Descargar PNG</Button>
+													</Stack>
+												</Stack>
+											</Box>
+										)}
 										<Typography fontWeight={700}>Plantilla de página pública</Typography>
 										<Typography variant="body2" color="text.secondary">Elige cómo verán tu página de agendamiento.</Typography>
 										<ToggleButtonGroup
