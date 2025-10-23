@@ -2,6 +2,7 @@ import Paciente from "../models/paciente.model.js";
 import Reserva from "../models/ficha.model.js";
 import Sucursal from "../models/sucursal.model.js";
 import User from "../models/user.model.js";
+import crypto from 'crypto';
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -293,7 +294,7 @@ export const updateReserva = async (req, res) => {
             return res.status(404).json({ message: "Paciente not found" });
         }
         
-        const reserva = await Reserva.findOne({ paciente: paciente._id });
+                const reserva = await Reserva.findOne({ paciente: paciente._id });
         if (!reserva) {
             return res.status(404).json({ message: "Reserva not found" });
         }        
@@ -311,7 +312,76 @@ export const updateReserva = async (req, res) => {
             eventId: req.body.eventId,
             notificationChannel: req.body.notificationChannel,
         }
-        await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
+                await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
+
+                // Enviar correo personalizado si corresponde
+                const { notifyEmailMessage, notifyEmailSubject } = req.body;
+                if (notifyEmailMessage) {
+                    try {
+                        const updated = await Reserva.findById(reserva._id)
+                            .populate('paciente')
+                            .populate('profesional')
+                            .populate('sucursal');
+                        if (updated && updated.notificationChannel === 'email') {
+                            const pacienteEmail = updated.paciente?.email || null;
+                            if (pacienteEmail) {
+                                const { sendMail } = await import('../libs/mailer.js');
+                                const fromName = updated.profesional?.username || 'Agenda';
+                                const fromEmail = updated.profesional?.email || undefined;
+                                const replyTo = updated.profesional?.email || undefined;
+                                // Build placeholders similar to WhatsApp
+                                const formatFecha = (fecha) => {
+                                    try {
+                                        if (!fecha) return '';
+                                        const d = new Date(fecha);
+                                        if (Number.isNaN(d.getTime())) return '';
+                                        const dd = String(d.getDate()).padStart(2, '0');
+                                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                                        const yy = d.getFullYear();
+                                        return `${dd}-${mm}-${yy}`;
+                                    } catch {
+                                        return '';
+                                    }
+                                };
+                                // Generar link si el template lo requiere
+                                const needsLink = /\{enlaceconfirmacion\}/i.test(notifyEmailMessage) || /\{enlaceconfirmacion\}/i.test(String(notifyEmailSubject || ''));
+                                let link = '';
+                                                if (needsLink) {
+                                                    const rawToken = Buffer.from(crypto.randomBytes(24)).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+                                                    const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
+                                    updated.confirmTokenHash = hash;
+                                    updated.confirmTokenExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
+                                    updated.confirmationLog = [...(updated.confirmationLog || []), { action: 'generated' }];
+                                    await updated.save();
+                                    const proto = req.headers['x-forwarded-proto'] || req.protocol;
+                                    const host = req.headers['x-forwarded-host'] || req.headers.host;
+                                    const dynamicBase = `${proto}://${host}`;
+                                    const devFallback = process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : undefined;
+                                    const baseUrl = process.env.FRONTEND_BASE_URL || devFallback || dynamicBase;
+                                    link = `${String(baseUrl).replace(/\/$/, '')}/confirmacion/${rawToken}`;
+                                }
+                                const map = {
+                                    '{nombre}': updated?.paciente?.nombre || '',
+                                    '{fecha}': formatFecha(updated?.siguienteCita),
+                                    '{hora}': updated?.hora || '',
+                                    '{servicio}': updated?.servicio || '',
+                                    '{profesional}': updated?.profesional?.username || '',
+                                    '{sucursal}': updated?.sucursal?.nombre || '',
+                                    '{enlaceConfirmacion}': link || '{enlaceConfirmacion}',
+                                };
+                                const replaceAllMap = (tpl) => Object.entries(map)
+                                    .reduce((acc, [k, v]) => acc.replaceAll(k, v), String(tpl || ''))
+                                    .replace(/\{enlaceconfirmacion\}/gi, map['{enlaceConfirmacion}']);
+                                const subject = replaceAllMap(notifyEmailSubject || 'Actualización de tu cita');
+                                const bodyText = replaceAllMap(notifyEmailMessage);
+                                const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;line-height:1.5">${bodyText.replace(/\n/g, '<br/>')}</div>`;
+                                await sendMail({ to: pacienteEmail, subject, html, fromName, fromEmail, replyTo });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('No se pudo enviar el correo personalizado:', e?.message || e);
+                    }
+                }
 
         const updatedReservas = await Reserva.find().populate('paciente');
         res.json(updatedReservas);

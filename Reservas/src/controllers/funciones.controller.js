@@ -3,6 +3,7 @@ import Reserva from "../models/ficha.model.js";
 import User from "../models/user.model.js";
 import Sucursal from "../models/sucursal.model.js";
 import axios from "axios";
+import crypto from 'crypto';
 
 /////////////// Obtener todos los pacientes con hora previa y sin sesiones ///////////////
 
@@ -140,7 +141,7 @@ export const obtenerHorasDisponibles = async (req, res) => {
 
 export const liberarHoras = async (req, res) => {
   try {
-    const { id, fecha, blockDay } = req.body;
+    const { id, fecha, blockDay, customMessage } = req.body;
     const profesional = await User.findById(id);
 
     if (!profesional) {
@@ -155,7 +156,7 @@ export const liberarHoras = async (req, res) => {
     const reservasLiberadas = await Reserva.find({
       profesional: id,
       siguienteCita: { $gte: startOfDay, $lte: endOfDay }
-    }).populate('paciente');
+    }).populate('paciente').populate('profesional');
 
     await Reserva.updateMany(
       {
@@ -178,6 +179,76 @@ export const liberarHoras = async (req, res) => {
       if (!exists) {
         profesional.blockedDays = [...(profesional.blockedDays || []), blockDate];
         await profesional.save();
+      }
+    }
+
+    // Enviar correos personalizados si aplica (solo cuando hay mensaje y el canal del paciente es email)
+    if (customMessage && reservasLiberadas?.length) {
+      try {
+        const { sendMail } = await import('../libs/mailer.js');
+        for (const r of reservasLiberadas) {
+          if (r.notificationChannel === 'email' && r.paciente?.email) {
+            const to = r.paciente.email;
+            const fromName = r.profesional?.username || 'Agenda';
+            const fromEmail = r.profesional?.email || undefined;
+            const replyTo = r.profesional?.email || undefined;
+            const subjectTpl = 'Información sobre tu atención';
+            // Build placeholders and confirmation link if needed
+            const needsLink = /\{enlaceconfirmacion\}/i.test(customMessage) || /\{enlaceconfirmacion\}/i.test(subjectTpl);
+            let link = '';
+            if (needsLink) {
+              const rawToken = Buffer.from(crypto.randomBytes(24)).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+              const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
+              const resDoc = await Reserva.findById(r._id);
+              if (resDoc) {
+                resDoc.confirmTokenHash = hash;
+                resDoc.confirmTokenExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
+                resDoc.confirmationLog = [...(resDoc.confirmationLog || []), { action: 'generated' }];
+                await resDoc.save();
+              }
+              const proto = req.headers['x-forwarded-proto'] || req.protocol;
+              const host = req.headers['x-forwarded-host'] || req.headers.host;
+              const dynamicBase = `${proto}://${host}`;
+              const devFallback = process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : undefined;
+              const baseUrl = process.env.FRONTEND_BASE_URL || devFallback || dynamicBase;
+              link = `${String(baseUrl).replace(/\/$/, '')}/confirmacion/${rawToken}`;
+            }
+            const formatFecha = (fecha) => {
+              try {
+                if (!fecha) return '';
+                const d = new Date(fecha);
+                if (Number.isNaN(d.getTime())) return '';
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yy = d.getFullYear();
+                return `${dd}-${mm}-${yy}`;
+              } catch { return ''; }
+            };
+            const map = {
+              '{nombre}': r?.paciente?.nombre || '',
+              '{fecha}': formatFecha(r?.siguienteCita),
+              '{hora}': r?.hora || '',
+              '{servicio}': r?.servicio || '',
+              '{profesional}': r?.profesional?.username || '',
+              '{sucursal}': r?.sucursal?.nombre || '',
+              '{enlaceConfirmacion}': link || '{enlaceConfirmacion}',
+            };
+            const replaceAllMap = (tpl) => Object.entries(map)
+              .reduce((acc, [k, v]) => acc.replaceAll(k, v), String(tpl || ''))
+              .replace(/\{enlaceconfirmacion\}/gi, map['{enlaceConfirmacion}']);
+            const subject = replaceAllMap(subjectTpl);
+            const bodyText = replaceAllMap(customMessage);
+            const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;line-height:1.5">${bodyText.replace(/\n/g, '<br/>')}</div>`;
+            try {
+              await sendMail({ to, subject, html, fromName, fromEmail, replyTo });
+            } catch (e) {
+              // Continuar con los demás aunque alguno falle
+              console.warn('Fallo enviando email en liberarHoras:', e?.message || e);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('No se pudo enviar emails en liberarHoras:', e?.message || e);
       }
     }
 

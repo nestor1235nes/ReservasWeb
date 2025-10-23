@@ -354,7 +354,10 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             siguienteCita: new Date(editableFields.fecha),
             hora: editableFields.hora,
             profesional: profesionalParaGuardar,
-            mensaje: mensajePaciente,
+            mensajePaciente: mensajePaciente,
+            // Si el canal del paciente es email, el backend enviará este mensaje tal cual
+            notifyEmailMessage: mensajePaciente || undefined,
+            notifyEmailSubject: 'Actualización de tu cita',
           });
           event.diaPrimeraCita = new Date(editableFields.fecha);
           event.hora = editableFields.hora;
@@ -369,7 +372,12 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           }
 
           if (mensajePaciente) {
-            sendWhatsAppMessage([event], mensajePaciente, user);
+            const canal = event?.notificationChannel;
+            if (canal === 'whatsapp') {
+              // Solo enviar WhatsApp si el paciente eligió WhatsApp
+              sendWhatsAppMessage([event], mensajePaciente, user);
+            }
+            // Si el canal es 'email', el backend ya enviará el correo con notifyEmailMessage
           }
 
           // Verificar si la reserva tiene eventId y actualizar Google Calendar

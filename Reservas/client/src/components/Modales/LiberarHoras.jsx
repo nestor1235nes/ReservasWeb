@@ -36,6 +36,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                 id: user.id || user._id,
                 fecha,
                 blockDay,
+                customMessage,
             };
             const reservasLiberadas = await liberarHoras(data);
             showAlert('success', blockDay ? 'Horas liberadas y día bloqueado' : 'Horas liberadas correctamente');
@@ -66,21 +67,21 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
             }
     
             if (user.idInstance) {
-                if(user.defaultMessage === '' && customMessage === '') {
-                    showAlert('error', 'No hay mensaje por defecto ni mensaje personalizado. No se enviará mensaje a los pacientes.');
-                    return;
+                // Enviar WhatsApp solo a quienes eligieron ese canal
+                const waList = (reservasLiberadas?.reservasLiberadas || []).filter(r => r?.notificationChannel === 'whatsapp');
+                if (waList.length > 0) {
+                  if(user.defaultMessage === '' && customMessage === '') {
+                      showAlert('error', 'No hay mensaje por defecto ni mensaje personalizado. No se enviará mensaje por WhatsApp.');
+                  } else if(customMessage){
+                      await sendWhatsAppMessage(waList, customMessage, user);
+                      showAlert('success', 'Horas liberadas y mensaje enviado por WhatsApp a pacientes con esa preferencia');
+                  } else {
+                      const message = user.defaultMessage;
+                      await sendWhatsAppMessage(waList, message, user);
+                      showAlert('success', 'Horas liberadas y mensaje enviado por WhatsApp a pacientes con esa preferencia');
+                  }
                 }
-                if(customMessage){
-                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, customMessage, user);
-                    showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
-                    return;
-                }
-                else{
-                    const message = user.defaultMessage;
-                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user);
-                    showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
-                    return;
-                }
+                // Para canal email, el backend ya envió correos si customMessage estaba presente
             }
         } catch (error) {
             console.error(error);

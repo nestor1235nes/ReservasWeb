@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import Reserva from '../models/ficha.model.js';
+import { sendMail } from '../libs/mailer.js';
 
 const TOKEN_BYTES = 24; // 32 chars aprox en base64url
 const TOKEN_TTL_HOURS = 48;
@@ -28,6 +29,35 @@ export const generateConfirmationLink = async (req, res) => {
   const devFallback = process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : undefined;
   const baseUrl = process.env.FRONTEND_BASE_URL || devFallback || dynamicBase;
   const link = `${baseUrl.replace(/\/$/, '')}/confirmacion/${raw}`;
+    // Si el canal es email, enviar correo de confirmación
+    try {
+      if (reserva.notificationChannel === 'email') {
+        const pacienteEmail = reserva.paciente?.email || reserva.email || null;
+        if (pacienteEmail) {
+          const fecha = reserva.siguienteCita ? new Date(reserva.siguienteCita) : null;
+          const fechaStr = fecha ? fecha.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '';
+          const horaStr = reserva.hora ? ` a las ${reserva.hora}` : '';
+          const servicioStr = reserva.servicio ? ` para ${reserva.servicio}` : '';
+          const subject = 'Confirma tu hora';
+          // Determinar remitente dinámico por profesional
+          const prof = reserva.profesional;
+          const fromName = prof?.username || 'Agenda';
+          const fromEmail = prof?.email || undefined;
+          const replyTo = prof?.email || undefined;
+          const html = `
+            <p>Hola${reserva.paciente?.nombre ? ' ' + reserva.paciente.nombre : ''},</p>
+            <p>Por favor confirma tu cita${servicioStr}${fechaStr ? ` el ${fechaStr}` : ''}${horaStr}.</p>
+            <p>Puedes confirmar o cancelar aquí:</p>
+            <p><a href="${link}" target="_blank" rel="noopener">${link}</a></p>
+            <p>Este enlace vence el ${reserva.confirmTokenExpires?.toLocaleString('es-CL')}.</p>
+          `;
+          await sendMail({ to: pacienteEmail, subject, html, fromName, fromEmail, replyTo });
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudo enviar email de confirmación:', e?.message || e);
+    }
+
     res.json({ link, expiresAt: reserva.confirmTokenExpires });
   } catch (err) {
     console.error('generateConfirmationLink error', err);
