@@ -60,6 +60,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { syncWithGoogle } from '../../googleCalendarConfig';
 
 dayjs.extend(localeData);
 dayjs.locale('es');
@@ -185,44 +186,51 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
         const nuevaReserva = await createReserva(paciente.rut, reservaData);
 
         // Crear evento en Google Calendar para la nueva cita
-        if (gapi?.auth2?.getAuthInstance?.()?.isSignedIn.get()) {
-          try {
-            console.log('Creando evento en Google Calendar para nueva cita');
-            
-            const [horaInicio, minuto] = hora.split(':');
-            const horaFin = `${String(parseInt(horaInicio) + 1).padStart(2, '0')}:${minuto}`;
-            
-            const newEvent = {
-              summary: `Cita con ${paciente.nombre}`,
-              description: `Nueva cita agendada desde sesión`,
-              start: {
-                dateTime: `${fecha}T${hora}:00`,
-                timeZone: 'America/Santiago',
-              },
-              end: {
-                dateTime: `${fecha}T${horaFin}:00`,
-                timeZone: 'America/Santiago',
-              },
-            };
+        if (gapi?.auth2?.getAuthInstance?.()) {
+          if (user?.googleEmail) {
+            try { await syncWithGoogle(user.googleEmail); } catch (e) { /* ignore */ }
+          }
+          if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+            try {
+              console.log('Creando evento en Google Calendar para nueva cita');
+              const [horaInicio, minuto] = hora.split(':');
+              const horaFin = `${String(parseInt(horaInicio) + 1).padStart(2, '0')}:${minuto}`;
+              
+              const newEvent = {
+                summary: `Cita con ${paciente.nombre}`,
+                description: `Nueva cita agendada desde sesión`,
+                start: {
+                  dateTime: `${fecha}T${hora}:00`,
+                  timeZone: 'America/Santiago',
+                },
+                end: {
+                  dateTime: `${fecha}T${horaFin}:00`,
+                  timeZone: 'America/Santiago',
+                },
+              };
 
-            const response = await gapi.client.calendar.events.insert({
-              calendarId: 'primary',
-              resource: newEvent,
-            });
+              const response = await gapi.client.calendar.events.insert({
+                calendarId: 'primary',
+                resource: newEvent,
+              });
 
-            if (response.error) {
-              console.error('Error creating Google Calendar event:', response.error);
+              if (response.error) {
+                console.error('Error creating Google Calendar event:', response.error);
+                showAlert('warning', 'Sesión y cita creadas, pero hubo un error al sincronizar con Google Calendar');
+              } else {
+                console.log('Google Calendar event created successfully:', response);
+                showAlert('success', 'Sesión agregada y nueva cita creada correctamente, sincronizada con Google Calendar');
+              }
+            } catch (error) {
+              console.error('Error al crear evento en Google Calendar:', error);
               showAlert('warning', 'Sesión y cita creadas, pero hubo un error al sincronizar con Google Calendar');
-            } else {
-              console.log('Google Calendar event created successfully:', response);
-              showAlert('success', 'Sesión agregada y nueva cita creada correctamente, sincronizada con Google Calendar');
             }
-          } catch (error) {
-            console.error('Error al crear evento en Google Calendar:', error);
-            showAlert('warning', 'Sesión y cita creadas, pero hubo un error al sincronizar con Google Calendar');
+          } else {
+            console.log('Usuario no autenticado con Google Calendar');
+            showAlert('success', 'Sesión agregada y nueva cita creada correctamente');
           }
         } else {
-          console.log('Usuario no autenticado con Google Calendar');
+          console.log('Google API no disponible');
           showAlert('success', 'Sesión agregada y nueva cita creada correctamente');
         }
       } else {
@@ -231,31 +239,35 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
       }
 
       // Verificar si hay eventId y actualizar Google Calendar para la sesión actual
-      if (eventId && gapi?.auth2?.getAuthInstance?.()?.isSignedIn.get()) {
-        try {
-          console.log('Actualizando sesión en Google Calendar con ID:', eventId);
-          
-          const eventToUpdate = {
-            summary: `Sesión completada con ${paciente.nombre}`,
-            description: `Sesión realizada el ${ultimaFecha}. ${sesionData}`,
-          };
+      if (eventId && gapi?.auth2?.getAuthInstance?.()) {
+        if (user?.googleEmail) {
+          try { await syncWithGoogle(user.googleEmail); } catch (e) { /* ignore */ }
+        }
+        if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+          try {
+            console.log('Actualizando sesión en Google Calendar con ID:', eventId);
+            
+            const eventToUpdate = {
+              summary: `Sesión completada con ${paciente.nombre}`,
+              description: `Sesión realizada el ${ultimaFecha}. ${sesionData}`,
+            };
 
-          const response = await gapi.client.calendar.events.patch({
-            calendarId: 'primary',
-            eventId: eventId,
-            resource: eventToUpdate,
-          });
+            const response = await gapi.client.calendar.events.patch({
+              calendarId: 'primary',
+              eventId: eventId,
+              resource: eventToUpdate,
+            });
 
-          if (response.error) {
-            console.error('Error updating Google Calendar event:', response.error);
-          } else {
-            console.log('Google Calendar event updated successfully:', response);
+            if (response.error) {
+              console.error('Error updating Google Calendar event:', response.error);
+            } else {
+              console.log('Google Calendar event updated successfully:', response);
+            }
+          } catch (error) {
+            console.error('Error al actualizar evento en Google Calendar:', error);
           }
-        } catch (error) {
-          console.error('Error al actualizar evento en Google Calendar:', error);
         }
       }
-
     } catch (error) {
       console.error(error);
       showAlert('error', 'Error al procesar la sesión');

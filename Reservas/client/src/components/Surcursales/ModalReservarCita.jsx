@@ -7,14 +7,15 @@ import {
   StepLabel,
   Button,
   TextField,
-  Typography,
   CircularProgress,
   Avatar,
   Divider,
   Stack,
   Paper,
   Fade,
-  IconButton
+  IconButton,
+  Typography,
+  Alert
 } from '@mui/material';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
@@ -48,13 +49,17 @@ const style = {
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
-  width: 420,
-  maxWidth: '95vw',
+  width: { xs: '100%', sm: 520, md: 560 },
+  maxWidth: { xs: '100vw', sm: '95vw' },
   bgcolor: 'background.paper',
   boxShadow: 24,
-  borderRadius: 3,
+  borderRadius: { xs: 0, sm: 3 },
   p: 0,
-  overflow: 'hidden'
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  height: 'auto',
+  maxHeight: '90vh'
 };
 
 export default function ModalReservarCita({ open, onClose, onReserva, datosPreseleccionados }) {
@@ -68,6 +73,8 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [selectedService, setSelectedService] = useState(null);
   const [selectedServiceIndex, setSelectedServiceIndex] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('presencial'); // 'presencial' | 'webpay'
+  const [messageChannel, setMessageChannel] = useState(''); // 'whatsapp' | 'email'
+  const [contactAttempted, setContactAttempted] = useState(false);
 
   // Paso 1: Rutificador
   const handleRutValidated = async (rutIngresado) => {
@@ -121,9 +128,28 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       setError('Debe ingresar un RUT válido.');
       return;
     }
-    if (activeStep === 1 && (!paciente.nombre || !paciente.telefono)) {
-      setError('Complete todos los campos obligatorios.');
-      return;
+    if (activeStep === 1) {
+      // Activar visualización de errores en UI
+      setContactAttempted(true);
+      // Validaciones dinámicas según canal
+      if (!paciente.nombre) {
+        setError('Ingrese su nombre.');
+        return;
+      }
+      if (!messageChannel) {
+        setError('Seleccione cómo desea recibir confirmaciones.');
+        return;
+      }
+      if (messageChannel === 'whatsapp' && !paciente.telefono) {
+        setError('Ingrese su teléfono para recibir confirmaciones por WhatsApp.');
+        return;
+      }
+      if (messageChannel === 'email' && !paciente.email) {
+        setError('Ingrese su correo electrónico para recibir confirmaciones por email.');
+        return;
+      }
+      // Si todo ok, limpiar error
+      setError('');
     }
     setError('');
     // Si es el paso de datos de contacto y aún no existe paciente, crearlo
@@ -149,13 +175,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       }
       setLoading(false);
     }
-    // Si vamos al paso de servicios, requerir selección si el profesional tiene servicios
-    if (activeStep === 2) {
-      // validated in UI when pressing next from services step; but keep default flow
-    }
-    // If moving from services step and webpay is selected, require a service selection
-    if (activeStep === 2 && paymentMethod === 'webpay' && (!selectedService)) {
-      setError('Seleccione un servicio para poder pagar con Webpay');
+    // Paso de servicios: siempre requerir selección de servicio para avanzar
+    if (activeStep === 2 && !selectedService) {
+      setError('Seleccione un servicio para continuar');
       return;
     }
 
@@ -164,7 +186,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
 
   const handleBack = () => setActiveStep((prev) => prev - 1);
 
-  const handleChange = (e) => setPaciente({ ...paciente, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    setPaciente({ ...paciente, [e.target.name]: e.target.value });
+  };
 
   const handleFinish = async () => {
     setLoading(true);
@@ -183,6 +207,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
         hora: datosPreseleccionados.hora,
         modalidad: datosPreseleccionados.modalidad,
         servicio: selectedService ? (selectedService._id || selectedService.id || selectedService.tipo || selectedService.nombre) : '',
+        notificationChannel: messageChannel,
         // Puedes agregar más campos si tu backend lo requiere
       };
 
@@ -288,13 +313,13 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
             </IconButton>
           </Box>
           {/* Stepper */}
-          <Box px={3} pt={2} pb={0}>
+          <Box px={{ xs: 2, sm: 3 }} pt={2} pb={0}>
             <Stepper activeStep={activeStep} alternativeLabel>
               {steps.map(label => (
                 <Step key={label}>
                   <StepLabel
                     sx={{
-                      '& .MuiStepLabel-label': { fontWeight: 600, color: '#2596be' }
+                      '& .MuiStepLabel-label': { fontWeight: 600, color: '#2596be', fontSize: { xs: '0.85rem', sm: '0.95rem' }, whiteSpace: 'normal' }
                     }}
                   >
                     {label}
@@ -305,7 +330,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           </Box>
           <Divider sx={{ my: 2 }} />
           {/* Content */}
-          <Box px={3} pb={3} minHeight={260}>
+          <Box px={{ xs: 2, sm: 3 }} pb={{ xs: 2, sm: 3 }} minHeight={260} sx={{ flex: 1, overflowY: 'auto' }}>
             {activeStep === 0 && (
               <Stack spacing={2} alignItems="center" justifyContent="center" minHeight={200}>
                 <Rutificador onRutValidated={handleRutValidated} />
@@ -314,7 +339,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
               </Stack>
             )}
             {activeStep === 1 && (
-              <Stack spacing={2} alignItems="center" justifyContent="center" minHeight={200}>
+              <Stack spacing={2} alignItems="center" justifyContent="center" minHeight={200} mt={1}>
                 <TextField
                   label="Nombre completo"
                   name="nombre"
@@ -332,7 +357,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   value={paciente.telefono}
                   onChange={handleChange}
                   fullWidth
-                  required
+                  required={messageChannel === 'whatsapp'}
+                  error={contactAttempted && messageChannel === 'whatsapp' && !paciente.telefono}
+                  helperText={contactAttempted && messageChannel === 'whatsapp' && !paciente.telefono ? 'Requerido para confirmar por WhatsApp' : ''}
                   InputProps={{
                     startAdornment: <PhoneIphoneIcon sx={{ mr: 1, color: '#2596be' }} />
                   }}
@@ -343,10 +370,29 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   value={paciente.email}
                   onChange={handleChange}
                   fullWidth
+                  required={messageChannel === 'email'}
+                  error={contactAttempted && messageChannel === 'email' && !paciente.email}
+                  helperText={contactAttempted && messageChannel === 'email' && !paciente.email ? 'Requerido para confirmar por correo' : ''}
                   InputProps={{
                     startAdornment: <EmailIcon sx={{ mr: 1, color: '#2596be' }} />
                   }}
                 />
+                <Paper elevation={1} sx={{ width: '100%', p: 1.5, borderRadius: 2, background: '#f7fbfc' }}>
+                  <Typography fontWeight={600} mb={1} color="#2596be">
+                    ¿Cómo prefieres recibir nuestros recordatorios?
+                  </Typography>
+                  <RadioGroup
+                    value={messageChannel}
+                    onChange={(e) => { setMessageChannel(e.target.value); setError(''); }}
+                    row
+                  >
+                    <FormControlLabel value="whatsapp" control={<Radio required />} label="WhatsApp" />
+                    <FormControlLabel value="email" control={<Radio required />} label="Correo electrónico" />
+                  </RadioGroup>
+                  {!messageChannel && error && (
+                    <Typography variant="caption" color="error">Este campo es obligatorio</Typography>
+                  )}
+                </Paper>
                 {proximaCita && (
                   <Paper elevation={1} sx={{ width: '100%', p: 1.5, mt: 1, background: '#e3f7fa' }}>
                     <Typography variant="subtitle2" color="#2596be" fontWeight={600}>
@@ -375,7 +421,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                       <ListItem key={s._id || idx} sx={{ borderRadius: 1, p: 0 }}>
                         <ListItemButton
                           selected={selectedServiceIndex === idx}
-                          onClick={() => { setSelectedService(s); setSelectedServiceIndex(idx); }}
+                          onClick={() => { setSelectedService(s); setSelectedServiceIndex(idx); setError(''); }}
                           sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2 }}
                         >
                           <ListItemText
@@ -388,6 +434,11 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                     ))}
                   </List>
                 </Paper>
+                {!selectedService && error && (
+                  <Alert severity="warning" variant="outlined">
+                    {error}
+                  </Alert>
+                )}
                 <Paper elevation={1} sx={{ p: 2, borderRadius: 2, background: '#f7fbfc' }}>
                   <Typography fontWeight={600} mb={1}>Método de pago</Typography>
                   <RadioGroup
@@ -492,8 +543,8 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           {/* Footer */}
           <Divider sx={{ mt: 2, mb: 0 }} />
           <Box
-            px={3}
-            py={2}
+            px={{ xs: 2, sm: 3 }}
+            py={{ xs: 1.5, sm: 2 }}
             display="flex"
             justifyContent="space-between"
             alignItems="center"

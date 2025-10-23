@@ -26,6 +26,7 @@ import PreviewIcon from '@mui/icons-material/Preview';
 import SincronizacionCalendarios from '../components/Modales/SincronizacionCalendarios';
 import ModalServicio from '../components/Modales/ModalServicio';
 import MensajesAutomaticos from "../components/MensajesAutomaticos";
+import { useAlert } from "../context/AlertContext";
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const intervals = [10, 15, 30, 60];
@@ -302,6 +303,7 @@ export function PerfilPage() {
   const [servicioEditing, setServicioEditing] = useState(null);
   const [servicioEditingIndex, setServicioEditingIndex] = useState(null);
   const fotoPerfilRef = useRef(null);
+  const showAlert = useAlert();
 
 
   const handleOpenPerfil = (profesional) => {
@@ -321,6 +323,7 @@ export function PerfilPage() {
     cita_presencial: user.cita_presencial || false,
     cita_virtual: user.cita_virtual || false,
     email: user.email || "",
+    googleEmail: user.googleEmail || "",
     timetable: normalizeTimetable(user.timetable),
     adminAtiendePersonas: user.adminAtiendePersonas || false,
     // Campos WhatsApp / Green API
@@ -333,24 +336,31 @@ export function PerfilPage() {
   // Handlers
   const handleEditProfileClick = () => setEditProfileMode(true);
   const handleSaveProfileClick = async () => {
-    // Detecta si cambió el valor del switch
-    const prevValue = user.adminAtiendePersonas || false;
-    const newValue = formData.adminAtiendePersonas || false;
+    try {
+      // Detecta si cambió el valor del switch
+      const prevValue = user.adminAtiendePersonas || false;
+      const newValue = formData.adminAtiendePersonas || false;
 
-    // Nota: Se eliminó la validación que exigía idInstance/apiTokenInstance para permitir guardar sin credenciales
+      // Nota: Se eliminó la validación que exigía idInstance/apiTokenInstance para permitir guardar sin credenciales
 
-    await updatePerfil(user.id || user._id, formData);
+      await updatePerfil(user.id || user._id, formData);
 
-    // Solo si es admin y cambió el valor, actualiza la sucursal
-    if (esAdminSucursal && user.sucursal && user.id && prevValue !== newValue) {
-      if (newValue) {
-        await agregarProfesional(user.sucursal._id, user.id);
-      } else {
-        await quitarProfesional(user.sucursal._id, user.id);
+      // Solo si es admin y cambió el valor, actualiza la sucursal
+      if (esAdminSucursal && user.sucursal && user.id && prevValue !== newValue) {
+        if (newValue) {
+          await agregarProfesional(user.sucursal._id, user.id);
+        } else {
+          await quitarProfesional(user.sucursal._id, user.id);
+        }
       }
-    }
 
-    setEditProfileMode(false);
+      setEditProfileMode(false);
+      showAlert('success', 'Perfil actualizado correctamente.');
+    } catch (error) {
+      console.error('Error al actualizar el perfil:', error);
+      const message = error?.response?.data?.message || 'No se pudo actualizar el perfil.';
+      showAlert('error', message);
+    }
   };
   const handleCancelProfileClick = () => {
     setFormData({
@@ -363,6 +373,7 @@ export function PerfilPage() {
       cita_presencial: user.cita_presencial || false,
       cita_virtual: user.cita_virtual || false,
       email: user.email || "",
+  googleEmail: user.googleEmail || "",
       timetable: normalizeTimetable(user.timetable),
       adminAtiendePersonas: user.adminAtiendePersonas || false,
       idInstance: user.idInstance || "",
@@ -371,6 +382,7 @@ export function PerfilPage() {
       reminderMessage: user.reminderMessage || ""
     });
     setEditProfileMode(false);
+    showAlert('info', 'Cambios descartados.');
   };
 
   // Horarios
@@ -401,8 +413,11 @@ export function PerfilPage() {
   const handleDeleteServicio = async (index) => {
     try {
       await deleteServicio(index);
+      showAlert('success', 'Servicio eliminado correctamente.');
     } catch (error) {
       console.error('Error al eliminar servicio:', error);
+      const message = error?.response?.data?.message || 'No se pudo eliminar el servicio.';
+      showAlert('error', message);
     }
   };
 
@@ -415,11 +430,18 @@ export function PerfilPage() {
   // Horarios
   const handleEditSchedule = (index) => setEditingScheduleIndex(index);
   const handleDeleteSchedule = async (index) => {
-    await deleteBloqueHorario(user.id || user._id, index);
-    setFormData((prev) => ({
-      ...prev,
-      timetable: prev.timetable.filter((_, i) => i !== index)
-    }));
+    try {
+      await deleteBloqueHorario(user.id || user._id, index);
+      setFormData((prev) => ({
+        ...prev,
+        timetable: prev.timetable.filter((_, i) => i !== index)
+      }));
+      showAlert('success', 'Bloque de horario eliminado.');
+    } catch (error) {
+      console.error('Error al eliminar bloque de horario:', error);
+      const message = error?.response?.data?.message || 'No se pudo eliminar el bloque de horario.';
+      showAlert('error', message);
+    }
   };
   const handleScheduleChange = (index, field, value) => {
       const newTimetable = [...formData.timetable];
@@ -452,8 +474,15 @@ export function PerfilPage() {
       timetable: updatedTimetable,
     });
 
-    await updatePerfil(user.id || user._id, { ...formData, timetable: updatedTimetable });
-    setEditingScheduleIndex(null);
+    try {
+      await updatePerfil(user.id || user._id, { ...formData, timetable: updatedTimetable });
+      setEditingScheduleIndex(null);
+      showAlert('success', 'Horario actualizado correctamente.');
+    } catch (error) {
+      console.error('Error al actualizar horario:', error);
+      const message = error?.response?.data?.message || 'No se pudo actualizar el horario.';
+      showAlert('error', message);
+    }
   };
   const handleCancelScheduleEdit = () => {
     setEditingScheduleIndex(null);
@@ -646,6 +675,15 @@ export function PerfilPage() {
                   onChange={handleChange}
                   fullWidth
                   disabled
+                />
+                <TextField
+                  label="Correo para Google Calendar"
+                  name="googleEmail"
+                  value={formData.googleEmail}
+                  onChange={handleChange}
+                  fullWidth
+                  disabled={!editProfileMode}
+                  helperText="Usaremos este correo para iniciar sesión y sincronizar con Google Calendar"
                 />
               </Stack>
             </CardContent>

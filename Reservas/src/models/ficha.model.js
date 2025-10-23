@@ -38,6 +38,10 @@ const ReservasSchema = new mongoose.Schema({
     servicio: {
         type: String,
     },
+    notificationChannel: {
+        type: String,
+        enum: ['whatsapp','email'],
+    },
     sucursal: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sucursal',

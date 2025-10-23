@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { AppBar, Toolbar, Typography, Box, Drawer, Slide, Stack, Chip, Paper, useMediaQuery } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Drawer, Slide, Stack, Chip, Paper, useMediaQuery, Button, CircularProgress } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import es from 'date-fns/locale/es';
@@ -23,8 +23,11 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import VentanaNotificaciones from '../components/VentanaNotificaciones';
 import { gapi } from 'gapi-script';
 import { getBlockedDaysRequest } from '../api/funcion';
-import { initClient } from '../googleCalendarConfig';
+import { initClient, syncWithGoogle } from '../googleCalendarConfig';
 import { useSucursal } from '../context/sucursalContext';
+import FullPageLoader from '../components/ui/FullPageLoader';
+import { useAlert } from '../context/AlertContext';
+import SyncIcon from '@mui/icons-material/Sync';
 
 dayjs.extend(localizedFormat);
 dayjs.extend(utc);
@@ -48,27 +51,32 @@ export function CalendarioPage() {
   const [events, setEvents] = useState([]);
   const [visibleTypes, setVisibleTypes] = useState({ primera: true, pendiente: true, historial: true });
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const { getReservas, getFeriados } = useReserva();
+  const { getReservas, getFeriados, updateReserva } = useReserva();
   const { getReservasSucursal } = useSucursal();
   const { logout, user, esAsistente } = useAuth();
+  const showAlert = useAlert();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [feriados, setFeriados] = useState([]);
   const [blockedDays, setBlockedDays] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const interval = user?.timetable?.[0]?.interval || 60; // valor por defecto 60 minutos
 
   const fetchReservas = async () => {
-    let data = [];
-    if (esAsistente && user?.sucursal?._id) {
-      // Si es asistente, obtiene reservas de la sucursal
-      data = await getReservasSucursal(user.sucursal._id);
-    } else {
-      // Si no, obtiene reservas propias
-      data = await getReservas();
-    }
-    setReservas(data);
+    setLoading(true);
+    try {
+      let data = [];
+      if (esAsistente && user?.sucursal?._id) {
+        // Si es asistente, obtiene reservas de la sucursal
+        data = await getReservasSucursal(user.sucursal._id);
+      } else {
+        // Si no, obtiene reservas propias
+        data = await getReservas();
+      }
+      setReservas(data);
 
     const transformedEvents = [];
     
@@ -201,6 +209,12 @@ export function CalendarioPage() {
     }
 
     setEvents(transformedEvents);
+    } catch (e) {
+      // Silenciar errores y mantener experiencia
+      console.error('Error cargando reservas/calendario:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -251,6 +265,102 @@ export function CalendarioPage() {
 
   const handleNotificationClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleSyncPending = async () => {
+    try {
+      if (esAsistente) return; // asistentes no sincronizan
+      if (!reservas || reservas.length === 0) {
+        showAlert('info', 'No hay reservas para sincronizar');
+        return;
+      }
+      setSyncing(true);
+      // Alinear cuenta preferida si existe
+      if (user?.googleEmail) {
+        try { await syncWithGoogle(user.googleEmail); } catch (e) { /* ignore */ }
+      }
+      if (!gapi?.auth2?.getAuthInstance?.() || !gapi.auth2.getAuthInstance().isSignedIn.get()) {
+        showAlert('warning', 'Inicia sesión con Google Calendar para sincronizar');
+        return;
+      }
+      const intervalMinutes = interval || 60;
+      const pendientes = reservas.filter(r => !r.eventId && (r.siguienteCita || r.diaPrimeraCita));
+      if (pendientes.length === 0) {
+        showAlert('info', 'No hay eventos pendientes de sincronizar');
+        return;
+      }
+      let success = 0;
+      let failed = 0;
+      for (const r of pendientes) {
+        try {
+          // Determinar fecha/hora
+          let fechaISO = '';
+          let horaStr = r.hora || '09:00';
+          if (r.siguienteCita) {
+            // usar siguienteCita
+            if (typeof r.siguienteCita === 'string') {
+              fechaISO = r.siguienteCita.slice(0, 10);
+            } else {
+              fechaISO = dayjs(r.siguienteCita).format('YYYY-MM-DD');
+            }
+          } else if (r.diaPrimeraCita) {
+            if (typeof r.diaPrimeraCita === 'string') {
+              fechaISO = r.diaPrimeraCita.slice(0, 10);
+            } else {
+              fechaISO = dayjs(r.diaPrimeraCita).format('YYYY-MM-DD');
+            }
+          } else {
+            continue;
+          }
+          const [h, m] = String(horaStr).split(':');
+          const horaFin = `${String(parseInt(h || '9', 10) + 1).padStart(2, '0')}:${m || '00'}`;
+
+          const eventResource = {
+            summary: `Cita con ${r?.paciente?.nombre || 'Paciente'}`,
+            description: r?.diagnostico ? `Diagnóstico: ${r.diagnostico}` : 'Cita sincronizada automáticamente',
+            start: {
+              dateTime: `${fechaISO}T${horaStr}:00`,
+              timeZone: 'America/Santiago',
+            },
+            end: {
+              dateTime: `${fechaISO}T${horaFin}:00`,
+              timeZone: 'America/Santiago',
+            },
+          };
+
+          const response = await gapi.client.calendar.events.insert({
+            calendarId: 'primary',
+            resource: eventResource,
+          });
+
+          const createdId = response?.result?.id || response?.id;
+          if (createdId) {
+            try {
+              await updateReserva(r.paciente.rut, { eventId: createdId });
+              success += 1;
+            } catch (e) {
+              failed += 1;
+            }
+          } else {
+            failed += 1;
+          }
+        } catch (e) {
+          // fallo con este registro, continuar con siguientes
+          failed += 1;
+        }
+      }
+      if (success > 0) {
+        showAlert('success', `Sincronización completa: ${success}/${pendientes.length} eventos creados`);
+        await fetchReservas();
+      } else {
+        showAlert('info', 'No se crearon nuevos eventos');
+      }
+      if (failed > 0 && success > 0) {
+        showAlert('warning', `${failed} eventos no pudieron sincronizarse`);
+      }
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const feriadosSet = new Set(
@@ -338,13 +448,14 @@ export function CalendarioPage() {
 
   return (
   <Box display="flex" flexDirection="column" height="100%" backgroundColor="white" sx={{ position: 'relative', overflow: 'visible' }}>
+    <FullPageLoader open={loading} withinContainer message="Cargando tu calendario" />
       <Stack p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={1}>
           <Typography variant="h5" fontWeight={700} color="white">
             Calendario
           </Typography>
           {/* Leyenda de colores con filtros */}
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
             <Chip 
               label="Pendientes" 
               size="small" 
@@ -387,6 +498,23 @@ export function CalendarioPage() {
                 cursor: 'pointer'
               }} 
             />
+            {!esAsistente && (
+              <Button 
+                size="small" 
+                variant="contained"
+                onClick={handleSyncPending}
+                disabled={syncing}
+                startIcon={syncing ? <CircularProgress size={14} sx={{ color: '#2596be' }} /> : <SyncIcon />}
+                sx={{
+                  ml: 1,
+                  bgcolor: 'white',
+                  color: '#2596be',
+                  '&:hover': { bgcolor: '#f0f9ff' }
+                }}
+              >
+                {syncing ? 'Sincronizando…' : 'Sincronizar pendientes'}
+              </Button>
+            )}
           </Stack>
         </Box>
       </Stack>

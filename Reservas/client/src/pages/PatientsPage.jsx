@@ -17,7 +17,8 @@ import {
   Chip,
   useMediaQuery,
   Slide,
-  Drawer
+  Drawer,
+  IconButton
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonIcon from "@mui/icons-material/Person";
@@ -25,6 +26,8 @@ import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PhoneIcon from '@mui/icons-material/Phone';
 import AddIcon from "@mui/icons-material/Add";
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { usePaciente } from "../context/pacienteContext";
@@ -33,6 +36,7 @@ import DespliegueEventos from "../components/PanelDespliegue/DespliegueEventos";
 import AgregarPaciente from "../components/Modales/AgregarPaciente";
 import dayjs from "dayjs";
 import { useAuth } from "../context/authContext";
+import FullPageLoader from "../components/ui/FullPageLoader";
 
 
 export default function PatientsPage() {
@@ -52,15 +56,21 @@ export default function PatientsPage() {
 
   // Estado para el modal de nuevo paciente
   const [openAgregarPaciente, setOpenAgregarPaciente] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const pageSize = 8;
 
   useEffect(() => {
     const fetchData = async () => {
-
-      const pacientesData = await getPacientesUsuario();
-      setPacientes(pacientesData || []);
-      const reservasData = await getReservas();
-      setReservas(reservasData || []);
-      // Debug: Pacientes y reservas cargados
+      try {
+        setLoading(true);
+        const pacientesData = await getPacientesUsuario();
+        setPacientes(pacientesData || []);
+        const reservasData = await getReservas();
+        setReservas(reservasData || []);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
   }, [getPacientes, getReservas]);
@@ -71,12 +81,33 @@ export default function PatientsPage() {
       p.rut?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Paginación
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // Clamp página si cambia el total
+  useEffect(() => {
+    if (page >= totalPages) setPage(totalPages - 1);
+  }, [totalPages]);
+  // Reset al cambiar búsqueda
+  useEffect(() => {
+    setPage(0);
+  }, [search]);
+  const startIndex = page * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginated = filtered.slice(startIndex, endIndex);
+  const prevDisabled = totalPages <= 1 || page === 0;
+  const nextDisabled = totalPages <= 1 || page >= totalPages - 1;
+
   // Refrescar pacientes y reservas después de agregar uno nuevo
   const fetchPacientesYActualizar = async () => {
-    const pacientesData = await getPacientes();
-    setPacientes(pacientesData || []);
-    const reservasData = await getReservas();
-    setReservas(reservasData || []);
+    try {
+      setLoading(true);
+      const pacientesData = await getPacientes();
+      setPacientes(pacientesData || []);
+      const reservasData = await getReservas();
+      setReservas(reservasData || []);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Al hacer click en un paciente, busca su reserva más próxima (o la primera)
@@ -133,7 +164,9 @@ export default function PatientsPage() {
       overflow="visible"
       px={isMobile ? 0.5 : 0}
       pb={isMobile ? 1 : 0}
+      sx={{ position: 'relative' }}
     >
+      <FullPageLoader open={loading} withinContainer message="Cargando pacientes" />
       <Stack
         p={isMobile ? 1 : 1.5}
         borderRadius={1}
@@ -199,7 +232,8 @@ export default function PatientsPage() {
             Nuevo Paciente
           </Button>
         </Box>
-      </Stack>      <Card
+      </Stack>
+      <Card
         sx={{
           mt: isMobile ? 1 : 0,
           borderRadius: isMobile ? 0 : 2,
@@ -216,7 +250,7 @@ export default function PatientsPage() {
             </Typography>
           ) : (
             <List sx={{ p: 0 }}>
-              {filtered.map((paciente) => (
+              {paginated.map((paciente) => (
                 <React.Fragment key={paciente._id}>
                   <ListItem
                     onClick={() => handlePacienteClick(paciente)}
@@ -316,6 +350,40 @@ export default function PatientsPage() {
             </List>
           )}
         </CardContent>
+        {/* Controles de paginación inferiores */}
+        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ pb: 2 }}>
+          <IconButton
+            size="small"
+            onClick={() => !prevDisabled && setPage((p) => Math.max(0, p - 1))}
+            disabled={prevDisabled}
+            sx={{
+              background: 'white',
+              color: '#2596be',
+              border: '1px solid #e0e0e0',
+              '&:disabled': { opacity: 0.5 },
+            }}
+          >
+            <ArrowBackIosNewIcon fontSize="small" />
+          </IconButton>
+          <Typography variant="body2" color="text.secondary">
+            {filtered.length > 0
+              ? `${startIndex + 1}-${endIndex} de ${filtered.length}`
+              : '0-0 de 0'}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={() => !nextDisabled && setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={nextDisabled}
+            sx={{
+              background: 'white',
+              color: '#2596be',
+              border: '1px solid #e0e0e0',
+              '&:disabled': { opacity: 0.5 },
+            }}
+          >
+            <ArrowForwardIosIcon fontSize="small" />
+          </IconButton>
+        </Stack>
       </Card>
 
       {/* Drawer para mostrar DespliegueEventos */}

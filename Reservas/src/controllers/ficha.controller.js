@@ -259,6 +259,7 @@ export const createReserva = async (req, res) => {
             eventId: req.body.eventId,
             modalidad: req.body.modalidad || 'Presencial', // Valor por defecto
             servicio: req.body.servicio || 'Consulta', // Valor por defecto
+            notificationChannel: req.body.notificationChannel,
         });
         
         if (sucursalId) {
@@ -307,7 +308,8 @@ export const updateReserva = async (req, res) => {
             anamnesis: req.body.anamnesis,
             historial: req.body.historial,
             imagenes: req.body.imagenes,
-            eventId: req.body.eventId, 
+            eventId: req.body.eventId,
+            notificationChannel: req.body.notificationChannel,
         }
         await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
 
@@ -538,7 +540,7 @@ export const publicCreatePaciente = async (req, res) => {
 // Crear reserva desde flujo público (sin autenticación)
 export const publicCreateReserva = async (req, res) => {
     try {
-        const { rut, profesional: profesionalId, diaPrimeraCita, siguienteCita, hora, mensajePaciente, diagnostico, anamnesis, historial, eventId, modalidad, servicio } = req.body;
+    const { rut, profesional: profesionalId, diaPrimeraCita, siguienteCita, hora, mensajePaciente, diagnostico, anamnesis, historial, eventId, modalidad, servicio, notificationChannel } = req.body;
 
         if (!rut || !profesionalId || !siguienteCita || !hora) {
             return res.status(400).json({ message: "Datos insuficientes para crear la reserva" });
@@ -593,6 +595,7 @@ export const publicCreateReserva = async (req, res) => {
             eventId,
             modalidad: modalidad || 'Presencial',
             servicio: servicio || 'Consulta',
+            notificationChannel,
         });
 
         if (sucursalId) nuevaReserva.sucursal = sucursalId;

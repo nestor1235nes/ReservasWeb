@@ -40,6 +40,12 @@ const userSchema = new mongoose.Schema({
         trim: true,
         unique: true,
     },
+    // Correo dedicado a sincronización (Google Calendar)
+    googleEmail: {
+        type: String,
+        trim: true,
+        default: "",
+    },
     password: {
         type: String,
         required: true,

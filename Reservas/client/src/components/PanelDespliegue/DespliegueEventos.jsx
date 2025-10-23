@@ -9,6 +9,7 @@ import { usePaciente } from '../../context/pacienteContext';
 import { useAuth } from '../../context/authContext';
 import { useReserva } from '../../context/reservaContext';
 import { useSucursal } from '../../context/sucursalContext';
+import { syncWithGoogle } from '../../googleCalendarConfig';
 import { useAlert } from '../../context/AlertContext';
 import AgregarPaciente from '../Modales/AgregarPaciente';
 import AgregarSesion from './AgregarSesion';
@@ -372,8 +373,12 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           }
 
           // Verificar si la reserva tiene eventId y actualizar Google Calendar
-          if (event.eventId && gapi?.auth2?.getAuthInstance?.()?.isSignedIn.get()) {
+          if (event.eventId && gapi?.auth2?.getAuthInstance?.()) {
             try {
+              if (user?.googleEmail) {
+                try { await syncWithGoogle(user.googleEmail); } catch (e) { /* ignore */ }
+              }
+              if (!gapi.auth2.getAuthInstance().isSignedIn.get()) throw new Error('No Google auth');
               // Actualizando evento en Google Calendar
               
               const [hora, minuto] = editableFields.hora.split(':');

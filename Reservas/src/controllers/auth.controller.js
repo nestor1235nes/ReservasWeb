@@ -83,7 +83,8 @@ export const register = async (req, res) => {
   try {
     const { 
       username, 
-      email, 
+  email, 
+  googleEmail,
       password, 
       celular, 
       fotoPerfil, 
@@ -124,12 +125,12 @@ export const register = async (req, res) => {
       username,
       email,
       password: passwordHash,
-      celular: telefonoNormalizado,
+  celular: telefonoNormalizado,
       fotoPerfil,
       especialidad: especialidad ? especialidad.toUpperCase() : '',
       especialidad_principal: especialidad_principal ? especialidad_principal.toUpperCase() : '',
       experiencia,
-      descripcion,
+  descripcion,
       timetable: timetable || [],
       sucursal,
       cita_presencial: cita_presencial || false,
@@ -143,6 +144,7 @@ export const register = async (req, res) => {
       direccion,
       pacientes,
       adminAtiendePersonas,
+      googleEmail,
     });
 
     const userSaved = await newUser.save();
@@ -184,6 +186,7 @@ export const register = async (req, res) => {
       adminAtiendePersonas: userSaved.adminAtiendePersonas,
       miEnlace: userSaved.miEnlace,
       bookingTemplate: userSaved.bookingTemplate,
+      googleEmail: userSaved.googleEmail,
       token,
     });
   } catch (error) {
@@ -281,6 +284,7 @@ export const login = async (req, res) => {
       adminAtiendePersonas: userFound.adminAtiendePersonas,
       miEnlace: userFound.miEnlace,
       bookingTemplate: userFound.bookingTemplate,
+  googleEmail: userFound.googleEmail,
       token,
 
     });
@@ -324,6 +328,7 @@ export const verifyToken = async (req, res) => {
       adminAtiendePersonas: userFound.adminAtiendePersonas,
       miEnlace: userFound.miEnlace,
       bookingTemplate: userFound.bookingTemplate,
+       googleEmail: userFound.googleEmail,
     });
   });
 };

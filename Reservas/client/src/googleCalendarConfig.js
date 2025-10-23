@@ -19,10 +19,21 @@ export const initClient = () => {
 };
 
 // Esta función realiza el login y retorna el correo del usuario autenticado
-export const syncWithGoogle = async () => {
-  await gapi.auth2.getAuthInstance().signIn();
+export const syncWithGoogle = async (loginHintEmail) => {
+  const auth = gapi.auth2.getAuthInstance();
+  // If already signed in with a different account, sign out first to prevent mismatch
+  if (auth.isSignedIn.get()) {
+    const currentEmail = auth.currentUser.get().getBasicProfile()?.getEmail();
+    if (loginHintEmail && currentEmail && currentEmail.toLowerCase() !== loginHintEmail.toLowerCase()) {
+      await auth.signOut();
+    }
+  }
+  await gapi.auth2.getAuthInstance().signIn(loginHintEmail ? { login_hint: loginHintEmail } : undefined);
   const profile = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
-  return profile.getEmail();
+  const email = profile.getEmail();
+  console.log('Signed in as: ' + profile.getName());
+  console.log('Email: ' + email);
+  return email;
 };
 
 // Para usarlo globalmente en tu app:

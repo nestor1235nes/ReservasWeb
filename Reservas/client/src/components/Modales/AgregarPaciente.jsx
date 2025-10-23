@@ -8,8 +8,6 @@ import {
   Button, 
   TextField, 
   Typography, 
-  Snackbar, 
-  Alert,
   Paper,
   Card,
   CardContent,
@@ -34,6 +32,7 @@ import 'react-quill/dist/quill.snow.css';
 import ProfesionalBusquedaHoras from '../ProfesionalBusquedaHoras';
 import ArrastraSeleccionaImagenes from '../ArratraSeleccionaImagenes';
 import axios from 'axios';
+import { syncWithGoogle } from '../../googleCalendarConfig';
 // Iconos para el diseño profesional
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import CloseIcon from '@mui/icons-material/Close';
@@ -67,8 +66,6 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     imagenes: []
   });
   const [pacienteExistente, setPacienteExistente] = useState(false);
-  const [alert, setAlert] = useState({ type: '', message: '' });
-  const [openSnackbar, setOpenSnackbar] = useState(false);
   const [files, setFiles] = useState([]);
   const [agendarNuevaCita, setAgendarNuevaCita] = useState(false); // Switch para nueva cita
   // Control independiente para "Primer día de consulta"
@@ -129,8 +126,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     if (validateStep()) {
       setActiveStep((prevActiveStep) => prevActiveStep + 1);
     } else {
-      setAlert({ type: 'error', message: 'Por favor, complete todos los campos obligatorios' });
-      setOpenSnackbar(true);
+      showAlert('error', 'Por favor, complete todos los campos obligatorios');
     }
   };
 
@@ -282,65 +278,84 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
       if (agendarNuevaCita) {
         try {
           // Verifica si el usuario actual está autenticado con Google
-          if (gapi && gapi.auth2 && gapi.auth2.getAuthInstance().isSignedIn.get()) {
-            // Crea el evento en Google Calendar
-            const fechaStr = dayjs(patientData.diaPrimeraCita).format('YYYY-MM-DD');
-            const horaInicio = patientData.hora;
-            const [hora, minuto] = horaInicio.split(':');
-            const horaFin = `${String(parseInt(hora) + 1).padStart(2, '0')}:${minuto}`;
+          if (gapi && gapi.auth2) {
+            // Intentar alinear cuenta con el correo preferido si existe
+            if (user?.googleEmail) {
+              try { await syncWithGoogle(user.googleEmail); } catch (e) { /* ignore */ }
+            }
+            if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+              // Crea el evento en Google Calendar
+              const fechaStr = dayjs(patientData.diaPrimeraCita).format('YYYY-MM-DD');
+              const horaInicio = patientData.hora;
+              const [hora, minuto] = horaInicio.split(':');
+              const horaFin = `${String(parseInt(hora) + 1).padStart(2, '0')}:${minuto}`;
 
-            const event = {
-              summary: `Cita con ${patientData.nombre}`,
-              description: `Diagnóstico: ${patientData.diagnostico}\nAnamnesis: ${patientData.anamnesis}`,
-              start: {
-                dateTime: `${fechaStr}T${horaInicio}:00`,
-                timeZone: 'America/Santiago',
-              },
-              end: {
-                dateTime: `${fechaStr}T${horaFin}:00`,
-                timeZone: 'America/Santiago',
-              },
-            };
+              const event = {
+                summary: `Cita con ${patientData.nombre}`,
+                description: `Diagnóstico: ${patientData.diagnostico}\nAnamnesis: ${patientData.anamnesis}`,
+                start: {
+                  dateTime: `${fechaStr}T${horaInicio}:00`,
+                  timeZone: 'America/Santiago',
+                },
+                end: {
+                  dateTime: `${fechaStr}T${horaFin}:00`,
+                  timeZone: 'America/Santiago',
+                },
+              };
 
-            const request = gapi.client.calendar.events.insert({
-              calendarId: 'primary',
-              resource: event,
-            });
+              const request = gapi.client.calendar.events.insert({
+                calendarId: 'primary',
+                resource: event,
+              });
 
-            request.execute(async (createdEvent) => {
-              if (createdEvent && createdEvent.id) {
-                console.log('Evento creado: ', createdEvent.htmlLink);
-                console.log('Event ID:', createdEvent.id);
-                console.log('Paciente ID:', pacienteId);
-                
-                // Actualizar la reserva con el eventId
-                try {
-                  const reservaData = {
-                    eventId: createdEvent.id,
-                  };
-                  await updateReserva(patientData.rut, reservaData);
-                  console.log('EventId guardado correctamente en la reserva');
-                } catch (error) {
-                  console.error('Error al guardar eventId en la reserva:', error);
+              request.execute(async (createdEvent) => {
+                if (createdEvent && createdEvent.id) {
+                  console.log('Evento creado: ', createdEvent.htmlLink);
+                  console.log('Event ID:', createdEvent.id);
+                  console.log('Paciente ID:', pacienteId);
+                  // Actualizar la reserva con el eventId
+                  try {
+                    const reservaData = {
+                      eventId: createdEvent.id,
+                    };
+                    await updateReserva(patientData.rut, reservaData);
+                    console.log('EventId guardado correctamente en la reserva');
+                  } catch (error) {
+                    console.error('Error al guardar eventId en la reserva:', error);
+                  }
                 }
-              }
-            });
+              });
+            } else {
+              // No autenticado en Google: continuar sin sincronizar
+              console.log('Usuario no autenticado con Google Calendar');
+            }
           }
         } catch (error) {
           console.error('Error al sincronizar con Google Calendar:', error);
         }
       }
   
-      // 4. Mostrar mensaje de éxito y resetear el formulario
-      let mensaje = 'Paciente registrado correctamente';
-      if (agendarNuevaCita) {
-        mensaje = 'Paciente registrado y cita agendada correctamente';
-      } else if (patientData.diagnostico || patientData.anamnesis) {
-        mensaje = 'Paciente registrado con información médica guardada';
+      // 4. Mostrar mensaje de éxito (estilo global) y resetear el formulario
+      const tieneInformacionMedica = !!(patientData.diagnostico || patientData.anamnesis);
+      let mensaje;
+      if (data) {
+        if (agendarNuevaCita) {
+          mensaje = 'Paciente actualizado y cita agendada correctamente.';
+        } else if (tieneInformacionMedica) {
+          mensaje = 'Paciente actualizado con información médica guardada.';
+        } else {
+          mensaje = 'Paciente actualizado correctamente.';
+        }
+      } else {
+        if (agendarNuevaCita) {
+          mensaje = 'Paciente registrado y cita agendada correctamente.';
+        } else if (tieneInformacionMedica) {
+          mensaje = 'Paciente registrado con información médica guardada.';
+        } else {
+          mensaje = 'Paciente registrado correctamente.';
+        }
       }
-      
-      setAlert({ type: 'success', message: mensaje });
-      setOpenSnackbar(true);
+      showAlert('success', mensaje);
       setPatientData({
         nombre: '',
         rut: '',
@@ -379,12 +394,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     return true;
   };
 
-  const handleCloseSnackbar = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setOpenSnackbar(false);
-  };
+  // Eliminado Snackbar local en favor de AlertContext global
 
   return (
     <Modal 
@@ -410,24 +420,6 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
             flexDirection: 'column'
           }}
         >
-          {/* Snackbar */}
-          <Snackbar
-            open={openSnackbar}
-            autoHideDuration={4000}
-            onClose={handleCloseSnackbar}
-            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-            sx={{ zIndex: 1400 }}
-          >
-            <Alert
-              onClose={handleCloseSnackbar}
-              severity={alert.type}
-              variant="filled"
-              sx={{ width: '100%' }}
-            >
-              {alert.message}
-            </Alert>
-          </Snackbar>
-
           {/* Header */}
           <Box
             sx={{

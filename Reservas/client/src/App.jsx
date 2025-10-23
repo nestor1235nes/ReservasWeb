@@ -26,6 +26,7 @@ import { ProtectedRoute } from "./routes";
 import { PerfilPage } from "./pages/PerfilPage";
 import GestionarAsistentes from "./pages/Sucursales/GestionarAsistentes";
 import GestionarProfesionales from "./pages/Sucursales/GestionarProfesionales";
+import ReportesEmpresa from "./pages/Sucursales/ReportesEmpresa";
 import Telemedicina from "./pages/Telemedicina";
 import PatientSession from "./pages/PatientSession";
 import FrontUsers from "./pages/FrontUsers";
@@ -137,6 +138,7 @@ function AppContent() {
                           <Route path="/mi-enlace" element={<LinkPage />} />
                           <Route path="/sucursal/asistentes" element={<GestionarAsistentes />} />
                           <Route path="/sucursal/profesionales" element={<GestionarProfesionales />} />
+                          <Route path="/mi-empresa/reportes" element={<ReportesEmpresa />} />
                           <Route path="/reportes" element={<GraphicsPage />} />
                           <Route path="/telemedicina/:reservaId?" element={<Telemedicina />} />
                         </Route>
