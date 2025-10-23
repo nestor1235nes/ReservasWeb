@@ -33,7 +33,7 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   // Producción Vercel
-  'https://agendavitalink.vercel.app/',
+  'https://agendavitalink.vercel.app',
   // Agrega dinámicamente la IP local si se despliega en red (acepta cualquier origen que empiece con http://192.168.)
 ];
 
