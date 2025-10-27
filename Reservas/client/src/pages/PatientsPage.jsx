@@ -59,7 +59,7 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const pageSize = 8;
-
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -350,7 +350,7 @@ export default function PatientsPage() {
             </List>
           )}
         </CardContent>
-        {/* Controles de paginación inferiores */}
+         {/* Controles de paginación inferiores */}
         <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ pb: 2 }}>
           <IconButton
             size="small"

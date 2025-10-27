@@ -448,7 +448,7 @@ export function CalendarioPage() {
 
   return (
   <Box display="flex" flexDirection="column" height="100%" backgroundColor="white" sx={{ position: 'relative', overflow: 'visible' }}>
-    <FullPageLoader open={loading} withinContainer message="Cargando tu calendario" />
+      <FullPageLoader open={loading} withinContainer message="Cargando tu calendario" />    
       <Stack p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={1}>
           <Typography variant="h5" fontWeight={700} color="white">

@@ -234,7 +234,6 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
           showAlert('success', 'Sesión agregada y nueva cita creada correctamente');
         }
       } else {
-        // Solo se guardó la sesión
         showAlert('success', 'Sesión agregada correctamente');
       }
 

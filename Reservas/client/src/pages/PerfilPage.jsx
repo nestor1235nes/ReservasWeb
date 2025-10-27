@@ -340,12 +340,11 @@ export function PerfilPage() {
       // Detecta si cambió el valor del switch
       const prevValue = user.adminAtiendePersonas || false;
       const newValue = formData.adminAtiendePersonas || false;
-
-      // Nota: Se eliminó la validación que exigía idInstance/apiTokenInstance para permitir guardar sin credenciales
-
+      
       await updatePerfil(user.id || user._id, formData);
 
-      // Solo si es admin y cambió el valor, actualiza la sucursal
+
+    // Solo si es admin y cambió el valor, actualiza la sucursal
       if (esAdminSucursal && user.sucursal && user.id && prevValue !== newValue) {
         if (newValue) {
           await agregarProfesional(user.sucursal._id, user.id);
@@ -373,7 +372,7 @@ export function PerfilPage() {
       cita_presencial: user.cita_presencial || false,
       cita_virtual: user.cita_virtual || false,
       email: user.email || "",
-  googleEmail: user.googleEmail || "",
+      googleEmail: user.googleEmail || "",
       timetable: normalizeTimetable(user.timetable),
       adminAtiendePersonas: user.adminAtiendePersonas || false,
       idInstance: user.idInstance || "",
@@ -399,9 +398,15 @@ export function PerfilPage() {
 
   // Servicios
   const handleAddServicio = () => {
-    setServicioEditing(null);
-    setServicioEditingIndex(null);
-    setModalServicioOpen(true);
+    try {
+      setServicioEditing(null);
+      setServicioEditingIndex(null);
+      setModalServicioOpen(true);
+    } catch (error) {
+      console.error('Error al agregar servicio:', error);
+      const message = error?.response?.data?.message || 'No se pudo agregar el servicio.';
+      showAlert('error', message);
+    }
   };
 
   const handleEditServicio = (servicio, index) => {
@@ -683,7 +688,7 @@ export function PerfilPage() {
                   onChange={handleChange}
                   fullWidth
                   disabled={!editProfileMode}
-                  helperText="Usaremos este correo para iniciar sesión y sincronizar con Google Calendar"
+                  helperText="Usaremos este correo para sincronizar con Google Calendar"
                 />
               </Stack>
             </CardContent>

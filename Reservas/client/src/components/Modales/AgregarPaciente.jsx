@@ -126,7 +126,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     if (validateStep()) {
       setActiveStep((prevActiveStep) => prevActiveStep + 1);
     } else {
-      showAlert('error', 'Por favor, complete todos los campos obligatorios');
+      showAlert('error', 'Por favor, complete los campos requeridos antes de continuar.');
     }
   };
 
@@ -394,8 +394,6 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     return true;
   };
 
-  // Eliminado Snackbar local en favor de AlertContext global
-
   return (
     <Modal 
       open={open} 
@@ -420,6 +418,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
             flexDirection: 'column'
           }}
         >
+
           {/* Header */}
           <Box
             sx={{

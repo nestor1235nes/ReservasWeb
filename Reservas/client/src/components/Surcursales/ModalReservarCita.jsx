@@ -355,6 +355,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   label="Teléfono"
                   name="telefono"
                   value={paciente.telefono}
+                  
                   onChange={handleChange}
                   fullWidth
                   required={messageChannel === 'whatsapp'}

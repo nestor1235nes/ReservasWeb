@@ -25,6 +25,7 @@ import {
   Add as AddIcon 
 } from '@mui/icons-material';
 import { useAuth } from '../../context/authContext';
+import { useAlert } from '../../context/AlertContext';
 
 const modalidades = [
   'Presencial',
@@ -50,6 +51,7 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
     modalidad: 'Presencial',
     descripcion: ''
   });
+  const showAlert = useAlert();
 
   useEffect(() => {
     if (isEditing && servicio) {
@@ -86,12 +88,16 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
     try {
       if (isEditing) {
         await updateServicio(index, formData);
+        showAlert('success', 'Servicio actualizado correctamente.');
       } else {
         await addServicio(formData);
+        showAlert('success', 'Servicio agregado correctamente.');
       }
       onClose();
     } catch (error) {
       console.error('Error al guardar servicio:', error);
+      const message = error?.response?.data?.message || 'No se pudo guardar el servicio.';
+      showAlert('error', message);
     } finally {
       setLoading(false);
     }

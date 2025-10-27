@@ -24,6 +24,7 @@ import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import { useAuth } from '../context/authContext';
 import { useAnalytics } from '../context/analyticsContext';
 import FullPageLoader from '../components/ui/FullPageLoader';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 
 // Util: construir lista de meses entre fechaInicio y hoy
 const buildMonthBuckets = (startDate) => {
@@ -100,7 +101,7 @@ export default function GraphicsPage() {
     return monthBuckets.map(b => ({ mes: b.label, cantidad: counts[b.key] }));
   }, [periodStats?.reservas, monthBuckets]);
 
-  // Filtrar pagos por el rango actual usando la cantidad de meses
+// Filtrar pagos por el rango actual usando la cantidad de meses
   const pagosFiltrados = useMemo(() => {
     const n = rangeToMonths(timeRange);
     if (!payments12m || payments12m.length === 0) return [];
@@ -203,7 +204,7 @@ export default function GraphicsPage() {
             <MenuItem value="1year">1 año</MenuItem>
           </Select>
         </FormControl>
-      </Stack>
+      </Stack> 
 
       {/* KPIs principales */}
       <Grid container spacing={2} mb={3} mt={1}>
@@ -250,7 +251,7 @@ export default function GraphicsPage() {
           <Card sx={{ background: 'linear-gradient(135deg, #ffd86f 0%, #fc6262 100%)', color: 'white' }}>
             <CardContent>
               <Stack direction="row" alignItems="center" spacing={2}>
-                <MonetizationOnIcon sx={{ fontSize: 36 }} />
+                <AssignmentTurnedInIcon sx={{ fontSize: 36 }} />
                 <Box>
                   <Typography variant="h5" fontWeight="bold">${ingresosPeriodo.toLocaleString('es-CL')}</Typography>
                   <Typography variant="body2">Ingresos del período</Typography>

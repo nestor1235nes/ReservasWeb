@@ -83,8 +83,8 @@ export const register = async (req, res) => {
   try {
     const { 
       username, 
-  email, 
-  googleEmail,
+      email, 
+      googleEmail,
       password, 
       celular, 
       fotoPerfil, 
@@ -188,6 +188,7 @@ export const register = async (req, res) => {
       bookingTemplate: userSaved.bookingTemplate,
       googleEmail: userSaved.googleEmail,
       token,
+      googleEmail: userSaved.googleEmail,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -286,6 +287,7 @@ export const login = async (req, res) => {
       bookingTemplate: userFound.bookingTemplate,
   googleEmail: userFound.googleEmail,
       token,
+      googleEmail: userFound.googleEmail,
 
     });
   } catch (error) {
@@ -328,7 +330,7 @@ export const verifyToken = async (req, res) => {
       adminAtiendePersonas: userFound.adminAtiendePersonas,
       miEnlace: userFound.miEnlace,
       bookingTemplate: userFound.bookingTemplate,
-       googleEmail: userFound.googleEmail,
+      googleEmail: userFound.googleEmail,
     });
   });
 };
