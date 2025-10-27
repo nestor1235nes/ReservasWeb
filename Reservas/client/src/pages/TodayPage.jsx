@@ -34,6 +34,7 @@ import { useReserva } from "../context/reservaContext";
 import { useAlert } from "../context/AlertContext";
 import DespliegueEventos from "../components/PanelDespliegue/DespliegueEventos";
 import { updateConfirmStatus as updateConfirmStatusApi, generateConfirmLink } from '../api/confirmation.js';
+import FullPageLoader from "../components/ui/FullPageLoader";
 
 const statusMap = {
   confirmed: { color: "success", label: "Confirmada", icon: <CheckCircleIcon fontSize="small" /> },
@@ -183,6 +184,7 @@ export default function TodayPage() {
   const [tab, setTab] = useState(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [loading, setLoading] = useState(true);
 
   // Para el panel desplegable
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -205,8 +207,13 @@ export default function TodayPage() {
 
   useEffect(() => {
     const fetchReservas = async () => {
-      const data = await getReservas();
-      setReservas((data || []).filter(isReservaDeHoy));
+      try {
+        setLoading(true);
+        const data = await getReservas();
+        setReservas((data || []).filter(isReservaDeHoy));
+      } finally {
+        setLoading(false);
+      }
     };
     fetchReservas();
   }, [getReservas]);
@@ -285,8 +292,13 @@ export default function TodayPage() {
 
   // Puedes pasar fetchReservas si quieres refrescar desde el panel
   const fetchReservasAgain = async () => {
-    const data = await getReservas();
-    setReservas((data || []).filter(isReservaDeHoy));
+    try {
+      setLoading(true);
+      const data = await getReservas();
+      setReservas((data || []).filter(isReservaDeHoy));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -297,8 +309,9 @@ export default function TodayPage() {
         mx="auto"
         px={isMobile ? 0 : 0}
         py={isMobile ? 0 : 0}
-        sx={{ overflowX: 'hidden', maxWidth: '100vw' }}
+        sx={{ overflowX: 'hidden', maxWidth: '100vw', position: 'relative' }}
       >
+        <FullPageLoader open={loading} withinContainer message="Cargando citas de hoy" />
         <Stack direction={isMobile ? "column" : "row"} justifyContent="space-between" alignItems={isMobile ? "stretch" : "center"} spacing={2} p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
           <Typography variant="h5" fontWeight={700} color="white">
             Citas del día: {dayjs().locale("es").format("dddd, D [de] MMMM [de] YYYY")}

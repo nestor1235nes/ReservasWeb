@@ -84,6 +84,7 @@ export const register = async (req, res) => {
     const { 
       username, 
       email, 
+      googleEmail,
       password, 
       celular, 
       fotoPerfil, 
@@ -143,6 +144,7 @@ export const register = async (req, res) => {
       direccion,
       pacientes,
       adminAtiendePersonas,
+      googleEmail,
     });
 
     const userSaved = await newUser.save();
@@ -185,6 +187,7 @@ export const register = async (req, res) => {
       miEnlace: userSaved.miEnlace,
       bookingTemplate: userSaved.bookingTemplate,
       token,
+      googleEmail: userSaved.googleEmail,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -282,6 +285,7 @@ export const login = async (req, res) => {
       miEnlace: userFound.miEnlace,
       bookingTemplate: userFound.bookingTemplate,
       token,
+      googleEmail: userFound.googleEmail,
 
     });
   } catch (error) {
@@ -324,6 +328,7 @@ export const verifyToken = async (req, res) => {
       adminAtiendePersonas: userFound.adminAtiendePersonas,
       miEnlace: userFound.miEnlace,
       bookingTemplate: userFound.bookingTemplate,
+      googleEmail: userFound.googleEmail,
     });
   });
 };

@@ -5,6 +5,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import DownloadIcon from '@mui/icons-material/Download';
 import EventIcon from '@mui/icons-material/Event';
 import { getCalendarsSync, setCalendarSync } from "../../api/calendarsync"; // Debes crear estos métodos
+import { syncWithGoogle } from '../../googleCalendarConfig';
 import { getReservasParaExportacionRequest } from "../../api/reservas";
 import dayjs from 'dayjs';
 
@@ -31,9 +32,9 @@ const SincronizacionCalendarios = ({ open, onClose, user }) => {
   }, [open, user]);
 
   const handleGoogleSync = async () => {
-    // Aquí deberías iniciar el flujo de autenticación de Google
-    // y guardar el correo sincronizado en el backend
-    const email = await window.syncWithGoogle(); // Implementa esto con gapi
+    // Inicia autenticación de Google usando como sugerencia el correo de sincronización
+    const loginHint = user?.googleEmail || undefined;
+    const email = await syncWithGoogle(loginHint);
     if (email) {
       await setCalendarSync(user.id, "google", email);
       setSyncStatus(prev => ({ ...prev, google: email }));
