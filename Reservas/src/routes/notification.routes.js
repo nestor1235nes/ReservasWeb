@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { auth } from '../middlewares/auth.middleware.js';
-import { sendEmail, verifyEmailTransport } from '../controllers/notification.controller.js';
+import { sendWhatsApp } from '../controllers/whatsapp.controller.js';
 
 const router = Router();
 
-// Send an email using configured SMTP (Brevo by default)
-router.post('/email', auth, sendEmail);
-router.get('/email/verify', auth, verifyEmailTransport);
+// Enviar WhatsApp (single o batch)
+// POST /api/notifications/whatsapp { phoneNumber, message }
+// ó { messages: [{ phoneNumber, message }, ...] }
+router.post('/whatsapp', auth, sendWhatsApp);
 
 export default router;

@@ -355,9 +355,6 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             hora: editableFields.hora,
             profesional: profesionalParaGuardar,
             mensajePaciente: mensajePaciente,
-            // Si el canal del paciente es email, el backend enviará este mensaje tal cual
-            notifyEmailMessage: mensajePaciente || undefined,
-            notifyEmailSubject: 'Actualización de tu cita',
           });
           event.diaPrimeraCita = new Date(editableFields.fecha);
           event.hora = editableFields.hora;
@@ -371,14 +368,32 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             event.profesional = profesionalActual;
           }
 
-          if (mensajePaciente) {
-            const canal = event?.notificationChannel;
-            if (canal === 'whatsapp') {
-              // Solo enviar WhatsApp si el paciente eligió WhatsApp
-              sendWhatsAppMessage([event], mensajePaciente, user);
+            // WhatsApp-only: intenta enviar mensaje usando el texto ingresado o el mensaje por defecto del usuario
+            const template = (mensajePaciente && mensajePaciente.trim()) || (user?.defaultMessage && user.defaultMessage.trim()) || '';
+            if (template) {
+              if (user?.idInstance && user?.apiTokenInstance) {
+                // Validación simple de teléfono antes de enviar
+                const phone = event?.paciente?.telefono || '';
+                const validPhone = /^569\d{8}$/.test(String(phone));
+                if (!validPhone) {
+                  showAlert('warning', `El número del paciente no es válido para WhatsApp: "${phone}". Formato esperado: 569XXXXXXXX.`);
+                }
+                const report = await sendWhatsAppMessage([event], template, user);
+                if (report?.sent) {
+                  const msg = `WhatsApp enviado a ${report.sent} paciente(s)` + (report.failed ? `, ${report.failed} fallo(s)` : '');
+                  showAlert('success', msg);
+                } else {
+                  const detail = report?.details?.[0]?.reason || 'desconocido';
+                  showAlert('warning', `No se pudo enviar WhatsApp (motivo: ${detail}). Revisa credenciales y formato de teléfono (569XXXXXXXX).`);
+                  if (report?.details) console.warn('Detalles envío WhatsApp:', report.details);
+                }
+              } else {
+                showAlert('warning', 'Green API no está configurado (idInstance y apiTokenInstance).');
+              }
+            } else {
+              // No hay mensaje ni por defecto; informar pero no bloquear el guardado
+              showAlert('info', 'Cita actualizada. No se envió WhatsApp porque no hay mensaje definido. Configura tu mensaje por defecto en tu perfil.');
             }
-            // Si el canal es 'email', el backend ya enviará el correo con notifyEmailMessage
-          }
 
           // Verificar si la reserva tiene eventId y actualizar Google Calendar
           if (event.eventId && gapi?.auth2?.getAuthInstance?.()) {

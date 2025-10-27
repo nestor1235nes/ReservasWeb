@@ -73,7 +73,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [selectedService, setSelectedService] = useState(null);
   const [selectedServiceIndex, setSelectedServiceIndex] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('presencial'); // 'presencial' | 'webpay'
-  const [messageChannel, setMessageChannel] = useState(''); // 'whatsapp' | 'email'
+  const [messageChannel, setMessageChannel] = useState('whatsapp'); // WhatsApp-only
   const [contactAttempted, setContactAttempted] = useState(false);
 
   // Paso 1: Rutificador
@@ -131,21 +131,13 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
     if (activeStep === 1) {
       // Activar visualización de errores en UI
       setContactAttempted(true);
-      // Validaciones dinámicas según canal
+      // Validaciones: WhatsApp obligatorio
       if (!paciente.nombre) {
         setError('Ingrese su nombre.');
         return;
       }
-      if (!messageChannel) {
-        setError('Seleccione cómo desea recibir confirmaciones.');
-        return;
-      }
-      if (messageChannel === 'whatsapp' && !paciente.telefono) {
+      if (!paciente.telefono) {
         setError('Ingrese su teléfono para recibir confirmaciones por WhatsApp.');
-        return;
-      }
-      if (messageChannel === 'email' && !paciente.email) {
-        setError('Ingrese su correo electrónico para recibir confirmaciones por email.');
         return;
       }
       // Si todo ok, limpiar error
@@ -207,7 +199,6 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
         hora: datosPreseleccionados.hora,
         modalidad: datosPreseleccionados.modalidad,
         servicio: selectedService ? (selectedService._id || selectedService.id || selectedService.tipo || selectedService.nombre) : '',
-        notificationChannel: messageChannel,
         // Puedes agregar más campos si tu backend lo requiere
       };
 
@@ -380,19 +371,8 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                 />
                 <Paper elevation={1} sx={{ width: '100%', p: 1.5, borderRadius: 2, background: '#f7fbfc' }}>
                   <Typography fontWeight={600} mb={1} color="#2596be">
-                    ¿Cómo prefieres recibir nuestros recordatorios?
+                    Recibirás la confirmación y recordatorios por WhatsApp al número ingresado.
                   </Typography>
-                  <RadioGroup
-                    value={messageChannel}
-                    onChange={(e) => { setMessageChannel(e.target.value); setError(''); }}
-                    row
-                  >
-                    <FormControlLabel value="whatsapp" control={<Radio required />} label="WhatsApp" />
-                    <FormControlLabel value="email" control={<Radio required />} label="Correo electrónico" />
-                  </RadioGroup>
-                  {!messageChannel && error && (
-                    <Typography variant="caption" color="error">Este campo es obligatorio</Typography>
-                  )}
                 </Paper>
                 {proximaCita && (
                   <Paper elevation={1} sx={{ width: '100%', p: 1.5, mt: 1, background: '#e3f7fa' }}>

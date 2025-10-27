@@ -66,21 +66,32 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                 }
             }
     
-            if (user.idInstance) {
-                // Enviar WhatsApp solo a quienes eligieron ese canal
-                const waList = (reservasLiberadas?.reservasLiberadas || []).filter(r => r?.notificationChannel === 'whatsapp');
+            if (user.idInstance && user.apiTokenInstance) {
+                // Enviar WhatsApp a todos los afectados (política WhatsApp-only)
+                const waList = (reservasLiberadas?.reservasLiberadas || []);
                 if (waList.length > 0) {
                   if(user.defaultMessage === '' && customMessage === '') {
                       showAlert('error', 'No hay mensaje por defecto ni mensaje personalizado. No se enviará mensaje por WhatsApp.');
-                  } else if(customMessage){
-                      await sendWhatsAppMessage(waList, customMessage, user);
-                      showAlert('success', 'Horas liberadas y mensaje enviado por WhatsApp a pacientes con esa preferencia');
+                                    } else if(customMessage){
+                                            const report = await sendWhatsAppMessage(waList, customMessage, user);
+                                            if (report?.sent) {
+                                                showAlert('success', `WhatsApp enviado a ${report.sent} paciente(s). ${report.failed ? report.failed + ' fallos' : ''}`);
+                                            } else {
+                                                showAlert('warning', 'No se pudo enviar WhatsApp. Revisa tus credenciales y el formato de teléfono (ej. 569XXXXXXXX).');
+                                            }
                   } else {
-                      const message = user.defaultMessage;
-                      await sendWhatsAppMessage(waList, message, user);
-                      showAlert('success', 'Horas liberadas y mensaje enviado por WhatsApp a pacientes con esa preferencia');
+                                            const message = user.defaultMessage;
+                                            const report = await sendWhatsAppMessage(waList, message, user);
+                                            if (report?.sent) {
+                                                showAlert('success', `WhatsApp enviado a ${report.sent} paciente(s). ${report.failed ? report.failed + ' fallos' : ''}`);
+                                            } else {
+                                                showAlert('warning', 'No se pudo enviar WhatsApp. Revisa tus credenciales y el formato de teléfono (ej. 569XXXXXXXX).');
+                                            }
                   }
                 }
+                                else {
+                                    showAlert('warning', 'Green API no está configurado (idInstance y apiTokenInstance). Ve a tu Perfil para configurarlo.');
+                                }
                 // Para canal email, el backend ya envió correos si customMessage estaba presente
             }
         } catch (error) {
