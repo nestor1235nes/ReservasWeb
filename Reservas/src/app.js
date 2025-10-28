@@ -88,13 +88,11 @@ try {
 app.use('/uploads', express.static('uploads'));
 app.use('/imagenesPacientes', express.static('imagenesPacientes'));
 
-// Redirección en desarrollo para /confirmacion/:token
-if (process.env.NODE_ENV !== 'production') {
-  app.get('/confirmacion/:token', (req, res) => {
-    const frontend = FRONTEND_URL;
-    return res.redirect(`${frontend}/confirmacion/${req.params.token}`);
-  });
-}
+// Redirección universal para /confirmacion/:token hacia el frontend
+app.get('/confirmacion/:token', (req, res) => {
+  const frontend = FRONTEND_URL;
+  return res.redirect(`${frontend}/confirmacion/${req.params.token}`);
+});
 
 // Servir frontend solo si existe un build
 const __filename = fileURLToPath(import.meta.url);

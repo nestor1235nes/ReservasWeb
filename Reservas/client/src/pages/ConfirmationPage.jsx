@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { resolveToken, confirmByToken, cancelByToken, requestReschedule } from '../api/confirmation.js';
 import { Box, Card, CardContent, Typography, Button, Stack, TextField, Alert } from '@mui/material';
@@ -27,6 +27,27 @@ const ConfirmationPage = () => {
 		};
 		load();
 	}, [token]);
+
+		// Formateo robusto de fecha para evitar desfase de un día cuando llega como "YYYY-MM-DD" o "T00:00:00Z"
+		const fechaLabel = useMemo(() => {
+			if (!info?.fecha) return '—';
+			const f = info.fecha;
+			if (typeof f === 'string') {
+				if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
+					const [y, m, d] = f.split('-');
+					return `${d}/${m}/${y}`;
+				}
+				if (f.endsWith('Z') && f.includes('T00:00:00')) {
+					const [y, m, d] = f.slice(0,10).split('-');
+					return `${d}/${m}/${y}`;
+				}
+			}
+			try {
+				return new Date(f).toLocaleDateString('es-CL');
+			} catch {
+				return '—';
+			}
+		}, [info]);
 
 	const handleConfirm = async () => {
 		setActionMsg(null);
@@ -77,7 +98,7 @@ const ConfirmationPage = () => {
 					<Stack spacing={1} mb={2}>
 						<Typography><strong>Paciente:</strong> {info.paciente}</Typography>
 						<Typography><strong>Servicio:</strong> {info.servicio}</Typography>
-						<Typography><strong>Fecha:</strong> {info.fecha ? new Date(info.fecha).toLocaleDateString() : '—'}</Typography>
+						<Typography><strong>Fecha:</strong> {fechaLabel}</Typography>
 						<Typography><strong>Hora:</strong> {info.hora || '—'}</Typography>
 						<Typography><strong>Estado:</strong> {info.status}</Typography>
 					</Stack>

@@ -3,6 +3,7 @@ import Reserva from "../models/ficha.model.js";
 import Sucursal from "../models/sucursal.model.js";
 import User from "../models/user.model.js";
 import crypto from 'crypto';
+import axios from 'axios';
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -33,6 +34,79 @@ const normalizarTelefono = (telefono) => {
   // Si no cumple ningún caso, lo dejamos vacío
   return '';
 };
+
+// Enviar WhatsApp (Green API) usando credenciales del profesional para notificar registro de cita
+async function enviarWhatsAppRegistroCita({ profesional, paciente, reserva }) {
+    try {
+        if (!profesional?.idInstance || !profesional?.apiTokenInstance) return { ok: false, reason: 'missing_credentials' };
+        const rawPhone = paciente?.telefono;
+        const phone = normalizarTelefono(rawPhone);
+        if (!/^569\d{8}$/.test(String(phone))) return { ok: false, reason: 'invalid_phone' };
+
+        // Formatear fecha a DD-MM-YYYY evitando desfase por UTC (cuando llega como YYYY-MM-DD o T00:00:00Z)
+        const formatFecha = (fecha) => {
+            try {
+                if (!fecha) return '';
+                let y, m, d;
+                if (typeof fecha === 'string') {
+                    // Caso fecha solo con día: "YYYY-MM-DD"
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                        const parts = fecha.split('-').map(Number);
+                        [y, m, d] = parts;
+                        // Construir usando zona local
+                        const local = new Date(y, m - 1, d);
+                        y = local.getFullYear();
+                        m = local.getMonth() + 1;
+                        d = local.getDate();
+                    } else if (fecha.endsWith('Z') && fecha.includes('T00:00:00')) {
+                        // Medianoche UTC => tomar solo la parte de fecha y construir local
+                        const [yy, mm, dd] = fecha.slice(0, 10).split('-').map(Number);
+                        const local = new Date(yy, mm - 1, dd);
+                        y = local.getFullYear();
+                        m = local.getMonth() + 1;
+                        d = local.getDate();
+                    } else {
+                        const dt = new Date(fecha);
+                        if (isNaN(dt.getTime())) return '';
+                        y = dt.getFullYear();
+                        m = dt.getMonth() + 1;
+                        d = dt.getDate();
+                    }
+                } else if (fecha instanceof Date) {
+                    // Si ya es Date, usar componentes locales
+                    y = fecha.getFullYear();
+                    m = fecha.getMonth() + 1;
+                    d = fecha.getDate();
+                } else {
+                    const dt = new Date(fecha);
+                    if (isNaN(dt.getTime())) return '';
+                    y = dt.getFullYear();
+                    m = dt.getMonth() + 1;
+                    d = dt.getDate();
+                }
+                const ddStr = String(d).padStart(2, '0');
+                const mmStr = String(m).padStart(2, '0');
+                const yyyyStr = String(y);
+                return `${ddStr}-${mmStr}-${yyyyStr}`;
+            } catch { return ''; }
+        };
+
+        const fecha = formatFecha(reserva?.siguienteCita || reserva?.diaPrimeraCita);
+        const hora = reserva?.hora || '';
+        const nombre = paciente?.nombre || '';
+        const profesionalNombre = profesional?.username || '';
+
+        const message = `Hola ${nombre}, hemos registrado su cita para el ${fecha} a las ${hora} con ${profesionalNombre}. Se le enviará un recordatorio por WhatsApp 24 horas antes para confirmar su asistencia. Gracias por su preferencia.`.trim();
+
+        const url = `https://api.green-api.com/waInstance${profesional.idInstance}/sendMessage/${profesional.apiTokenInstance}`;
+        const data = { chatId: `${phone}@c.us`, message };
+        const resp = await axios.post(url, data);
+        if (resp?.status >= 200 && resp?.status < 300) return { ok: true };
+        return { ok: false, reason: `http_${resp?.status}` };
+    } catch (e) {
+        return { ok: false, reason: 'request_error', detail: e?.response?.data || e?.message || String(e) };
+    }
+}
 
 export const getPacientePorRut = async (req, res) => {
     try {
@@ -235,6 +309,22 @@ export const createReserva = async (req, res) => {
             }
         }
 
+        // Normalizador de fechas de solo día (evita desfase UTC)
+        const normalizeDateField = (val) => {
+            if (!val) return val;
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                    const [y, m, d] = val.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                if (val.endsWith('Z') && val.includes('T00:00:00')) {
+                    const [y, m, d] = val.slice(0, 10).split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+            }
+            return val;
+        };
+
         // Determinar diaPrimeraCita según reglas de negocio
         // - Si no viene en el body y es la primera reserva del paciente, usar siguienteCita si existe; si no, hoy
         // - Si viene, respetarlo
@@ -246,11 +336,14 @@ export const createReserva = async (req, res) => {
                 diaPrimeraCitaValue = req.body.siguienteCita ? req.body.siguienteCita : new Date();
             }
         }
+        // Normalizar posibles cadenas de fecha
+        diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
+        const siguienteCitaNorm = normalizeDateField(req.body.siguienteCita);
 
         const nuevaReserva = new Reserva({
             paciente: paciente._id,
             diaPrimeraCita: diaPrimeraCitaValue,
-            siguienteCita: req.body.siguienteCita,
+            siguienteCita: siguienteCitaNorm,
             hora: req.body.hora,
             mensajePaciente: req.body.mensajePaciente,
             profesional: profesionalId,
@@ -268,7 +361,19 @@ export const createReserva = async (req, res) => {
 
         await nuevaReserva.save();
 
-        res.status(201).json(nuevaReserva);
+                // Enviar WhatsApp de confirmación de registro si el profesional tiene credenciales Green API
+                try {
+                    const profesional = await User.findById(profesionalId);
+                    const pacienteCompleto = await Paciente.findById(paciente._id);
+                    const result = await enviarWhatsAppRegistroCita({ profesional, paciente: pacienteCompleto, reserva: nuevaReserva });
+                    if (!result.ok) {
+                        console.warn('No se pudo enviar WhatsApp de registro de cita:', result);
+                    }
+                } catch (e) {
+                    console.warn('Error enviando WhatsApp de registro (createReserva):', e?.message || e);
+                }
+
+                res.status(201).json(nuevaReserva);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -298,9 +403,24 @@ export const updateReserva = async (req, res) => {
             return res.status(404).json({ message: "Reserva not found" });
         }        
         
+        const normalizeDateField = (val) => {
+            if (!val) return val;
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                    const [y, m, d] = val.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                if (val.endsWith('Z') && val.includes('T00:00:00')) {
+                    const [y, m, d] = val.slice(0, 10).split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+            }
+            return val;
+        };
+
         const datosReserva = {
-            diaPrimeraCita: req.body.diaPrimeraCita,
-            siguienteCita: req.body.siguienteCita,
+            diaPrimeraCita: normalizeDateField(req.body.diaPrimeraCita),
+            siguienteCita: normalizeDateField(req.body.siguienteCita),
             hora: req.body.hora,
             mensajePaciente: req.body.mensajePaciente,
             profesional: req.body.profesional,
@@ -357,8 +477,23 @@ export const addHistorial = async (req, res) => {
         }
 
         // Asegurar que la fecha sea un objeto Date válido
-        const fechaSesion = req.body.fecha ? new Date(req.body.fecha) : new Date();
-        const siguienteCitaDate = req.body.siguienteCita ? new Date(req.body.siguienteCita) : null;
+        const normalizeDateField = (val) => {
+            if (!val) return val;
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                    const [y, m, d] = val.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                if (val.endsWith('Z') && val.includes('T00:00:00')) {
+                    const [y, m, d] = val.slice(0, 10).split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+            }
+            return new Date(val);
+        };
+
+        const fechaSesion = req.body.fecha ? normalizeDateField(req.body.fecha) : new Date();
+        const siguienteCitaDate = req.body.siguienteCita ? normalizeDateField(req.body.siguienteCita) : null;
 
         const newHistorialEntry = {
             fecha: fechaSesion,
@@ -573,6 +708,22 @@ export const publicCreateReserva = async (req, res) => {
             }
         }
 
+        // Normalizador de fechas de solo día (evita desfase UTC)
+        const normalizeDateField = (val) => {
+            if (!val) return val;
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                    const [y, m, d] = val.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                if (val.endsWith('Z') && val.includes('T00:00:00')) {
+                    const [y, m, d] = val.slice(0, 10).split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+            }
+            return val;
+        };
+
         // Determinar diaPrimeraCita si viene vacío: si es la primera reserva del paciente, usar siguienteCita o hoy
         let diaPrimeraCitaValue = diaPrimeraCita;
         if (!diaPrimeraCitaValue) {
@@ -582,11 +733,14 @@ export const publicCreateReserva = async (req, res) => {
                 diaPrimeraCitaValue = siguienteCita ? siguienteCita : new Date();
             }
         }
+        // Normalizar posibles cadenas de fecha
+        diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
+        const siguienteCitaNorm = normalizeDateField(siguienteCita);
 
         const nuevaReserva = new Reserva({
             paciente: paciente._id,
             diaPrimeraCita: diaPrimeraCitaValue,
-            siguienteCita,
+            siguienteCita: siguienteCitaNorm,
             hora,
             mensajePaciente,
             profesional: profesionalId,
@@ -602,7 +756,19 @@ export const publicCreateReserva = async (req, res) => {
 
         await nuevaReserva.save();
 
-        res.status(201).json(nuevaReserva);
+                // Enviar WhatsApp de confirmación de registro usando credenciales del profesional (flujo público)
+                try {
+                    const profesionalDoc = await User.findById(profesionalId);
+                    const pacienteCompleto = await Paciente.findById(paciente._id);
+                    const result = await enviarWhatsAppRegistroCita({ profesional: profesionalDoc, paciente: pacienteCompleto, reserva: nuevaReserva });
+                    if (!result.ok) {
+                        console.warn('No se pudo enviar WhatsApp de registro de cita (public):', result);
+                    }
+                } catch (e) {
+                    console.warn('Error enviando WhatsApp de registro (publicCreateReserva):', e?.message || e);
+                }
+
+                res.status(201).json(nuevaReserva);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
