@@ -29,21 +29,45 @@ const SincronizacionCalendarios = ({ open, onClose, user, onSynced }) => {
   const [alert, setAlert] = useState({ show: false, message: '', severity: 'success' });
   useEffect(() => {
     if (open && user) {
-      getCalendarsSync(user.id).then(setSyncStatus);
+      const userId = user.id || user._id;
+      if (!userId) {
+        setAlert({ show: true, message: 'No se pudo determinar el usuario para sincronizar.', severity: 'error' });
+        return;
+      }
+      getCalendarsSync(userId).then(setSyncStatus).catch(err => {
+        console.error('Error obteniendo estado de sincronización:', err);
+        setAlert({ show: true, message: 'Error al consultar el estado de sincronización.', severity: 'error' });
+      });
     }
   }, [open, user]);
 
   const handleGoogleSync = async () => {
-    // Inicia autenticación de Google usando como sugerencia el correo de sincronización
-    const loginHint = user?.googleEmail || undefined;
-    const email = await syncWithGoogle(loginHint);
-    if (email) {
-      await setCalendarSync(user.id, "google", email);
+    try {
+      const userId = user?.id || user?._id;
+      if (!userId) {
+        setAlert({ show: true, message: 'No se pudo determinar el usuario para sincronizar.', severity: 'error' });
+        return;
+      }
+      // Inicia autenticación de Google usando como sugerencia el correo de sincronización
+      const loginHint = user?.googleEmail || undefined;
+      const email = await syncWithGoogle(loginHint);
+      if (!email) {
+        setAlert({ show: true, message: 'No se pudo obtener el correo de Google. Vuelve a intentar.', severity: 'warning' });
+        return;
+      }
+      await setCalendarSync(userId, "google", email);
       setSyncStatus(prev => ({ ...prev, google: email }));
       try {
-        await updatePerfil(user.id, { googleEmail: email });
-      } catch (_) {}
+        await updatePerfil(userId, { googleEmail: email });
+      } catch (e) {
+        console.warn('No se pudo actualizar googleEmail en el perfil:', e);
+      }
       if (typeof onSynced === 'function') onSynced(email);
+      setAlert({ show: true, message: `Cuenta sincronizada: ${email}`, severity: 'success' });
+    } catch (err) {
+      console.error('Error al sincronizar Google Calendar:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Error al sincronizar con Google Calendar';
+      setAlert({ show: true, message: msg, severity: 'error' });
     }
   };
 
