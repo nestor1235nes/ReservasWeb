@@ -1,12 +1,14 @@
 import { gapi } from 'gapi-script';
 
-// Read from Vite env at build-time; fallback to known values for local dev
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '286462538213-7hvcvkf0j627vp9hv43cgdcb41p2p9g9.apps.googleusercontent.com';
+// Read from Vite env at build-time; fallback to your configured Google OAuth client (738...)
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '738093538653-biv296rpnonvgfgpsg5033ediogqg5nd.apps.googleusercontent.com';
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
 
 export const initClient = () => {
+  // Debug: verifica en consola cuál CLIENT_ID está usando el frontend en runtime
+  try { console.log('[GoogleAuth] Using CLIENT_ID:', CLIENT_ID); } catch (e) {}
   gapi.client.init({
     apiKey: API_KEY,
     clientId: CLIENT_ID,
@@ -43,7 +45,7 @@ window.syncWithGoogle = syncWithGoogle;
 // Se ocupa solo cuando se registra un nuevo usuario
 /*import { gapi } from 'gapi-script';
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '286462538213-7hvcvkf0j627vp9hv43cgdcb41p2p9g9.apps.googleusercontent.com';
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '738093538653-biv296rpnonvgfgpsg5033ediogqg5nd.apps.googleusercontent.com';
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
