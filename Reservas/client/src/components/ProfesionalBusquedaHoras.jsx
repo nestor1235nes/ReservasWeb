@@ -19,14 +19,22 @@ const ProfesionalBusquedaHoras = ({ formData, setFormData, obtenerHorasDisponibl
 
   useEffect(() => {
     const fetchHorasDisponibles = async () => {
-      if (user && formData.diaPrimeraCita) {
-        const response = await obtenerHorasDisponibles(user.id, formData.diaPrimeraCita);
-        const horas = response.times || [];
-        setHorasDisponibles(horas);
+      const profId = (formData?.profesional) || user?.id || user?._id;
+      const fecha = formData?.diaPrimeraCita;
+      if (profId && fecha) {
+        try {
+          const response = await obtenerHorasDisponibles(profId, fecha);
+          const horas = response?.times || [];
+          setHorasDisponibles(horas);
+        } catch (_) {
+          setHorasDisponibles([]);
+        }
+      } else {
+        setHorasDisponibles([]);
       }
     };
     fetchHorasDisponibles();
-  }, [user, formData.diaPrimeraCita, obtenerHorasDisponibles]);
+  }, [user, formData?.profesional, formData?.diaPrimeraCita, obtenerHorasDisponibles]);
 
   useEffect(() => {
     if (user && user.timetable) {

@@ -3,7 +3,8 @@ import { gapi } from 'gapi-script';
 // Google Identity Services (GIS) + gapi client (solo para llamadas de API)
 // Frontend lee variables de entorno prefijadas con VITE_
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '738093538653-biv296rpnonvgfgpsg5033ediogqg5nd.apps.googleusercontent.com';
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
+// No usar una API KEY por defecto. Si no está definida en entornos, omitimos apiKey para evitar 400 por mismatch de proyecto.
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
 
@@ -39,8 +40,13 @@ const setupAuthShim = () => {
 };
 
 export const initClient = async () => {
-  try { console.log('[GoogleAuth][GIS] Using CLIENT_ID:', CLIENT_ID); } catch (_) {}
-  await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
+  try { console.log('[GoogleAuth][GIS] Using CLIENT_ID:', CLIENT_ID, 'API_KEY set:', Boolean(API_KEY)); } catch (_) {}
+  // Si no tenemos API_KEY configurada en el entorno, inicializamos sin apiKey.
+  if (API_KEY) {
+    await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
+  } else {
+    await gapi.client.init({ discoveryDocs: DISCOVERY_DOCS });
+  }
   setupAuthShim();
   // Prepara el token client de GIS (callback se setea por llamada)
   if (window.google?.accounts?.oauth2 && !tokenClient) {
@@ -52,7 +58,7 @@ export const initClient = async () => {
   }
 };
 
-const ensureToken = (loginHintEmail) => new Promise((resolve, reject) => {
+const requestToken = (loginHintEmail, { silent = false } = {}) => new Promise((resolve, reject) => {
   try {
     if (!tokenClient && window.google?.accounts?.oauth2) {
       tokenClient = window.google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: () => {} });
@@ -71,14 +77,22 @@ const ensureToken = (loginHintEmail) => new Promise((resolve, reject) => {
     };
 
     const opts = {};
-    // Si no hay token previo, pide consentimiento, si existe intenta silencioso
-    opts.prompt = accessToken ? '' : 'consent';
+    // silent: intenta sin UI; de lo contrario, si no hay token pedirá consentimiento
+    opts.prompt = silent ? '' : (accessToken ? '' : 'consent');
     if (loginHintEmail) opts.hint = loginHintEmail;
     tokenClient.requestAccessToken(opts);
   } catch (e) {
     reject(e);
   }
 });
+
+// Pública: intenta obtener token sin UI; útil cuando el usuario ya consintió en Perfil
+export const ensureGoogleToken = async (loginHintEmail, options = { silent: true }) => {
+  return requestToken(loginHintEmail, options);
+};
+
+// Interna por compatibilidad con flujos existentes que esperan pedir consentimiento si falta
+const ensureToken = (loginHintEmail) => requestToken(loginHintEmail, { silent: false });
 
 const fetchEmail = async () => {
   if (cachedEmail) return cachedEmail;

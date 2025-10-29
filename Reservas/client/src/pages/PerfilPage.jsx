@@ -1175,6 +1175,12 @@ export function PerfilPage() {
           open={modalSyncOpen}
           onClose={() => setModalSyncOpen(false)}
           user={user}
+          onSynced={(email) => {
+            try {
+              setFormData(prev => ({ ...(prev || {}), googleEmail: email }));
+              if (typeof showAlert === 'function') showAlert('success', `Correo de Google sincronizado: ${email}`);
+            } catch(_) {}
+          }}
         />
       )}
 

@@ -32,7 +32,7 @@ import 'react-quill/dist/quill.snow.css';
 import ProfesionalBusquedaHoras from '../ProfesionalBusquedaHoras';
 import ArrastraSeleccionaImagenes from '../ArratraSeleccionaImagenes';
 import axios from 'axios';
-import { syncWithGoogle } from '../../googleCalendarConfig';
+import { ensureGoogleToken } from '../../googleCalendarConfig';
 // Iconos para el diseño profesional
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import CloseIcon from '@mui/icons-material/Close';
@@ -279,9 +279,9 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         try {
           // Verifica si el usuario actual está autenticado con Google
           if (gapi && gapi.auth2) {
-            // Intentar alinear cuenta con el correo preferido si existe
+            // Intentar adquirir token silencioso (si ya consintió en Perfil)
             if (user?.googleEmail) {
-              try { await syncWithGoogle(user.googleEmail); } catch (e) { /* ignore */ }
+              try { await ensureGoogleToken(user.googleEmail, { silent: true }); } catch (e) { /* ignore */ }
             }
             if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
               // Crea el evento en Google Calendar

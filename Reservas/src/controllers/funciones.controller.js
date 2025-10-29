@@ -87,32 +87,50 @@ export const obtenerHorasDisponibles = async (req, res) => {
     // Filtra solo los bloques que atienden ese día
     const bloquesDia = profesional.timetable.filter(b => b.days.includes(diaSemana));
 
-    // Helper para generar horas si no están precomputadas en el bloque
+    // Helper para parsear HH:mm (con o sin cero a la izquierda) a minutos totales
+    const toMinutes = (hhmm) => {
+      if (!hhmm || typeof hhmm !== 'string') return null;
+      const parts = hhmm.split(':');
+      if (parts.length < 2) return null;
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (Number.isNaN(h) || Number.isNaN(m)) return null;
+      return h * 60 + m;
+    };
+    const fmt = (mins) => {
+      const h = String(Math.floor(mins / 60)).padStart(2, '0');
+      const m = String(mins % 60).padStart(2, '0');
+      return `${h}:${m}`;
+    };
+    // Genera horas usando comparación numérica (robusta ante '9:00' vs '10:00')
     const generateTimes = (fromTime, toTime, breakFrom, breakTo, interval) => {
-      if (!fromTime || !toTime || !interval) return [];
+      const start = toMinutes(fromTime);
+      const end = toMinutes(toTime);
+      const brFrom = toMinutes(breakFrom);
+      const brTo = toMinutes(breakTo);
+      const step = parseInt(interval || 30, 10);
+      if (start == null || end == null || !step || step <= 0) return [];
       const times = [];
-      let currentTime = fromTime;
-      const addMinutes = (time, minutes) => {
-        const [h, m] = time.split(":").map(Number);
-        const total = h * 60 + m + minutes;
-        const nh = String(Math.floor(total / 60)).padStart(2, "0");
-        const nm = String(total % 60).padStart(2, "0");
-        return `${nh}:${nm}`;
-      };
-      while (currentTime < toTime) {
-        if (breakFrom && breakTo && currentTime >= breakFrom && currentTime < breakTo) {
-          currentTime = breakTo;
-        } else {
-          times.push(currentTime);
-          currentTime = addMinutes(currentTime, interval);
+      let t = start;
+      while (t < end) {
+        // saltar bloque si corresponde
+        if (brFrom != null && brTo != null && t >= brFrom && t < brTo) {
+          t = brTo; // saltar al final del bloque
+          continue;
         }
+        times.push(fmt(t));
+        t += step;
       }
       return times;
     };
 
     // Junta todos los times de los bloques de ese día, generándolos si faltan
     let horas = bloquesDia.flatMap(b => {
-      if (Array.isArray(b.times) && b.times.length) return b.times;
+      if (Array.isArray(b.times) && b.times.length) {
+        // Normalizar por si vienen sin cero a la izquierda y ordenar
+        const norm = b.times.map(t => fmt(toMinutes(t) ?? 0)).filter(Boolean);
+        return norm.sort();
+      }
       return generateTimes(b.fromTime, b.toTime, b.breakFrom, b.breakTo, b.interval || 30);
     });
 

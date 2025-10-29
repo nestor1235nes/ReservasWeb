@@ -8,6 +8,7 @@ import { getCalendarsSync, setCalendarSync } from "../../api/calendarsync"; // D
 import { syncWithGoogle } from '../../googleCalendarConfig';
 import { getReservasParaExportacionRequest } from "../../api/reservas";
 import dayjs from 'dayjs';
+import { useAuth } from '../../context/authContext';
 
 const style = {
   position: 'absolute',
@@ -21,7 +22,8 @@ const style = {
   p: 4,
 };
 
-const SincronizacionCalendarios = ({ open, onClose, user }) => {
+const SincronizacionCalendarios = ({ open, onClose, user, onSynced }) => {
+  const { updatePerfil } = useAuth();
   const [syncStatus, setSyncStatus] = useState({ google: null, ical: null });
   const [isGeneratingICS, setIsGeneratingICS] = useState(false);
   const [alert, setAlert] = useState({ show: false, message: '', severity: 'success' });
@@ -38,6 +40,10 @@ const SincronizacionCalendarios = ({ open, onClose, user }) => {
     if (email) {
       await setCalendarSync(user.id, "google", email);
       setSyncStatus(prev => ({ ...prev, google: email }));
+      try {
+        await updatePerfil(user.id, { googleEmail: email });
+      } catch (_) {}
+      if (typeof onSynced === 'function') onSynced(email);
     }
   };
 
