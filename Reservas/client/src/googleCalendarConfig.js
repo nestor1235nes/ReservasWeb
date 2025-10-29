@@ -1,7 +1,8 @@
 import { gapi } from 'gapi-script';
 
-const CLIENT_ID = '690394227820-s5rdh2u4ovgn5pki0ldcusaovh6rtj1c.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
+// Read from Vite env at build-time; fallback to known values for local dev
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '286462538213-7hvcvkf0j627vp9hv43cgdcb41p2p9g9.apps.googleusercontent.com';
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
 
@@ -42,8 +43,8 @@ window.syncWithGoogle = syncWithGoogle;
 // Se ocupa solo cuando se registra un nuevo usuario
 /*import { gapi } from 'gapi-script';
 
-const CLIENT_ID = '690394227820-s5rdh2u4ovgn5pki0ldcusaovh6rtj1c.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '286462538213-7hvcvkf0j627vp9hv43cgdcb41p2p9g9.apps.googleusercontent.com';
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
 
