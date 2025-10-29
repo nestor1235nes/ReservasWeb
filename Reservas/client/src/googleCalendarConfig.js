@@ -1,77 +1,112 @@
 import { gapi } from 'gapi-script';
 
-// Read from Vite env at build-time; fallback to your configured Google OAuth client (738...)
+// Google Identity Services (GIS) + gapi client (solo para llamadas de API)
+// Frontend lee variables de entorno prefijadas con VITE_
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '738093538653-biv296rpnonvgfgpsg5033ediogqg5nd.apps.googleusercontent.com';
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
 
-export const initClient = () => {
-  // Debug: verifica en consola cuál CLIENT_ID está usando el frontend en runtime
-  try { console.log('[GoogleAuth] Using CLIENT_ID:', CLIENT_ID); } catch (e) {}
-  gapi.client.init({
-    apiKey: API_KEY,
-    clientId: CLIENT_ID,
-    discoveryDocs: DISCOVERY_DOCS,
-    scope: SCOPES,
-  }).then(() => {
-    console.log('GAPI client initialized');
-  }).catch((error) => {
-    console.error('Error initializing GAPI client:', error);
-  });
+let tokenClient = null;
+let accessToken = null;
+let cachedEmail = null;
+
+const setupAuthShim = () => {
+  // Emula lo mínimo de gapi.auth2 que usa la app (isSignedIn y signOut)
+  try {
+    if (!window.gapi) return;
+    window.gapi.auth2 = {
+      getAuthInstance: () => ({
+        isSignedIn: { get: () => Boolean(accessToken) },
+        signOut: async () => {
+          try {
+            if (accessToken && window.google?.accounts?.oauth2?.revoke) {
+              await new Promise((resolve) => window.google.accounts.oauth2.revoke(accessToken, resolve));
+            }
+          } catch (_) {}
+          accessToken = null;
+          cachedEmail = null;
+          try { gapi.client.setToken(null); } catch (_) {}
+        },
+        currentUser: {
+          get: () => ({
+            getAuthResponse: () => ({ access_token: accessToken }),
+          }),
+        },
+      }),
+    };
+  } catch (_) {}
 };
 
-// Esta función realiza el login y retorna el correo del usuario autenticado
-export const syncWithGoogle = async (loginHintEmail) => {
-  const auth = gapi.auth2.getAuthInstance();
-  // If already signed in with a different account, sign out first to prevent mismatch
-  if (auth.isSignedIn.get()) {
-    const currentEmail = auth.currentUser.get().getBasicProfile()?.getEmail();
-    if (loginHintEmail && currentEmail && currentEmail.toLowerCase() !== loginHintEmail.toLowerCase()) {
-      await auth.signOut();
-    }
+export const initClient = async () => {
+  try { console.log('[GoogleAuth][GIS] Using CLIENT_ID:', CLIENT_ID); } catch (_) {}
+  await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
+  setupAuthShim();
+  // Prepara el token client de GIS (callback se setea por llamada)
+  if (window.google?.accounts?.oauth2 && !tokenClient) {
+    tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: () => {},
+    });
   }
-  await gapi.auth2.getAuthInstance().signIn(loginHintEmail ? { login_hint: loginHintEmail } : undefined);
-  const profile = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
-  const email = profile.getEmail();
-  console.log('Signed in as: ' + profile.getName());
-  console.log('Email: ' + email);
+};
+
+const ensureToken = (loginHintEmail) => new Promise((resolve, reject) => {
+  try {
+    if (!tokenClient && window.google?.accounts?.oauth2) {
+      tokenClient = window.google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: () => {} });
+    }
+    if (!tokenClient) return reject(new Error('GIS not loaded'));
+
+    tokenClient.callback = (resp) => {
+      if (resp?.access_token) {
+        accessToken = resp.access_token;
+        try { gapi.client.setToken({ access_token: accessToken }); } catch (_) {}
+        setupAuthShim();
+        resolve(accessToken);
+      } else {
+        reject(resp || new Error('No access token'));
+      }
+    };
+
+    const opts = {};
+    // Si no hay token previo, pide consentimiento, si existe intenta silencioso
+    opts.prompt = accessToken ? '' : 'consent';
+    if (loginHintEmail) opts.hint = loginHintEmail;
+    tokenClient.requestAccessToken(opts);
+  } catch (e) {
+    reject(e);
+  }
+});
+
+const fetchEmail = async () => {
+  if (cachedEmail) return cachedEmail;
+  try {
+    const resp = await gapi.client.request({ path: 'https://www.googleapis.com/oauth2/v2/userinfo' });
+    cachedEmail = resp?.result?.email || null;
+    return cachedEmail;
+  } catch (_) {
+    return null;
+  }
+};
+
+// Realiza el login con GIS y retorna el correo del usuario autenticado
+export const syncWithGoogle = async (loginHintEmail) => {
+  await ensureToken(loginHintEmail);
+  const email = await fetchEmail();
+  if (!email) {
+    // Si no pudimos obtener email igual devolvemos true para permitir uso de Calendar
+    return null;
+  }
   return email;
 };
 
-// Para usarlo globalmente en tu app:
+// Exponer global para compatibilidad con llamadas existentes
 window.syncWithGoogle = syncWithGoogle;
 
-// Se ocupa solo cuando se registra un nuevo usuario
-/*import { gapi } from 'gapi-script';
-
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '738093538653-biv296rpnonvgfgpsg5033ediogqg5nd.apps.googleusercontent.com';
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyB_YbnhdLe9Ug7KuCT4HzBYSlsipjU4qNM';
-const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
-
-export const initClient = () => {
-  gapi.client.init({
-    apiKey: API_KEY,
-    clientId: CLIENT_ID,
-    discoveryDocs: DISCOVERY_DOCS,
-    scope: SCOPES,
-  }).then(() => {
-    console.log('GAPI client initialized');
-  }).catch((error) => {
-    console.error('Error initializing GAPI client:', error);
-  });
+export const signOutGoogle = async () => {
+  try {
+    await window.gapi?.auth2?.getAuthInstance?.().signOut();
+  } catch (_) {}
 };
-
-export const handleAuthClick = async () => {
-  await gapi.auth2.getAuthInstance().signIn();
-  const profile = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
-  return {
-    email: profile.getEmail(),
-    name: profile.getName(),
-  };
-};
-
-export const handleSignoutClick = () => {
-  gapi.auth2.getAuthInstance().signOut();
-};*/

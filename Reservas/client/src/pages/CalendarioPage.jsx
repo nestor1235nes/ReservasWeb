@@ -231,7 +231,7 @@ export function CalendarioPage() {
 
   useEffect(() => {
       const initGapi = async () => {
-        await gapi.load('client:auth2', initClient);
+        await gapi.load('client', initClient);
       };
       initGapi();
     }, []);

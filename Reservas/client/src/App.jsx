@@ -52,7 +52,7 @@ function AppContent() {
 
   useEffect(() => {
     function start() {
-      gapi.load('client:auth2', initClient);
+      gapi.load('client', initClient);
     }
     start();
   }, []);

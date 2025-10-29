@@ -1,4 +1,12 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://reservas-backend-738093538653.southamerica-east1.run.app/api/$1" },
     { "source": "/uploads/(.*)", "destination": "https://reservas-backend-738093538653.southamerica-east1.run.app/uploads/$1" },
