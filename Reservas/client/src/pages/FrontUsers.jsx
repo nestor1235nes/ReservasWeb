@@ -408,12 +408,12 @@ export default function FrontUsers() {
 					<Grid container spacing={3} alignItems="center" justifyContent="space-between">
 						<Grid item>
 							<Stack direction="row" spacing={1} alignItems="center">
-								<Box sx={{ width: 28, height: 28, borderRadius: 1, background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)' }} />
+								<img src={logo_simple} alt="Logo" style={{ width: '3%'}} />
 								<Typography fontWeight={700}>VITALINK</Typography>
 							</Stack>
 						</Grid>
 						<Grid item>
-							<Typography variant="body2" color="text.secondary">© {new Date().getFullYear()} Sessionly. Todos los derechos reservados.</Typography>
+							<Typography variant="body2" color="text.secondary">© {new Date().getFullYear()} VITALINK. Todos los derechos reservados.</Typography>
 						</Grid>
 					</Grid>
 				</Container>

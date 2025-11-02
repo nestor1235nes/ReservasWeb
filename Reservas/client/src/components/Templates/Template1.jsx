@@ -1,14 +1,19 @@
 import React from 'react';
-import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar } from '@mui/material';
+import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar, Accordion, AccordionSummary, AccordionDetails, Divider, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import { ASSETS_BASE } from '../../config';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import Logo from '../../assets/LOGO.png';
 
 export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate }) {
+  const BRAND = { primary: '#2596be', secondary: '#21cbe6' };
+  const isReady = Boolean(seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad);
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={0} sx={{ background: 'transparent', color: 'inherit', borderBottom: '1px solid #e3f2fd', backdropFilter: 'blur(8px)' }}>
@@ -20,11 +25,11 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="md" sx={{ py: { xs: 4, md: 6 } }}>
-        <Card sx={{ border: '2px solid #e3f2fd', borderRadius: 3 }}>
+      <Container maxWidth="md" sx={{ py: { xs: 3, md: 6 }, px: { xs: 2, md: 3 } }}>
+        <Card sx={{ border: '2px solid #e3f2fd', borderRadius: 3, overflow: 'hidden' }}>
           <CardContent>
             <Grid container>
-              <Grid item xs={12} md={4} sx={{ borderRight: { md: '1px solid #eee' }, background: 'linear-gradient(90deg, #2596be 60%, #21cbe6 100%)' }}>
+              <Grid item xs={12} md={4} sx={{ borderRight: { md: '1px solid #eee' }, background: `linear-gradient(90deg, ${BRAND.primary} 60%, ${BRAND.secondary} 100%)` }}>
                 <Box p={2} display="flex" flexDirection="column" alignItems="center">
                   <Avatar src={prof.fotoPerfil ? `${ASSETS_BASE}${prof.fotoPerfil}` : undefined} sx={{ width: 80, height: 80, mb: 1 }} />
                   <Typography fontWeight={600} color='white'>{prof.username}</Typography>
@@ -39,6 +44,42 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
               </Grid>
               <Grid item xs={12} md={8}>
                 <Box p={2}>
+                  <Accordion elevation={0} sx={{ mb: 1.5, border: '1px solid #e3f2fd', borderRadius: 2, boxShadow: '0 8px 16px rgba(37,150,190,0.06)' }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography sx={{ background: `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})`, backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }} fontWeight={800}>
+                        ¿Cómo agendar?
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <List dense>
+                        <ListItem>
+                          <ListItemIcon>
+                            <CalendarMonthIcon sx={{ color: BRAND.primary }} />
+                          </ListItemIcon>
+                          <ListItemText primary="Selecciona la fecha de tu cita" />
+                        </ListItem>
+                        <ListItem>
+                          <ListItemIcon>
+                            <AccessTimeIcon sx={{ color: BRAND.primary }} />
+                          </ListItemIcon>
+                          <ListItemText primary="Elige una hora disponible" />
+                        </ListItem>
+                        <ListItem>
+                          <ListItemIcon>
+                            <VideoCameraFrontIcon sx={{ color: BRAND.primary }} />
+                          </ListItemIcon>
+                          <ListItemText primary="Selecciona la modalidad: Presencial o Telemedicina" />
+                        </ListItem>
+                        <Divider sx={{ my: 0.5 }} />
+                        <ListItem>
+                          <ListItemIcon>
+                            <CheckCircleOutlineIcon sx={{ color: BRAND.secondary }} />
+                          </ListItemIcon>
+                          <ListItemText primary="Presiona 'Reservar cita' para confirmar" />
+                        </ListItem>
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
                   <Typography fontWeight={500} mb={1}>Selecciona fecha</Typography>
                   <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
                     <DatePicker
@@ -68,11 +109,14 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                           size="small"
                           startIcon={<AccessTimeIcon />}
                           sx={{
-                            color: seleccion.horaSeleccionada === hora ? 'white' : '#2596be',
-                            bgcolor: seleccion.horaSeleccionada === hora ? '#2596be' : 'transparent',
-                            borderColor: '#2596be',
+                            color: seleccion.horaSeleccionada === hora ? 'white' : BRAND.primary,
+                            bgcolor: seleccion.horaSeleccionada === hora ? BRAND.primary : 'transparent',
+                            borderColor: BRAND.primary,
                             fontWeight: seleccion.horaSeleccionada === hora ? 700 : 400,
                             boxShadow: seleccion.horaSeleccionada === hora ? 2 : 0,
+                            flexBasis: { xs: 'calc(50% - 8px)', sm: 'auto' },
+                            flexGrow: { xs: 1, sm: 0 },
+                            minWidth: { xs: 'unset', sm: 'auto' },
                           }}
                           onClick={() => onHoraSelect(hora)}
                         >
@@ -82,16 +126,17 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                     </Box>
                   </Box>
 
-                  <Box mt={2} display="flex" gap={1} alignItems="center">
-                    <Typography fontWeight={500} mb={1}><strong>Modalidad de atención: </strong></Typography>
+                  <Box mt={2} display="flex" gap={1} alignItems="stretch" flexDirection={{ xs: 'column', sm: 'row' }}>
+                    <Typography fontWeight={500} mb={1} sx={{ mr: { sm: 1 } }}><strong>Modalidad de atención: </strong></Typography>
                     <Button
                       startIcon={<PersonPinCircleIcon />}
                       variant={seleccion.modalidad === 'Presencial' ? 'contained' : 'outlined'}
                       size="small"
                       sx={{
-                        color: seleccion.modalidad === 'Presencial' ? 'white' : (prof.cita_presencial ? '#2596be' : 'grey.500'),
-                        bgcolor: seleccion.modalidad === 'Presencial' ? '#2596be' : 'transparent',
-                        borderColor: prof.cita_presencial ? '#2596be' : 'grey.400',
+                        width: { xs: '100%', sm: 'auto' },
+                        color: seleccion.modalidad === 'Presencial' ? 'white' : (prof.cita_presencial ? BRAND.primary : 'grey.500'),
+                        bgcolor: seleccion.modalidad === 'Presencial' ? BRAND.primary : 'transparent',
+                        borderColor: prof.cita_presencial ? BRAND.primary : 'grey.400',
                         opacity: prof.cita_presencial ? 1 : 0.5,
                         pointerEvents: prof.cita_presencial ? 'auto' : 'none',
                         fontWeight: seleccion.modalidad === 'Presencial' ? 700 : 400,
@@ -105,9 +150,10 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                       variant={seleccion.modalidad === 'Telemedicina' ? 'contained' : 'outlined'}
                       size="small"
                       sx={{
-                        color: seleccion.modalidad === 'Telemedicina' ? 'white' : (prof.cita_virtual ? '#21cbe6' : 'grey.500'),
-                        bgcolor: seleccion.modalidad === 'Telemedicina' ? '#21cbe6' : 'transparent',
-                        borderColor: prof.cita_virtual ? '#21cbe6' : 'grey.400',
+                        width: { xs: '100%', sm: 'auto' },
+                        color: seleccion.modalidad === 'Telemedicina' ? 'white' : (prof.cita_virtual ? BRAND.secondary : 'grey.500'),
+                        bgcolor: seleccion.modalidad === 'Telemedicina' ? BRAND.secondary : 'transparent',
+                        borderColor: prof.cita_virtual ? BRAND.secondary : 'grey.400',
                         opacity: prof.cita_virtual ? 1 : 0.5,
                         pointerEvents: prof.cita_virtual ? 'auto' : 'none',
                         fontWeight: seleccion.modalidad === 'Telemedicina' ? 700 : 400,
@@ -121,21 +167,24 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                   <Button
                     sx={{
                       mt: 2,
-                      bgcolor:
-                        seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad
-                          ? '#2596be'
-                          : 'grey.400',
+                      background: isReady
+                        ? `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})`
+                        : 'grey.400',
                       color: 'white',
-                      opacity:
-                        seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad
-                          ? 1
-                          : 0.6,
-                      pointerEvents:
-                        seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad
-                          ? 'auto'
-                          : 'none',
+                      boxShadow: isReady ? '0 8px 16px rgba(37,150,190,0.3)' : 'none',
+                      '&:hover': {
+                        background: isReady
+                          ? `linear-gradient(135deg, ${BRAND.secondary}, ${BRAND.primary})`
+                          : 'grey.400',
+                      },
+                      '&.Mui-disabled': {
+                        background: 'grey.400',
+                        color: 'white',
+                        opacity: 0.7,
+                      },
                     }}
                     fullWidth
+                    disabled={!isReady}
                     onClick={onReservar}
                   >
                     Reservar cita

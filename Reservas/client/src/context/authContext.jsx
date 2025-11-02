@@ -75,7 +75,20 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.log(error);
-      setErrors(error.response.data.message);
+      const status = error?.response?.status;
+      if (status === 429) {
+        const retryAfterMinutes = error?.response?.data?.retryAfterMinutes
+          ?? (() => {
+            const sec = error?.response?.data?.retryAfterSeconds || parseInt(error?.response?.headers?.['retry-after'] || '0', 10) || 0;
+            return sec ? Math.ceil(sec / 60) : 0;
+          })();
+        const msg = retryAfterMinutes
+          ? `Demasiados intentos fallidos. Por favor, espera ${retryAfterMinutes} minutos antes de intentar nuevamente.`
+          : 'Demasiados intentos fallidos. Por favor, intenta nuevamente más tarde.';
+        setErrors([msg]);
+      } else {
+        setErrors(error?.response?.data?.message || ['Error iniciando sesión']);
+      }
     }
   };
 

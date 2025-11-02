@@ -59,7 +59,19 @@ export default function LoginModal({ open, onClose, anchorEl }) {
           helperText={errors.password?.message}
         />
         <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1 }}>
-          <Button onClick={onClose}>Cancelar</Button>
+          <Button
+            variant="outlined"
+            size="large"
+            onClick={onClose}
+            sx={{
+              borderColor: '#2596be',
+              color: '#2596be',
+              '&:hover': {
+                borderColor: '#21cbe6',
+                backgroundColor: 'rgba(37,150,190,0.08)'
+              }
+            }}
+          >Cancelar</Button>
           <Button type="submit" form="login-form" variant="contained" sx={{ backgroundColor: '#2596be', '&:hover': { backgroundColor: '#1e7fa0' } }}>Iniciar sesión</Button>
         </Stack>
       </form>

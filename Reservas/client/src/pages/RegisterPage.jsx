@@ -4,6 +4,7 @@ import { useAlert } from "../context/AlertContext";
 import { useSucursal } from "../context/sucursalContext";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, Typography, TextField, Button, Box, Alert, Stack, Avatar, Container } from "@mui/material";
+import PasswordRequirements from "../components/ui/PasswordRequirements";
 import { registerSchema } from "../schemas/auth";
 import { z } from "zod";
 import RegisterSucursal from "../components/Surcursales/RegisterSurcursal";
@@ -139,7 +140,6 @@ export function RegisterPage() {
               <Avatar sx={{ bgcolor: 'white', width: 36, height: 36 }}>
                 <img src={logo_simple} alt="Logo" style={{ width: '70%', height: '65%' }} />
               </Avatar>
-              <Typography variant="h6" fontWeight={800} sx={{ background: 'linear-gradient(135deg, #2596be, #21cbe6)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>VITALINK</Typography>
             </Stack>
           </Container>
         </Box>
@@ -157,12 +157,24 @@ export function RegisterPage() {
                 <Button variant="contained" size="large" onClick={() => setRegisterType('usuario')} sx={{ background: 'linear-gradient(135deg, #2596be, #21cbe6)' }}>
                   Registrar Usuario
                 </Button>
-                <Button variant="outlined" size="large" onClick={() => setRegisterType('empresa')}>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => setRegisterType('empresa')}
+                  sx={{
+                    borderColor: '#2596be',
+                    color: '#2596be',
+                    '&:hover': {
+                      borderColor: '#21cbe6',
+                      backgroundColor: 'rgba(37,150,190,0.08)'
+                    }
+                  }}
+                >
                   Registrar Empresa
                 </Button>
                 <Stack direction="row" justifyContent="center" spacing={1} sx={{ mt: 1 }}>
                   <Typography variant="body2">¿Ya tienes una cuenta?</Typography>
-                  <Link to="/login" style={{ color: '#1976d2', fontWeight: 600 }}>Iniciar sesión</Link>
+                  <Link to="/login" style={{ color: '#2596be', fontWeight: 600 }}>Iniciar sesión</Link>
                 </Stack>
               </Stack>
             </CardContent>
@@ -185,9 +197,23 @@ export function RegisterPage() {
               <Avatar sx={{ bgcolor: 'white', width: 36, height: 36 }}>
                 <img src={logo_simple} alt="Logo" style={{ width: '70%', height: '65%' }} />
               </Avatar>
-              <Typography variant="h6" fontWeight={800} sx={{ background: 'linear-gradient(135deg, #2596be, #21cbe6)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>VITALINK</Typography>
             </Stack>
-            <Button component={Link} to="/login" startIcon={<LoginIcon />} variant="outlined">Iniciar sesión</Button>
+            <Button
+              component={Link}
+              to="/login"
+              startIcon={<LoginIcon />}
+              variant="outlined"
+              sx={{
+                borderColor: '#2596be',
+                color: '#2596be',
+                '&:hover': {
+                  borderColor: '#21cbe6',
+                  backgroundColor: 'rgba(37,150,190,0.08)'
+                }
+              }}
+            >
+              Iniciar sesión
+            </Button>
           </Stack>
         </Container>
       </Box>
@@ -213,6 +239,7 @@ export function RegisterPage() {
                 <TextField label="Nombre" type="text" name="username" fullWidth value={formData.username} onChange={handleChange} error={!!formErrors.username} helperText={formErrors.username} autoFocus />
                 <TextField label="Correo electrónico" type="email" name="email" fullWidth value={formData.email} onChange={handleChange} error={!!formErrors.email} helperText={formErrors.email} />
                 <TextField label="Contraseña" type="password" name="password" fullWidth value={formData.password} onChange={handleChange} error={!!formErrors.password} helperText={formErrors.password} />
+                <PasswordRequirements password={formData.password} />
                 <TextField label="Confirmar contraseña" type="password" name="confirmPassword" fullWidth value={formData.confirmPassword} onChange={handleChange} error={!!formErrors.confirmPassword} helperText={formErrors.confirmPassword} />
                 <Button type="submit" variant="contained" size="large" sx={{ mt: 1, background: 'linear-gradient(135deg, #2596be, #21cbe6)' }}>
                   Registrarse
@@ -221,7 +248,7 @@ export function RegisterPage() {
             </form>
             <Stack direction="row" justifyContent="center" spacing={1} sx={{ mt: 2 }}>
               <Typography variant="body2">¿Ya tienes una cuenta?</Typography>
-              <Link to="/login" style={{ color: '#1976d2', fontWeight: 600 }}>Iniciar sesión</Link>
+              <Link to="/login" style={{ color: '#2596be', fontWeight: 600 }}>Iniciar sesión</Link>
             </Stack>
           </CardContent>
         </Card>
