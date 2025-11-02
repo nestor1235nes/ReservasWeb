@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createMeetingToken, createShareLink } from '../controllers/daily.controller.js';
+import { createMeetingToken, createShareLink, joinPublic, revokeShare } from '../controllers/daily.controller.js';
 import { auth } from '../middlewares/auth.middleware.js';
 import axios from 'axios';
 import { DAILY_API_KEY } from '../config.js';
@@ -22,6 +22,8 @@ const router = Router();
 // Protected endpoint to get a temporary meeting token for a room
 router.post('/token', auth, createMeetingToken);
 router.post('/share', auth, createShareLink);
+router.post('/join-public', joinPublic);
+router.post('/revoke/:shareId', auth, revokeShare);
 router.get('/test', testDaily);
 
 export default router;
