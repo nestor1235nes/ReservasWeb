@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Card, CardHeader, CardContent, Stack, Typography, TextField, Divider, Paper, Button, Chip, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Alert } from '@mui/material';
+import { Box, Card, CardHeader, CardContent, Stack, Typography, TextField, Divider, Paper, Button, Chip, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Snackbar } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import { useAuth } from '../context/authContext';
+import api from '../api/axios';
 
 const PLACEHOLDERS = [
   { key: 'nombre', desc: 'Nombre del paciente' },
@@ -33,15 +34,9 @@ const applyPreview = (template) => {
   return template.replace(/\{(\w+)\}/g, (_, key) => previewSample[key] || `{${key}}`);
 };
 
-// Sufijo obligatorio para recordatorios
+// Texto de confirmación que puede agregarse en el envío (no se guarda forzado)
 const FORCED_SUFFIX = '\n\nPor favor, confirme su cita a través del siguiente enlace: {enlaceConfirmacion}';
-const ensureForcedSuffix = (message) => {
-  if (!message) return '';
-  const normalized = message.trimEnd();
-  const suffixPlain = 'Por favor, confirme su cita a través del siguiente enlace:';
-  if (normalized.includes(suffixPlain)) return normalized; // evita duplicados
-  return normalized + FORCED_SUFFIX;
-};
+const suffixPlain = 'Por favor, confirme su cita a través del siguiente enlace:';
 
 const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, reservaDemo }) => {
   const { updatePerfil, user } = useAuth();
@@ -51,22 +46,23 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
   const [localData, setLocalData] = useState({
     idInstance: '',
     apiTokenInstance: '',
-    defaultMessage: '',
     reminderMessage: ''
   });
   const activeFieldRef = useRef(null);
-  const [activeField, setActiveField] = useState(null); // defaultMessage | reminderMessage
+  const [activeField, setActiveField] = useState('reminderMessage'); // solo reminderMessage
   const [helpOpen, setHelpOpen] = useState(false);
+  const [testSending, setTestSending] = useState(false);
+  const [testSnack, setTestSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [needPhoneDialog, setNeedPhoneDialog] = useState(false);
 
   // Sync con props inicial y cuando cambia user (re-hidratación)
   useEffect(() => {
     setLocalData({
       idInstance: formData.idInstance || '',
       apiTokenInstance: formData.apiTokenInstance || '',
-      defaultMessage: formData.defaultMessage || '',
       reminderMessage: formData.reminderMessage || ''
     });
-  }, [formData.idInstance, formData.apiTokenInstance, formData.defaultMessage, formData.reminderMessage]);
+  }, [formData.idInstance, formData.apiTokenInstance, formData.reminderMessage]);
 
   const propagate = (name, value) => {
     // notificar al padre (PerfilPage) para mantener un solo origen de verdad
@@ -83,7 +79,7 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
 
   const handlePlaceholderInsert = (placeholder) => {
     const key = `{${placeholder}}`;
-    const field = activeField || 'defaultMessage';
+    const field = activeField || 'reminderMessage';
     setLocalData(prev => {
       const current = prev[field] || '';
       const selectionStart = activeFieldRef.current?.selectionStart ?? current.length;
@@ -115,7 +111,6 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     setLocalData({
       idInstance: formData.idInstance || '',
       apiTokenInstance: formData.apiTokenInstance || '',
-      defaultMessage: formData.defaultMessage || '',
       reminderMessage: formData.reminderMessage || ''
     });
   };
@@ -123,13 +118,10 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
 
   const handleSave = async () => {
     setError(null);
-    const { idInstance, apiTokenInstance, defaultMessage } = localData;
-    // Aseguramos sufijo obligatorio antes de persistir
-    const reminderMessageWithSuffix = ensureForcedSuffix(localData.reminderMessage);
-    setLocalData(prev => ({ ...prev, reminderMessage: reminderMessageWithSuffix }));
-    propagate('reminderMessage', reminderMessageWithSuffix);
-    const reminderMessage = reminderMessageWithSuffix;
-    const mensajesConfigurados = [defaultMessage, reminderMessage].some(m => m && m.trim() !== '');
+    const { idInstance, apiTokenInstance } = localData;
+    // Guardamos exactamente lo que escribe el usuario; el sufijo se agregará dinámicamente en el envío si corresponde
+    const reminderMessage = localData.reminderMessage;
+    const mensajesConfigurados = (reminderMessage && reminderMessage.trim() !== '');
     if (mensajesConfigurados && (!idInstance || !apiTokenInstance)) {
       setError('Debes ingresar ID Instance y API Token para guardar mensajes.');
       return;
@@ -139,7 +131,6 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
       await updatePerfil(user.id || user._id, {
         idInstance,
         apiTokenInstance,
-        defaultMessage,
         reminderMessage
       });
       setEditing(false);
@@ -150,7 +141,83 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     }
   };
 
-  const credsMissing = !localData.idInstance && !localData.apiTokenInstance;
+  const credsMissing = !localData.idInstance || !localData.apiTokenInstance;
+
+  // Normaliza teléfono a formato 569XXXXXXXX
+  const normalizarTelefono = (telefono) => {
+    if (!telefono) return '';
+    let tel = String(telefono).replace(/\D/g, '');
+    if (tel.length === 11 && tel.startsWith('569')) return tel;
+    if (tel.length === 9 && tel.startsWith('9')) return '56' + tel;
+    if (tel.length === 8) return '569' + tel;
+    if (tel.startsWith('56') && !tel.startsWith('569')) return '569' + tel.slice(2);
+    if (tel.length === 12 && tel.startsWith('0569')) return tel.slice(1);
+    return tel;
+  };
+
+  // Construye mensaje de prueba reemplazando placeholders con datos del profesional y aleatorios
+  const buildTestMessage = (template) => {
+    if (!template) return '';
+    // Para prueba, incluimos la línea de confirmación para visualizar el resultado final
+    const withSuffix = template.includes(suffixPlain) ? template : (template + FORCED_SUFFIX);
+    const t = withSuffix.replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
+    const randomNames = ['Dr. Rodrigo Soto', 'Dra. Camila Vargas', 'Dr. Martín Rivas', 'Dra. Paula Díaz'];
+    const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+    const inDays = Math.floor(Math.random() * 14) + 1;
+    const date = new Date();
+    date.setDate(date.getDate() + inDays);
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    const randomFecha = `${dd}/${mm}/${yyyy}`;
+    const randomHora = `${String(9 + Math.floor(Math.random() * 9)).padStart(2, '0')}:${['00','15','30','45'][Math.floor(Math.random()*4)]}`;
+    const map = {
+      '{nombre}': user?.username || 'Profesional',
+      '{fecha}': randomFecha,
+      '{hora}': randomHora,
+      '{servicio}': 'Consulta de prueba',
+      '{profesional}': randomName,
+      '{sucursal}': user?.sucursal?.nombre || '',
+      '{enlaceConfirmacion}': 'https://example.com/confirmacion/TEST'
+    };
+    let out = t;
+    Object.entries(map).forEach(([k,v]) => { out = out.replaceAll(k, v); });
+    return out;
+  };
+
+  const handleTestSend = async () => {
+    setError(null);
+    if (!user?.celular) {
+      setNeedPhoneDialog(true);
+      return;
+    }
+    if (!localData.reminderMessage || !localData.reminderMessage.trim()) {
+      setTestSnack({ open: true, message: 'Configura tu mensaje de recordatorio antes de probar.', severity: 'warning' });
+      return;
+    }
+    const phoneNumber = normalizarTelefono(user.celular);
+    const valid = /^569\d{8}$/.test(String(phoneNumber));
+    if (!valid) {
+      setTestSnack({ open: true, message: 'Tu número de celular no parece válido. Actualízalo en Información Personal.', severity: 'error' });
+      return;
+    }
+    const message = buildTestMessage(localData.reminderMessage);
+    try {
+      setTestSending(true);
+      const resp = await api.post('/notifications/whatsapp', { phoneNumber, message });
+      if (resp?.data?.ok) {
+        setTestSnack({ open: true, message: 'Mensaje de prueba enviado a tu WhatsApp.', severity: 'success' });
+      } else {
+        const msg = resp?.data?.message || 'No se pudo enviar el mensaje.';
+        setTestSnack({ open: true, message: msg, severity: 'error' });
+      }
+    } catch (e) {
+      const msg = e?.response?.data?.message || e?.message || 'Error al enviar mensaje.';
+      setTestSnack({ open: true, message: msg, severity: 'error' });
+    } finally {
+      setTestSending(false);
+    }
+  };
 
   return (
     <Box mt={2}>
@@ -169,36 +236,65 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
             </Box>
           }
           action={
-            editing ? (
-              <Box display="flex" gap={1}>
+            <Box display="flex" gap={1} flexWrap="wrap">
+              {editing ? (
+                <>
+                  <Button
+                    startIcon={<SaveIcon />}
+                    variant="contained"
+                    sx={{
+                      background: 'linear-gradient(135deg, #2596be, #21cbe6)',
+                      color: 'white',
+                      boxShadow: '0 4px 10px rgba(37,150,190,0.3)',
+                      '&:hover': { background: 'linear-gradient(135deg, #21cbe6, #2596be)' }
+                    }}
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    Guardar
+                  </Button>
+                  <Button
+                    startIcon={<CancelIcon />}
+                    variant="outlined"
+                    sx={{
+                      borderColor: '#2596be',
+                      color: '#2596be',
+                      '&:hover': { borderColor: '#21cbe6', color: '#21cbe6' }
+                    }}
+                    onClick={cancelEdit}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </Button>
+                </>
+              ) : (
                 <Button
-                  startIcon={<SaveIcon />}
+                  startIcon={<EditIcon />}
                   variant="contained"
-                  color="success"
-                  onClick={handleSave}
-                  disabled={saving}
+                  sx={{
+                    background: 'linear-gradient(135deg, #2596be, #21cbe6)',
+                    color: 'white',
+                    boxShadow: '0 4px 10px rgba(37,150,190,0.3)',
+                    '&:hover': { background: 'linear-gradient(135deg, #21cbe6, #2596be)' }
+                  }}
+                  onClick={startEdit}
                 >
-                  Guardar
+                  Editar
                 </Button>
-                <Button
-                  startIcon={<CancelIcon />}
-                  variant="outlined"
-                  color="secondary"
-                  onClick={cancelEdit}
-                  disabled={saving}
-                >
-                  Cancelar
-                </Button>
-              </Box>
-            ) : (
+              )}
               <Button
-                startIcon={<EditIcon />}
-                variant="contained"
-                onClick={startEdit}
+                variant="outlined"
+                onClick={handleTestSend}
+                disabled={testSending}
+                sx={{
+                  borderColor: '#2596be',
+                  color: '#2596be',
+                  '&:hover': { borderColor: '#21cbe6', color: '#21cbe6' }
+                }}
               >
-                Editar
+                {testSending ? 'Enviando…' : 'Probar mensaje'}
               </Button>
-            )
+            </Box>
           }
           subheader="Configura y personaliza los mensajes que se enviarán a tus pacientes."
         />
@@ -245,19 +341,6 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
               Haz clic en un placeholder para insertarlo en el mensaje activo. Se reemplazará automáticamente al enviar.
             </Typography>
             <TextField
-              inputRef={activeField === 'defaultMessage' ? activeFieldRef : null}
-              onFocus={() => setActiveField('defaultMessage')}
-              label="Mensaje al Liberar Horas"
-              name="defaultMessage"
-              value={localData.defaultMessage}
-              onChange={handleFieldChange}
-              fullWidth
-              multiline
-              minRows={3}
-              disabled={!editing}
-              placeholder="Ej: Hola {nombre}, se han liberado nuevas horas para {servicio} el {fecha}. Reserva pronto."
-            />
-            <TextField
               inputRef={activeField === 'reminderMessage' ? activeFieldRef : null}
               onFocus={() => setActiveField('reminderMessage')}
               label="Mensaje de Recordatorio"
@@ -271,18 +354,14 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
               placeholder="Ej: Estimado {nombre}, le recordamos su cita de {servicio} el {fecha} a las {hora}. (el enlace de confirmación se agregará automáticamente)"
             />
             <Typography variant="caption" color="text.secondary">
-              Nota: Al guardar, siempre se añadirá la línea final con el texto: "Por favor, confirme su cita a través del siguiente enlace: {'{enlaceConfirmacion}'}".
+              Nota: Al guardar, siempre se añadirá la línea final con el texto: "Por favor, confirme su cita a través del siguiente enlace: {'{enlaceConfirmacion}'}". Pero solo se incluirá en el mensaje enviado si la cita no ha sido confirmada por el paciente.
             </Typography>
             <Divider />
             <Typography variant="subtitle1" fontWeight={600}>Vista Previa (Ejemplo)</Typography>
             <Paper variant="outlined" sx={{ p:2, background:'#f9f9f9' }}>
-              <Typography variant="caption" color="text.secondary">Liberar horas</Typography>
-              <Typography variant="body2" sx={{ mb:2 }}>
-                {applyPreview(localData.defaultMessage)}
-              </Typography>
               <Typography variant="caption" color="text.secondary">Recordatorio</Typography>
               <Typography variant="body2" sx={{ whiteSpace:'pre-line' }}>
-                {applyPreview(ensureForcedSuffix(localData.reminderMessage))}
+                {applyPreview(localData.reminderMessage)}
               </Typography>
             </Paper>
             {reservaDemo && (
@@ -290,7 +369,7 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
                 <Typography variant="caption" color="text.secondary">Vista con datos de ejemplo de una reserva</Typography>
                 <Typography variant="body2" sx={{ whiteSpace:'pre-line', mt:1 }}>
                   {applyPreview(
-                    ensureForcedSuffix(localData.reminderMessage)
+                    (localData.reminderMessage || '')
                       .replace('{enlaceConfirmacion}', 'https://midominio.cl/confirmacion/DEMO123')
                   )}
                 </Typography>
@@ -306,8 +385,22 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
       </Card>
 
       {/* Diálogo de ayuda */}
-      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Cómo personalizar tus mensajes</DialogTitle>
+      <Dialog
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #2596be, #21cbe6)',
+            color: 'white',
+            fontWeight: 700
+          }}
+        >
+          Cómo personalizar tus mensajes
+        </DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" paragraph>
             Usa placeholders encerrados en llaves para insertar datos dinámicos. Al enviar el mensaje, cada placeholder se reemplazará con el valor real del paciente o de la cita.
@@ -336,9 +429,68 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
           </Paper>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setHelpOpen(false)} variant="contained">Cerrar</Button>
+          <Button
+            onClick={() => setHelpOpen(false)}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, #2596be, #21cbe6)',
+              color: 'white',
+              boxShadow: '0 4px 10px rgba(37,150,190,0.3)',
+              '&:hover': { background: 'linear-gradient(135deg, #21cbe6, #2596be)' }
+            }}
+          >
+            Cerrar
+          </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Diálogo si falta el celular */}
+      <Dialog
+        open={needPhoneDialog}
+        onClose={() => setNeedPhoneDialog(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{
+          background: 'linear-gradient(135deg, #2596be, #21cbe6)',
+          color: 'white',
+          fontWeight: 700
+        }}>
+          Número de celular requerido
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2">
+            Antes de enviar un mensaje de prueba debes registrar tu número de celular en la sección "Información Personal".
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setNeedPhoneDialog(false)}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, #2596be, #21cbe6)',
+              color: 'white',
+              boxShadow: '0 4px 10px rgba(37,150,190,0.3)',
+              '&:hover': { background: 'linear-gradient(135deg, #21cbe6, #2596be)' }
+            }}
+          >
+            Entendido
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar para feedback de prueba */}
+      <Snackbar
+        open={testSnack.open}
+        autoHideDuration={3000}
+        onClose={() => setTestSnack(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={testSnack.severity} onClose={() => setTestSnack(prev => ({ ...prev, open: false }))} sx={{ width: '100%' }}>
+          {testSnack.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

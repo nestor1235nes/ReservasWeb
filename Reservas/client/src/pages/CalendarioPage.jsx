@@ -453,13 +453,18 @@ export function CalendarioPage() {
     };
   };
 
-  // Filtrar eventos según selección de tipos
-  const filteredEvents = events.filter(ev => {
-    if (ev.tipo === 'primera') return visibleTypes.primera;
-    if (ev.tipo === 'pendiente') return visibleTypes.pendiente;
-    if (ev.tipo === 'historial') return visibleTypes.historial;
-    return true;
-  });
+  // Filtrar eventos según selección de tipos y ocultar cualquier evento en días bloqueados
+  const filteredEvents = events
+    .filter(ev => {
+      if (ev.tipo === 'primera') return visibleTypes.primera;
+      if (ev.tipo === 'pendiente') return visibleTypes.pendiente;
+      if (ev.tipo === 'historial') return visibleTypes.historial;
+      return true;
+    })
+    .filter(ev => {
+      const dateStr = dayjs(ev.start).format('YYYY-MM-DD');
+      return !blockedDaysSet.has(dateStr);
+    });
 
   const toggleType = (key) => setVisibleTypes(prev => ({ ...prev, [key]: !prev[key] }));
 

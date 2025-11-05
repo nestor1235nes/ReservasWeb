@@ -27,10 +27,21 @@ export async function fetchConfirmationLink(reservaId, _authToken) {
 
 // Reemplaza placeholders usando datos de la reserva.
 // Si template no incluye {enlaceConfirmacion} no se intenta generar.
-export function buildMessage(template, reserva, link) {
+export function buildMessage(template, reserva, link, options = {}) {
     if (!template) return '';
+    // Decidir si agregar línea de confirmación solo para citas no confirmadas
+    const { suppressConfirmLine = false } = options;
+    const status = (reserva?.confirmStatus || reserva?.status || '').toString().toLowerCase();
+    const notConfirmed = status !== 'confirmed';
+    const suffixPlain = 'Por favor, confirme su cita a través del siguiente enlace:';
+    let base = String(template || '');
+    if (!suppressConfirmLine) {
+        if (notConfirmed && !base.includes(suffixPlain)) {
+            base = base + '\n\nPor favor, confirme su cita a través del siguiente enlace: {enlaceConfirmacion}';
+        }
+    }
     // Normalizamos todas las variantes de {enlaceconfirmacion} a la forma canónica {enlaceConfirmacion}
-    let normalized = template.replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
+    let normalized = base.replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
 
     // Formatea fecha a DD-MM-YYYY manejando distintos formatos de entrada
     const formatFecha = (fecha) => {
@@ -79,7 +90,7 @@ function normalizarTelefono(telefono) {
     return tel;
 }
 
-const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, _authToken) => {
+const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, options = {}) => {
     // Las credenciales ahora las usa el backend desde el perfil del usuario
 
     let sent = 0;
@@ -99,7 +110,7 @@ const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, _au
 
         // Generar link si el template requiere placeholder
         let link = '';
-        const needsLink = /\{enlaceconfirmacion\}/i.test(messageTemplate || '');
+        const needsLink = /\{enlaceconfirmacion\}/i.test(messageTemplate || '') || /\{enlaceConfirmacion\}/.test(messageTemplate || '');
         if (needsLink) {
             try {
                 link = await fetchConfirmationLink(reserva._id);
@@ -108,7 +119,7 @@ const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, _au
             }
         }
 
-        const finalMessage = buildMessage(messageTemplate, reserva, link);
+    const finalMessage = buildMessage(messageTemplate, reserva, link, options);
         if (!finalMessage || !finalMessage.trim()) {
             failures.push({ phone: phoneNumber, reason: 'empty_message', reservaId: reserva?._id });
             continue;

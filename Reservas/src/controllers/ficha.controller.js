@@ -4,6 +4,7 @@ import Sucursal from "../models/sucursal.model.js";
 import User from "../models/user.model.js";
 import crypto from 'crypto';
 import axios from 'axios';
+import { FRONTEND_URL } from "../config.js";
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -35,7 +36,14 @@ const normalizarTelefono = (telefono) => {
   return '';
 };
 
+// Helpers para token de confirmación
+const TOKEN_BYTES = 24; // ~32 chars base64url
+const TOKEN_TTL_HOURS = 48;
+const base64UrlEncode = (buf) => buf.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
 // Enviar WhatsApp (Green API) usando credenciales del profesional para notificar registro de cita
+// Si la reserva no tiene token de confirmación vigente, se genera uno automáticamente
 async function enviarWhatsAppRegistroCita({ profesional, paciente, reserva }) {
     try {
         if (!profesional?.idInstance || !profesional?.apiTokenInstance) return { ok: false, reason: 'missing_credentials' };
@@ -96,7 +104,41 @@ async function enviarWhatsAppRegistroCita({ profesional, paciente, reserva }) {
         const nombre = paciente?.nombre || '';
         const profesionalNombre = profesional?.username || '';
 
-        const message = `Hola ${nombre}, hemos registrado su cita para el ${fecha} a las ${hora} con ${profesionalNombre}. Se le enviará un recordatorio por WhatsApp 24 horas antes para confirmar su asistencia. Gracias por su preferencia.`.trim();
+        // Asegurar link de confirmación (token nuevo si no hay o expiró)
+        let tokenRaw = null;
+        const now = new Date();
+        const expired = !reserva.confirmTokenExpires || reserva.confirmTokenExpires < now;
+        if (!reserva.confirmTokenHash || expired) {
+            tokenRaw = base64UrlEncode(crypto.randomBytes(TOKEN_BYTES));
+            reserva.confirmTokenHash = hashToken(tokenRaw);
+            reserva.confirmTokenExpires = new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000);
+            // Mantener o establecer estado pendiente si estaba cancelada
+            if (reserva.confirmStatus === 'cancelled' || !reserva.confirmStatus) {
+                reserva.confirmStatus = 'pending';
+            }
+            await reserva.save();
+        }
+        // Si ya existía y seguía vigente, no generamos otro; construimos link con el token actual no disponible en claro
+        // Para esto, cuando no generamos token nuevo, no conocemos el valor raw; en ese caso regeneramos de forma segura
+        if (!tokenRaw) {
+            // Cuando solo tenemos el hash no es posible recuperar el token original; preferimos regenerar uno nuevo para enviar
+            tokenRaw = base64UrlEncode(crypto.randomBytes(TOKEN_BYTES));
+            reserva.confirmTokenHash = hashToken(tokenRaw);
+            reserva.confirmTokenExpires = new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000);
+            await reserva.save();
+        }
+
+        const baseUrl = (process.env.FRONTEND_BASE_URL || FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+        const confirmLink = `${baseUrl}/confirmacion/${tokenRaw}`;
+
+        const message = (
+            `Hola ${nombre}, hemos registrado su cita para el ${fecha} a las ${hora} con ${profesionalNombre}.
+
+Puede confirmar su asistencia ahora a través del siguiente enlace:
+${confirmLink}
+
+Además, se le recordará su cita agendada 24 horas antes. Gracias por su preferencia.`
+        ).trim();
 
         const url = `https://api.green-api.com/waInstance${profesional.idInstance}/sendMessage/${profesional.apiTokenInstance}`;
         const data = { chatId: `${phone}@c.us`, message };

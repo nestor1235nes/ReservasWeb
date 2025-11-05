@@ -122,7 +122,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
     setLoading(false);
   };
 
-  // Paso 2: Guardar datos si es nuevo
+  // Paso 2: Guardar datos si es nuevo (en flujo público, diferir creación hasta finalizar si pago es presencial)
   const handleNext = async () => {
     if (activeStep === 0 && !rutValido) {
       setError('Debe ingresar un RUT válido.');
@@ -144,16 +144,13 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       setError('');
     }
     setError('');
-    // Si es el paso de datos de contacto y aún no existe paciente, crearlo
+    // Si es el paso de datos de contacto y aún no existe paciente
     if (activeStep === 1 && !paciente._id) {
       setLoading(true);
       try {
         if (datosPreseleccionados?.publicFlow) {
-          // Usar axios instance con baseURL http://localhost:4000/api -> no anteponer "/api" ni "/"
-          const { data } = await axios.post('public/ficha', { ...paciente, profesional: datosPreseleccionados?.profesional?._id });
-          if (data && (data._id || data.id)) {
-            setPaciente(prev => ({ ...prev, _id: data._id || data.id }));
-          }
+          // En flujo público no creamos paciente aún (se hará al finalizar en presencial, o tras pago en webpay)
+          // Simplemente continuamos sin persistir
         } else {
           const { data } = await createPacienteRequest(paciente);
           if (data && (data._id || data.id)) {
@@ -226,6 +223,12 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       if (paymentMethod === 'presencial') {
         // Crear reserva normalmente
         if (datosPreseleccionados?.publicFlow) {
+          // Asegurar creación de paciente ahora (diferida)
+          if (!pacienteId) {
+            const { data: pData } = await axios.post('public/ficha', { ...paciente, profesional: datosPreseleccionados?.profesional?._id });
+            pacienteId = pData?._id || pData?.id;
+            setPaciente(prev => ({ ...prev, _id: pacienteId }));
+          }
           await axios.post('public/reserva', { ...reserva, rut: paciente.rut });
           onReserva({ ...paciente, _id: pacienteId || '' });
         } else {
@@ -240,28 +243,51 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           return;
         }
 
-        // Crear la reserva en estado pendiente en el backend
-        const createRes = datosPreseleccionados?.publicFlow
-          ? await axios.post('public/reserva', { ...reserva, rut: paciente.rut })
-          : await createReservaRequest(paciente.rut, reserva);
-        const reservaCreada = createRes.data; // asume que el endpoint devuelve la reserva creada
-        const reservaId = reservaCreada._id || reservaCreada.id;
+        const amount = Number(selectedService.precio || selectedService.price || selectedService.monto || 0);
+        if (datosPreseleccionados?.publicFlow) {
+          // Iniciar transacción pública sin crear paciente ni reserva todavía
+          const payload = {
+            amount,
+            patient: { nombre: paciente.nombre, rut: paciente.rut, telefono: paciente.telefono, email: paciente.email },
+            reserva: {
+              profesional: datosPreseleccionados.profesional?._id,
+              siguienteCita: reserva.siguienteCita,
+              hora: reserva.hora,
+              modalidad: reserva.modalidad,
+              servicio: reserva.servicio,
+            }
+          };
+          const paymentResp = await axios.post('transbank/create-public', payload);
 
-        // Iniciar transacción con backend
-  const amount = Number(selectedService.precio || selectedService.price || selectedService.monto || 0);
-        const paymentResp = await createPaymentRequest(reservaId, amount, paciente.rut);
+          // Redirigir a Webpay (form POST)
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = paymentResp.data.url;
+          const tokenInput = document.createElement('input');
+          tokenInput.type = 'hidden';
+          tokenInput.name = 'token_ws';
+          tokenInput.value = paymentResp.data.token;
+          form.appendChild(tokenInput);
+          document.body.appendChild(form);
+          form.submit();
+        } else {
+          // Flujo autenticado actual: crear reserva, luego iniciar pago
+          const createRes = await createReservaRequest(paciente.rut, reserva);
+          const reservaCreada = createRes.data;
+          const reservaId = reservaCreada._id || reservaCreada.id;
+          const paymentResp = await createPaymentRequest(reservaId, amount, paciente.rut);
 
-        // Redirigir a Webpay (form POST)
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = paymentResp.data.url;
-        const tokenInput = document.createElement('input');
-        tokenInput.type = 'hidden';
-        tokenInput.name = 'token_ws';
-        tokenInput.value = paymentResp.data.token;
-        form.appendChild(tokenInput);
-        document.body.appendChild(form);
-        form.submit();
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = paymentResp.data.url;
+          const tokenInput = document.createElement('input');
+          tokenInput.type = 'hidden';
+          tokenInput.name = 'token_ws';
+          tokenInput.value = paymentResp.data.token;
+          form.appendChild(tokenInput);
+          document.body.appendChild(form);
+          form.submit();
+        }
         // No cerrar modal: la redirección llevará al frontend de vuelta a /payment/confirm
       }
 

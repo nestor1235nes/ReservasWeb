@@ -136,7 +136,6 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
                   <Button startIcon={<VideoCameraFrontIcon />} variant={seleccion.modalidad === 'Telemedicina' ? 'contained' : 'outlined'} size="small" sx={{ borderRadius: 999, px: 1.5, width: { xs: '100%', sm: 'auto' }, color: seleccion.modalidad === 'Telemedicina' ? 'white' : (prof.cita_virtual ? BRAND.secondary : 'grey.500'), bgcolor: seleccion.modalidad === 'Telemedicina' ? BRAND.secondary : 'transparent', borderColor: prof.cita_virtual ? BRAND.secondary : 'grey.300', opacity: prof.cita_virtual ? 1 : 0.5, pointerEvents: prof.cita_virtual ? 'auto' : 'none' }} onClick={() => { if (prof.cita_virtual) onModalidadSelect('Telemedicina'); }}>Telemedicina</Button>
                 </Stack>
               </Box>
-              <Button sx={{ mt: 1, py: 1.2, background: seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad ? 'linear-gradient(135deg, #2596be, #21cbe6)' : 'grey.400', color: 'white', opacity: seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad ? 1 : 0.6, pointerEvents: seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad ? 'auto' : 'none', borderRadius: 2, boxShadow: seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad ? '0 8px 16px rgba(37,150,190,0.3)' : 'none' }} fullWidth onClick={onReservar}>Reservar cita</Button>
                 <Button
                   sx={{
                     mt: 1,
