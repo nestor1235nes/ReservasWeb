@@ -53,7 +53,9 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
   const [helpOpen, setHelpOpen] = useState(false);
   const [testSending, setTestSending] = useState(false);
   const [testSnack, setTestSnack] = useState({ open: false, message: '', severity: 'success' });
-  const [needPhoneDialog, setNeedPhoneDialog] = useState(false);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testPhoneError, setTestPhoneError] = useState('');
 
   // Sync con props inicial y cuando cambia user (re-hidratación)
   useEffect(() => {
@@ -185,28 +187,36 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     return out;
   };
 
-  const handleTestSend = async () => {
+  // Abre diálogo para ingresar número al que enviar la prueba
+  const handleTestSend = () => {
     setError(null);
-    if (!user?.celular) {
-      setNeedPhoneDialog(true);
-      return;
-    }
     if (!localData.reminderMessage || !localData.reminderMessage.trim()) {
       setTestSnack({ open: true, message: 'Configura tu mensaje de recordatorio antes de probar.', severity: 'warning' });
       return;
     }
-    const phoneNumber = normalizarTelefono(user.celular);
-    const valid = /^569\d{8}$/.test(String(phoneNumber));
-    if (!valid) {
-      setTestSnack({ open: true, message: 'Tu número de celular no parece válido. Actualízalo en Información Personal.', severity: 'error' });
+    // Prefill con el celular del usuario si existe (solo como sugerencia, NO se envía automáticamente)
+    const suggest = String(user?.celular || '').replace(/\D/g, '');
+    const lastNine = suggest.endsWith('9') && suggest.length === 1 ? '' : suggest.slice(-9); // seguridad
+    setTestPhone(lastNine || '');
+    setTestPhoneError('');
+    setTestDialogOpen(true);
+  };
+
+  const sendTestToPhone = async () => {
+    setTestPhoneError('');
+    const digits = String(testPhone || '').replace(/\D/g, '');
+    if (!/^\d{9}$/.test(digits)) {
+      setTestPhoneError('Ingresa 9 dígitos (ej: 912345678)');
       return;
     }
+    const phoneNumber = normalizarTelefono(digits);
     const message = buildTestMessage(localData.reminderMessage);
     try {
       setTestSending(true);
       const resp = await api.post('/notifications/whatsapp', { phoneNumber, message });
       if (resp?.data?.ok) {
-        setTestSnack({ open: true, message: 'Mensaje de prueba enviado a tu WhatsApp.', severity: 'success' });
+        setTestSnack({ open: true, message: `Mensaje de prueba enviado al +${phoneNumber}.`, severity: 'success' });
+        setTestDialogOpen(false);
       } else {
         const msg = resp?.data?.message || 'No se pudo enviar el mensaje.';
         setTestSnack({ open: true, message: msg, severity: 'error' });
@@ -444,10 +454,10 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo si falta el celular */}
+      {/* Diálogo para ingresar el número de prueba */}
       <Dialog
-        open={needPhoneDialog}
-        onClose={() => setNeedPhoneDialog(false)}
+        open={testDialogOpen}
+        onClose={() => setTestDialogOpen(false)}
         maxWidth="xs"
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
@@ -457,17 +467,31 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
           color: 'white',
           fontWeight: 700
         }}>
-          Número de celular requerido
+          Enviar mensaje de prueba
         </DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2">
-            Antes de enviar un mensaje de prueba debes registrar tu número de celular en la sección "Información Personal".
-          </Typography>
+          <Stack spacing={1}>
+            <Typography variant="body2" color="text.secondary">
+              Ingresa un número chileno al que enviar la prueba. Usa el formato 9 dígitos: 912345678.
+            </Typography>
+            <TextField
+              label="Número de WhatsApp"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value.replace(/\D/g, ''))}
+              placeholder="912345678"
+              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 9 }}
+              error={Boolean(testPhoneError)}
+              helperText={testPhoneError || 'Se enviará como +56 9 XXXXXXXX'}
+              fullWidth
+            />
+          </Stack>
         </DialogContent>
         <DialogActions>
+          <Button onClick={() => setTestDialogOpen(false)} disabled={testSending}>Cancelar</Button>
           <Button
-            onClick={() => setNeedPhoneDialog(false)}
+            onClick={sendTestToPhone}
             variant="contained"
+            disabled={testSending}
             sx={{
               background: 'linear-gradient(135deg, #2596be, #21cbe6)',
               color: 'white',
@@ -475,7 +499,7 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
               '&:hover': { background: 'linear-gradient(135deg, #21cbe6, #2596be)' }
             }}
           >
-            Entendido
+            {testSending ? 'Enviando…' : 'Enviar prueba'}
           </Button>
         </DialogActions>
       </Dialog>

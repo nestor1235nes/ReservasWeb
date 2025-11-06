@@ -15,7 +15,8 @@ import {
   Fade,
   IconButton,
   Typography,
-  Alert
+  Alert,
+  Snackbar
 } from '@mui/material';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
@@ -75,6 +76,8 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [paymentMethod, setPaymentMethod] = useState('presencial'); // 'presencial' | 'webpay'
   const [messageChannel, setMessageChannel] = useState('whatsapp'); // WhatsApp-only
   const [contactAttempted, setContactAttempted] = useState(false);
+  // Feedback local (similar a HomePageNew)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // Paso 1: Rutificador
   const handleRutValidated = async (rutIngresado) => {
@@ -235,6 +238,20 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           await createReservaRequest(paciente.rut, reserva);
           onReserva({ ...paciente, _id: pacienteId });
         }
+
+        // Mostrar feedback y cerrar luego de un breve delay
+        setSnackbar({ open: true, message: '¡Reserva creada con éxito! Te enviaremos la confirmación por WhatsApp.', severity: 'success' });
+        // No cerrar inmediatamente para que el usuario vea el mensaje
+        setTimeout(() => {
+          setActiveStep(0);
+          setPaciente({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
+          setRut('');
+          setRutValido(false);
+          setSnackbar(prev => ({ ...prev, open: false }));
+          onClose();
+        }, 2200);
+        setLoading(false);
+        return; // Evita ejecutar la limpieza duplicada al final
       } else if (paymentMethod === 'webpay') {
         // Asegurarse que hay servicio seleccionado y precio
         if (!selectedService) {
@@ -291,16 +308,10 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
         // No cerrar modal: la redirección llevará al frontend de vuelta a /payment/confirm
       }
 
-      // 4. Si se guardó en presencial, limpiar y cerrar
-      if (paymentMethod === 'presencial') {
-        setActiveStep(0);
-        setPaciente({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
-        setRut('');
-        setRutValido(false);
-        onClose();
-      }
+      // 4. En webpay no cerramos el modal: se redirige a Webpay
     } catch (e) {
       setError('Error al crear o actualizar la reserva');
+      setSnackbar({ open: true, message: 'Hubo un problema al crear la reserva. Inténtalo nuevamente.', severity: 'error' });
     }
     setLoading(false);
   };
@@ -309,6 +320,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const headerGradient = "linear-gradient(90deg, #2596be 60%, #21cbe6 100%)";
 
   return (
+    <>
     <Modal open={open} onClose={onClose} closeAfterTransition>
       <Fade in={open}>
         <Box sx={style}>
@@ -331,12 +343,23 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           </Box>
           {/* Stepper */}
           <Box px={{ xs: 2, sm: 3 }} pt={2} pb={0}>
-            <Stepper activeStep={activeStep} alternativeLabel>
+            <Stepper
+              activeStep={activeStep}
+              alternativeLabel
+              sx={{
+                '& .MuiStepIcon-root': { color: '#b9e0ee' },
+                '& .MuiStepIcon-root.Mui-active': { color: '#2596be' },
+                '& .MuiStepIcon-root.Mui-completed': { color: '#21cbe6' },
+                '& .MuiStepConnector-line': { borderColor: '#cfeaf5' }
+              }}
+            >
               {steps.map(label => (
                 <Step key={label}>
                   <StepLabel
                     sx={{
-                      '& .MuiStepLabel-label': { fontWeight: 600, color: '#2596be', fontSize: { xs: '0.85rem', sm: '0.95rem' }, whiteSpace: 'normal' }
+                      '& .MuiStepLabel-label': { fontWeight: 600, color: '#2596be', fontSize: { xs: '0.85rem', sm: '0.95rem' }, whiteSpace: 'normal' },
+                      '& .MuiStepLabel-label.Mui-completed': { color: '#21cbe6' },
+                      '& .MuiStepLabel-label.Mui-active': { color: '#2596be' }
                     }}
                   >
                     {label}
@@ -364,6 +387,8 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   onChange={handleChange}
                   fullWidth
                   required
+                  placeholder="Ej: Juan Pérez"
+                  autoComplete="name"
                   InputProps={{
                     startAdornment: <PersonIcon sx={{ mr: 1, color: '#2596be' }} />
                   }}
@@ -378,6 +403,8 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   required={messageChannel === 'whatsapp'}
                   error={contactAttempted && messageChannel === 'whatsapp' && !paciente.telefono}
                   helperText={contactAttempted && messageChannel === 'whatsapp' && !paciente.telefono ? 'Requerido para confirmar por WhatsApp' : ''}
+                  placeholder="Ej: 912345678"
+                  inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 9 }}
                   InputProps={{
                     startAdornment: <PhoneIphoneIcon sx={{ mr: 1, color: '#2596be' }} />
                   }}
@@ -608,5 +635,17 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
         </Box>
       </Fade>
     </Modal>
+    /* Snackbar de feedback */
+    <Snackbar
+      open={snackbar.open}
+      autoHideDuration={3000}
+      onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    >
+      <Alert onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+    </>
   );
 }
