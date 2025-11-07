@@ -60,6 +60,7 @@ export default function PatientsPage() {
   const [page, setPage] = useState(0);
   const pageSize = 8;
   
+  // Carga inicial: limitar siempre a los pacientes visibles para el usuario (p.ej. propios)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -73,7 +74,8 @@ export default function PatientsPage() {
       }
     };
     fetchData();
-  }, [getPacientes, getReservas]);
+    // Dependencias correctas: funciones usadas dentro
+  }, [getPacientesUsuario, getReservas]);
 
   const filtered = pacientes.filter(
     (p) =>
@@ -99,9 +101,11 @@ export default function PatientsPage() {
 
   // Refrescar pacientes y reservas después de agregar uno nuevo
   const fetchPacientesYActualizar = async () => {
+    // IMPORTANTE: se usaba getPacientes() (todos) provocando fuga de pacientes de otros profesionales.
+    // Corregimos para usar el mismo alcance restringido que en la carga inicial.
     try {
       setLoading(true);
-      const pacientesData = await getPacientes();
+      const pacientesData = await getPacientesUsuario();
       setPacientes(pacientesData || []);
       const reservasData = await getReservas();
       setReservas(reservasData || []);

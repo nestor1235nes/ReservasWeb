@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-	AppBar,
 	Avatar,
 	Box,
 	Button,
@@ -11,7 +10,6 @@ import {
 	Divider,
 	Grid,
 	Stack,
-	Toolbar,
 	Typography,
 	useMediaQuery,
 	MenuItem,
@@ -54,6 +52,8 @@ import ModalReservarCita from '../components/Surcursales/ModalReservarCita';
 import DescargarICSModal from '../components/Modales/DescargarICSModal';
 import { generateICS } from '../utils/icalendar';
 import Logo from '../assets/LOGO.png';
+import SiteFooter from '../components/ui/SiteFooter';
+import TopAppBar from '../components/ui/TopAppBar';
 import { ASSETS_BASE } from '../config';
 
 // Simple, static homepage design. No business logic or data fetching.
@@ -207,29 +207,8 @@ export default function HomePageNew() {
 
 	return (
 		<Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
-			{/* Top bar */}
-			<AppBar
-				position="sticky"
-				elevation={0}
-				sx={{
-					background: 'transparent',
-					color: 'inherit',
-					borderBottom: '1px solid #e3f2fd',
-					backdropFilter: 'blur(8px)',
-				}}
-			>
-				<Toolbar sx={{ py: 1 }}>
-					<Stack direction="row" alignItems="center" spacing={1} component={RouterLink} to="/" sx={{ textDecoration: 'none', color: 'inherit' }}>
-						<img src={Logo} alt="Sessionly Logo" style={{ width: 150, height: 40 }} />
-					</Stack>
-
-					<Box sx={{ flex: 1 }} />
-
-											<Stack direction="row" spacing={1} alignItems="center">
-						<Button color="inherit" component={RouterLink} to="/front-users">¿Eres profesional?</Button>
-					</Stack>
-				</Toolbar>
-			</AppBar>
+			{/* Top bar (reusable) */}
+			<TopAppBar />
 
 			{/* Hero */}
 			<Box
@@ -631,6 +610,9 @@ export default function HomePageNew() {
 							<Button onClick={() => setPaymentDialogOpen(false)} variant="contained">Cerrar</Button>
 						</DialogActions>
 					</Dialog>
+
+					{/* Footer */}
+					<SiteFooter />
 		</Box>
 	);
 }

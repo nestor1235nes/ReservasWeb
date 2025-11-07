@@ -24,6 +24,8 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import LockIcon from '@mui/icons-material/Lock';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import TopAppBar from '../components/ui/TopAppBar';
+import SiteFooter from '../components/ui/SiteFooter';
 
 const PatientSession = () => {
   const videoRef = useRef(null);
@@ -77,18 +79,9 @@ const PatientSession = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        width: '100%',
-        background: 'linear-gradient(180deg, #e9f5f9 0%, #ffffff 100%)',
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        p: { xs: 1.5, sm: 3 },
-      }}
-    >
-      <Box sx={{ width: '100%', maxWidth: 1100 }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', width: '100%', background: 'linear-gradient(180deg, #e9f5f9 0%, #ffffff 100%)' }}>
+      <TopAppBar />
+      <Box sx={{ width: '100%', maxWidth: 1100, alignSelf: 'center', flex: 1, p: { xs: 1.5, sm: 3 } }}>
         {/* Encabezado elegante */}
         <Card sx={{ mb: 2, border: '1px solid #d6eef6', boxShadow: 1 }}>
           <CardContent>
@@ -191,8 +184,9 @@ const PatientSession = () => {
             </Typography>
           </Box>
         )}
-      </Box>
     </Box>
+    <SiteFooter />
+  </Box>
   );
 };
 

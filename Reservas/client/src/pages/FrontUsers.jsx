@@ -18,6 +18,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import Ilustracion from '../assets/ilustracion4.png';
 import Logo from '../assets/LOGO.png';
 import logo_simple from '../assets/logo_simple.png';
+import SiteFooter from '../components/ui/SiteFooter';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
@@ -150,6 +151,7 @@ export default function FrontUsers() {
 							minDate={dayjs().startOf('day')}
 						/>
 						<ModalReservarCita open={modalReservaOpen} onClose={() => setModalReservaOpen(false)} onReserva={handleReservaFinalizada} datosPreseleccionados={datosPreseleccionados} />
+						<SiteFooter />
 					</>
 				);
 			}
@@ -169,6 +171,7 @@ export default function FrontUsers() {
 							minDate={dayjs().startOf('day')}
 						/>
 						<ModalReservarCita open={modalReservaOpen} onClose={() => setModalReservaOpen(false)} onReserva={handleReservaFinalizada} datosPreseleccionados={datosPreseleccionados} />
+						<SiteFooter />
 					</>
 				);
 			}
@@ -212,6 +215,7 @@ export default function FrontUsers() {
 							{snackbar.message}
 						</Alert>
 					</Snackbar>
+					<SiteFooter />
 				</>
 			);
 	}
@@ -402,22 +406,7 @@ export default function FrontUsers() {
 			</Box>
 
 			
-			{/* Footer */}
-			<Box component="footer" sx={{ py: 4, borderTop: '1px solid #e3f2fd', bgcolor: '#fff' }}>
-				<Container maxWidth="lg">
-					<Grid container spacing={3} alignItems="center" justifyContent="space-between">
-						<Grid item>
-							<Stack direction="row" spacing={1} alignItems="center">
-								<img src={logo_simple} alt="Logo" style={{ width: '3%'}} />
-								<Typography fontWeight={700}>VITALINK</Typography>
-							</Stack>
-						</Grid>
-						<Grid item>
-							<Typography variant="body2" color="text.secondary">© {new Date().getFullYear()} VITALINK. Todos los derechos reservados.</Typography>
-						</Grid>
-					</Grid>
-				</Container>
-			</Box>
+			<SiteFooter />
 
 			{/* Login modal */}
 			<LoginModal open={loginOpen} anchorEl={anchorEl} onClose={() => { setLoginOpen(false); setAnchorEl(null); }} />

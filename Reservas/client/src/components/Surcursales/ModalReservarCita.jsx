@@ -385,7 +385,11 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           <Box px={{ xs: 2, sm: 3 }} pb={{ xs: 2, sm: 3 }} minHeight={260} sx={{ flex: 1, overflowY: 'auto' }}>
             {activeStep === 0 && (
               <Stack spacing={2} alignItems="center" justifyContent="center" minHeight={200}>
-                <Rutificador onRutValidated={handleRutValidated} />
+                <Rutificador
+                  onRutValidated={handleRutValidated}
+                  onValidChange={(isValid) => setRutValido(isValid)}
+                  exampleText="Ejemplo: 12345678-9"
+                />
                 {loading && <CircularProgress size={28} sx={{ color: '#2596be' }} />}
                 {error && <Typography color="error">{error}</Typography>}
               </Stack>
@@ -612,7 +616,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
               <Button
                 variant="contained"
                 onClick={handleNext}
-                disabled={loading}
+                disabled={loading || (activeStep === 0 && !rutValido)}
                 sx={{
                   background: 'linear-gradient(90deg, #2596be 60%, #21cbe6 100%)',
                   color: 'white',
@@ -647,7 +651,6 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
         </Box>
       </Fade>
     </Modal>
-    /* Snackbar de feedback */
     <Snackbar
       open={snackbar.open}
       autoHideDuration={3000}
