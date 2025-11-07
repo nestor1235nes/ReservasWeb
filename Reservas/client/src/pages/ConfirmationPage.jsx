@@ -106,26 +106,11 @@ const ConfirmationPage = () => {
 						<Stack direction='row' spacing={2} flexWrap='wrap'>
 							<Button variant='contained' color='success' onClick={handleConfirm}>Confirmar</Button>
 							<Button variant='outlined' color='error' onClick={handleCancel}>Cancelar</Button>
-							<Button variant='text' onClick={() => setRescheduleMode(true)}>Solicitar cambio horario</Button>
 						</Stack>
 					)}
 					{info.status === 'confirmed' && <Alert severity='info'>La cita ya está confirmada. Si necesitas cambiar, solicita un ajuste.</Alert>}
 					{info.status === 'cancelled' && <Alert severity='warning'>La cita fue cancelada.</Alert>}
-					{info.status === 'reschedule_requested' && <Alert severity='info'>Solicitud de cambio enviada. El centro se contactará contigo.</Alert>}
-					{rescheduleMode && info.status === 'pending' && (
-						<Box mt={3}>
-							<Typography variant='subtitle1' fontWeight={600}>Solicitar nuevo horario</Typography>
-							<Stack spacing={2} mt={1}>
-								<TextField type='date' label='Nueva fecha' InputLabelProps={{ shrink: true }} value={newDate} onChange={e=>setNewDate(e.target.value)} />
-								<TextField type='time' label='Nueva hora' InputLabelProps={{ shrink: true }} value={newTime} onChange={e=>setNewTime(e.target.value)} />
-								<TextField label='Motivo o comentario' multiline minRows={2} value={reason} onChange={e=>setReason(e.target.value)} />
-								<Stack direction='row' spacing={2}>
-									<Button variant='contained' onClick={handleReschedule} disabled={!newDate || !newTime}>Enviar</Button>
-									<Button variant='text' onClick={()=>setRescheduleMode(false)}>Cancelar</Button>
-								</Stack>
-							</Stack>
-						</Box>
-					)}
+					
 				</CardContent>
 			</Card>
 		</Box>

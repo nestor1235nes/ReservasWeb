@@ -47,7 +47,7 @@ const steps = ['Datos del paciente', 'Datos de la consulta', 'Fecha y hora de la
 
 const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}) => {
   const theme = useTheme();
-  const { createPaciente, updatePaciente } = usePaciente();
+  const { createPaciente, updatePaciente, getPacientePorRut } = usePaciente();
   const { createReserva, updateReserva, getReserva } = useReserva();
   const { user, obtenerHorasDisponibles } = useAuth();
   const showAlert = useAlert();
@@ -212,23 +212,42 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         }
         pacienteId = data._id;
       } else {
-        // Crear nuevo paciente
-        console.log('Creando nuevo paciente:', patientData);
-        const pacienteResponse = await createPaciente(patientData);
-        console.log('Respuesta de createPaciente:', pacienteResponse);
-        
-        if (pacienteResponse && pacienteResponse._id) {
-          pacienteId = pacienteResponse._id;
-        } else if (pacienteResponse && pacienteResponse.data && pacienteResponse.data._id) {
-          pacienteId = pacienteResponse.data._id;
+        // Intentar detectar paciente existente por RUT para evitar error 400 de duplicado
+        const existente = patientData.rut ? await getPacientePorRut(patientData.rut) : null;
+        if (existente && existente._id) {
+          // Ya existe el paciente: usar su ID y tratar como actualización de reserva/datos
+          pacienteId = existente._id;
+          console.log('Paciente ya existe, se evita recreación. ID:', pacienteId);
         } else {
-          console.warn('No se pudo obtener _id del paciente creado');
+          // Crear nuevo paciente con fallback si ya existe
+          console.log('Creando nuevo paciente:', patientData);
+          try {
+            const pacienteResponse = await createPaciente(patientData);
+            console.log('Respuesta de createPaciente:', pacienteResponse);
+
+            if (pacienteResponse && pacienteResponse._id) {
+              pacienteId = pacienteResponse._id;
+            } else if (pacienteResponse && pacienteResponse.data && pacienteResponse.data._id) {
+              pacienteId = pacienteResponse.data._id;
+            } else {
+              console.warn('No se pudo obtener _id del paciente creado');
+            }
+          } catch (e) {
+            const msg = e?.response?.data?.message || '';
+            if (e?.response?.status === 400 && /ya existe/i.test(msg)) {
+              console.warn('Paciente ya existía al crear; usando existente por RUT');
+              const existente2 = await getPacientePorRut(patientData.rut);
+              if (existente2?._id) pacienteId = existente2._id;
+            } else {
+              throw e;
+            }
+          }
         }
-        
-        // Determinar si necesitamos crear una reserva
+
+        // Determinar si necesitamos crear/actualizar una reserva
         const tieneInformacionMedica = patientData.diagnostico || patientData.anamnesis;
         const necesitaReserva = agendarNuevaCita || tieneInformacionMedica;
-        
+
         if (necesitaReserva) {
           // Debug: Imprimir valores antes de crear la reserva
           console.log('agendarNuevaCita:', agendarNuevaCita);
@@ -246,7 +265,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
             siguienteCita: agendarNuevaCita ? (patientData.diaPrimeraCita || '') : '',
             hora: agendarNuevaCita ? patientData.hora : null
           };
-          console.log('Creando reserva con datos:', reservaData);
+          console.log('Creando/actualizando reserva con datos:', reservaData);
           await createReserva(patientData.rut, reservaData);
         }
       }
@@ -375,7 +394,8 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
       onClose();
     } catch (error) {
       console.error('Error al guardar el paciente o subir imágenes:', error);
-      showAlert('error', 'Hubo un error al guardar el paciente o subir las imágenes');
+      const mensajeBackend = error?.response?.data?.message || error?.response?.data?.error;
+      showAlert('error', mensajeBackend ? `Error: ${mensajeBackend}` : 'Hubo un error al guardar el paciente o subir las imágenes');
     }
   };
 

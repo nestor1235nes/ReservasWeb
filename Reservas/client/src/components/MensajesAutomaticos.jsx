@@ -34,9 +34,7 @@ const applyPreview = (template) => {
   return template.replace(/\{(\w+)\}/g, (_, key) => previewSample[key] || `{${key}}`);
 };
 
-// Texto de confirmación que puede agregarse en el envío (no se guarda forzado)
-const FORCED_SUFFIX = '\n\nPor favor, confirme su cita a través del siguiente enlace: {enlaceConfirmacion}';
-const suffixPlain = 'Por favor, confirme su cita a través del siguiente enlace:';
+// Eliminado: ya no se añade ninguna línea automática de confirmación.
 
 const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, reservaDemo }) => {
   const { updatePerfil, user } = useAuth();
@@ -160,9 +158,8 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
   // Construye mensaje de prueba reemplazando placeholders con datos del profesional y aleatorios
   const buildTestMessage = (template) => {
     if (!template) return '';
-    // Para prueba, incluimos la línea de confirmación para visualizar el resultado final
-    const withSuffix = template.includes(suffixPlain) ? template : (template + FORCED_SUFFIX);
-    const t = withSuffix.replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
+    // Vista previa sin añadir líneas automáticas; solo normaliza placeholder de enlace si lo incluyes
+    const t = String(template).replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
     const randomNames = ['Dr. Rodrigo Soto', 'Dra. Camila Vargas', 'Dr. Martín Rivas', 'Dra. Paula Díaz'];
     const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
     const inDays = Math.floor(Math.random() * 14) + 1;
@@ -361,11 +358,9 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
               multiline
               minRows={3}
               disabled={!editing}
-              placeholder="Ej: Estimado {nombre}, le recordamos su cita de {servicio} el {fecha} a las {hora}. (el enlace de confirmación se agregará automáticamente)"
+              placeholder="Ej: Estimado {nombre}, le recordamos su cita de {servicio} el {fecha} a las {hora}. Incluye {enlaceConfirmacion} si quieres añadir el link."
             />
-            <Typography variant="caption" color="text.secondary">
-              Nota: Al guardar, siempre se añadirá la línea final con el texto: "Por favor, confirme su cita a través del siguiente enlace: {'{enlaceConfirmacion}'}". Pero solo se incluirá en el mensaje enviado si la cita no ha sido confirmada por el paciente.
-            </Typography>
+            {/* Nota eliminada: ya no se añade ninguna línea automática */}
             <Divider />
             <Typography variant="subtitle1" fontWeight={600}>Vista Previa (Ejemplo)</Typography>
             <Paper variant="outlined" sx={{ p:2, background:'#f9f9f9' }}>

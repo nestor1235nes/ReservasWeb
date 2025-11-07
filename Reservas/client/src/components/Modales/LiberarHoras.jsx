@@ -92,22 +92,10 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                     } else {
                         showAlert('warning', 'No se pudo enviar WhatsApp. Revisa tus credenciales y el formato de teléfono (ej. 569XXXXXXXX).');
                     }
-                  } else if (user.defaultMessage && user.defaultMessage.trim() !== '') {
-                    // Fallback solo si no aplica la obligatoriedad
-                    const report = await sendWhatsAppMessage(waList, user.defaultMessage, user, { suppressConfirmLine: true });
-                    if (report?.sent) {
-                        showAlert('success', `WhatsApp enviado a ${report.sent} paciente(s). ${report.failed ? report.failed + ' fallos' : ''}`);
-                    } else {
-                        showAlert('warning', 'No se pudo enviar WhatsApp. Revisa tus credenciales y el formato de teléfono (ej. 569XXXXXXXX).');
-                    }
-                  } else {
-                    showAlert('warning', 'No hay mensaje personalizado ni mensaje por defecto para enviar por WhatsApp.');
                   }
-                }
-                                else {
-                                    showAlert('warning', 'Green API no está configurado (idInstance y apiTokenInstance). Ve a tu Perfil para configurarlo.');
-                                }
-                // Para canal email, el backend ya envió correos si customMessage estaba presente
+                }             
+            } else {
+                showAlert('warning', 'Green API no está configurado (idInstance y apiTokenInstance). Ve a tu Perfil para configurarlo.');
             }
         } catch (error) {
             console.error(error);

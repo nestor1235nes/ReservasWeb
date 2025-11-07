@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   Box,
@@ -78,6 +78,19 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [contactAttempted, setContactAttempted] = useState(false);
   // Feedback local (similar a HomePageNew)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Si el profesional tiene un único servicio, seleccionarlo automáticamente
+  useEffect(() => {
+    if (!open) return;
+    const servicios = datosPreseleccionados?.profesional?.servicios || [];
+    if (Array.isArray(servicios) && servicios.length === 1) {
+      setSelectedService(servicios[0]);
+      setSelectedServiceIndex(0);
+    } else {
+      setSelectedService(null);
+      setSelectedServiceIndex(null);
+    }
+  }, [open, datosPreseleccionados?.profesional?._id]);
 
   // Paso 1: Rutificador
   const handleRutValidated = async (rutIngresado) => {
@@ -238,15 +251,14 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           await createReservaRequest(paciente.rut, reserva);
           onReserva({ ...paciente, _id: pacienteId });
         }
-
-        // Mostrar feedback y cerrar luego de un breve delay
-        setSnackbar({ open: true, message: '¡Reserva creada con éxito! Te enviaremos la confirmación por WhatsApp.', severity: 'success' });
         // No cerrar inmediatamente para que el usuario vea el mensaje
         setTimeout(() => {
           setActiveStep(0);
           setPaciente({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
           setRut('');
           setRutValido(false);
+          setSelectedService(null);
+          setSelectedServiceIndex(null);
           setSnackbar(prev => ({ ...prev, open: false }));
           onClose();
         }, 2200);

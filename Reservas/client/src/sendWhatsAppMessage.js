@@ -27,21 +27,11 @@ export async function fetchConfirmationLink(reservaId, _authToken) {
 
 // Reemplaza placeholders usando datos de la reserva.
 // Si template no incluye {enlaceConfirmacion} no se intenta generar.
-export function buildMessage(template, reserva, link, options = {}) {
+export function buildMessage(template, reserva, link, _options = {}) {
+    // Política: enviar EXACTAMENTE el mensaje escrito por el profesional, solo reemplazando placeholders.
+    // No agregamos líneas automáticas ni textos por defecto.
     if (!template) return '';
-    // Decidir si agregar línea de confirmación solo para citas no confirmadas
-    const { suppressConfirmLine = false } = options;
-    const status = (reserva?.confirmStatus || reserva?.status || '').toString().toLowerCase();
-    const notConfirmed = status !== 'confirmed';
-    const suffixPlain = 'Por favor, confirme su cita a través del siguiente enlace:';
-    let base = String(template || '');
-    if (!suppressConfirmLine) {
-        if (notConfirmed && !base.includes(suffixPlain)) {
-            base = base + '\n\nPor favor, confirme su cita a través del siguiente enlace: {enlaceConfirmacion}';
-        }
-    }
-    // Normalizamos todas las variantes de {enlaceconfirmacion} a la forma canónica {enlaceConfirmacion}
-    let normalized = base.replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
+    let normalized = String(template || '').replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
 
     // Formatea fecha a DD-MM-YYYY manejando distintos formatos de entrada
     const formatFecha = (fecha) => {
@@ -69,7 +59,7 @@ export function buildMessage(template, reserva, link, options = {}) {
         '{sucursal}': reserva?.sucursal?.nombre || '',
         '{enlaceConfirmacion}': link || '{enlaceConfirmacion}'
     };
-    return Object.entries(map).reduce((acc, [k,v]) => acc.replaceAll(k, v), normalized);
+    return Object.entries(map).reduce((acc, [k,v]) => acc.replaceAll(k, v), normalized).trim();
 }
 
 // Normaliza teléfono a formato 569XXXXXXXX (solo dígitos)

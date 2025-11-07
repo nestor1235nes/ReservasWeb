@@ -32,3 +32,20 @@ export const setCalendarSync = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const clearCalendarSync = async (req, res) => {
+  try {
+    const { userId, type } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Parámetro userId inválido' });
+    }
+    if (!["google", "ical"].includes(type)) return res.status(400).json({ error: "Tipo inválido" });
+    let sync = await CalendarSync.findOne({ user: userId });
+    if (!sync) sync = await CalendarSync.create({ user: userId });
+    sync[type] = null;
+    await sync.save();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
