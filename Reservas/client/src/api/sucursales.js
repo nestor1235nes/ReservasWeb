@@ -25,3 +25,6 @@ export const eliminarAsistenteRequest = async (sucursalId, asistenteId) =>
   axios.delete(`/sucursal/${sucursalId}/asistentes/${asistenteId}`);
 
 export const esAsistenteRequest = async (id) => axios.get(`/es-asistente/${id}`);
+
+export const getPacientesSucursalRequest = async (sucursalId) =>
+  axios.get(`/sucursal/${sucursalId}/pacientes`);

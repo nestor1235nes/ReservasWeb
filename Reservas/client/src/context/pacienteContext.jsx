@@ -6,6 +6,7 @@ import { getPacientePorRutRequest,
   createPacienteRequest,
   getPacientesUsuarioRequest
  } from "../api/pacientes";
+import { getPacientesSucursalRequest } from "../api/sucursales";
 
 const PacienteContext = createContext();
 
@@ -74,6 +75,15 @@ export const PacienteProvider = ({ children }) => {
     }
   };
 
+  const getPacientesSucursal = async (sucursalId) => {
+    try {
+      const response = await getPacientesSucursalRequest(sucursalId);
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <PacienteContext.Provider value={{
       getPacientes, 
@@ -81,7 +91,8 @@ export const PacienteProvider = ({ children }) => {
       createPaciente, 
       updatePaciente, 
       getPacientePorRut,
-      getPacientesUsuario
+      getPacientesUsuario,
+      getPacientesSucursal
        }}>
       {children}
     </PacienteContext.Provider>

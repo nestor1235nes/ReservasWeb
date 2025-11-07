@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Box,
   Card,
@@ -20,6 +20,7 @@ import {
   Drawer,
   IconButton
 } from "@mui/material";
+import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonIcon from "@mui/icons-material/Person";
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
@@ -40,10 +41,13 @@ import FullPageLoader from "../components/ui/FullPageLoader";
 
 
 export default function PatientsPage() {
-  const { getPacientes, getPacientesUsuario } = usePaciente();
+  const { getPacientes, getPacientesUsuario, getPacientesSucursal } = usePaciente();
   const { getReservas } = useReserva();
-  const { esAsistente, user } = useAuth();
-  const [pacientes, setPacientes] = useState([]);
+  const { esAsistente, esAdminSucursal, user } = useAuth();
+  const [pacientes, setPacientes] = useState([]); // conjunto completo (mis pacientes o sucursal según fetch)
+  const [misPacientes, setMisPacientes] = useState([]); // caché de mis propios pacientes
+  const [pacientesSucursal, setPacientesSucursal] = useState([]); // caché pacientes de sucursal (solo si aplica)
+  const [filtroModo, setFiltroModo] = useState('mios'); // 'mios' | 'sucursal'
   const [reservas, setReservas] = useState([]);
   const [search, setSearch] = useState("");
   const theme = useTheme();
@@ -65,19 +69,46 @@ export default function PatientsPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // mis pacientes (derivados de reservas + asociaciones directas)
         const pacientesData = await getPacientesUsuario();
-        setPacientes(pacientesData || []);
-        const reservasData = await getReservas();
-        setReservas(reservasData || []);
+        setMisPacientes(pacientesData || []);
+        // Cargar reservas para navegación rápida a detalles
+        const reservasDataAll = await getReservas();
+        setReservas(reservasDataAll || []);
+
+        // Si el usuario pertenece a una sucursal, cargar pacientes de la sucursal completos
+        if (user?.sucursal?._id) {
+          const sucPac = await getPacientesSucursal(user.sucursal._id);
+          setPacientesSucursal(sucPac || []);
+          // Por requerimiento: en sucursal, ver por defecto pacientes de sucursal
+          setFiltroModo('sucursal');
+          setPacientes(sucPac || []);
+        } else {
+          // Profesional independiente
+          setFiltroModo('mios');
+          setPacientes(pacientesData || []);
+        }
       } finally {
         setLoading(false);
       }
     };
     fetchData();
     // Dependencias correctas: funciones usadas dentro
-  }, [getPacientesUsuario, getReservas]);
+  }, [getPacientesUsuario, getPacientesSucursal, getReservas, user?.sucursal?._id]);
 
-  const filtered = pacientes.filter(
+  // Forzar asistentes a modo sucursal siempre
+  useEffect(() => {
+    if (user?.sucursal?._id && esAsistente) {
+      setFiltroModo('sucursal');
+    }
+  }, [user?.sucursal?._id, esAsistente]);
+
+  // Pacientes visibles según modo
+  const pacientesVisibles = useMemo(() => {
+    return filtroModo === 'sucursal' ? pacientesSucursal : misPacientes;
+  }, [filtroModo, pacientesSucursal, misPacientes]);
+
+  const filtered = pacientesVisibles.filter(
     (p) =>
       p.nombre?.toLowerCase().includes(search.toLowerCase()) ||
       p.rut?.toLowerCase().includes(search.toLowerCase())
@@ -101,14 +132,27 @@ export default function PatientsPage() {
 
   // Refrescar pacientes y reservas después de agregar uno nuevo
   const fetchPacientesYActualizar = async () => {
-    // IMPORTANTE: se usaba getPacientes() (todos) provocando fuga de pacientes de otros profesionales.
-    // Corregimos para usar el mismo alcance restringido que en la carga inicial.
     try {
       setLoading(true);
       const pacientesData = await getPacientesUsuario();
-      setPacientes(pacientesData || []);
+      setMisPacientes(pacientesData || []);
       const reservasData = await getReservas();
       setReservas(reservasData || []);
+      if (user?.sucursal?._id) {
+        const sucPac = await getPacientesSucursal(user.sucursal._id);
+        setPacientesSucursal(sucPac || []);
+        // Si asistente, siempre sucursal; si no, respetar filtro actual
+        if (esAsistente) {
+          setPacientes(sucPac || []);
+          setFiltroModo('sucursal');
+        } else {
+          setPacientes(filtroModo === 'sucursal' ? (sucPac || []) : (pacientesData || []));
+        }
+      } else {
+        // Sin sucursal, mantener mis pacientes
+        setPacientes(pacientesData || []);
+        setFiltroModo('mios');
+      }
     } finally {
       setLoading(false);
     }
@@ -145,15 +189,15 @@ export default function PatientsPage() {
         title: reserva.paciente.nombre // Opcional, igual que en CalendarioPage
       });
     } else {
+      // Construir vista sin reserva pero con listado de profesionales asociados
       setSelectedReserva({
         paciente,
         historial: [],
         diagnostico: "",
-        anamnesis: "",
         imagenes: [],
         start: null,
         hora: "",
-        profesional: paciente.profesional || { username: "Sin asignar" }
+        profesionales: paciente.profesionales || [],
       });
     }
     setOpenDrawer(true);
@@ -198,6 +242,84 @@ export default function PatientsPage() {
           >
             Pacientes
           </Typography>
+          {user?.sucursal?._id && !esAsistente && (
+            <ToggleButtonGroup
+              color="standard"
+              value={filtroModo}
+              exclusive
+              onChange={(e, val) => { if (val) { setFiltroModo(val); setPage(0); } }}
+              size="small"
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.81)',
+                borderRadius: '999px',
+                p: 0,
+                height: 40,
+                width: isMobile ? '100%' : 'auto',
+                mb: isMobile ? 1 : 0,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                border: '1px solid rgba(37,150,190,0.35)',
+                overflow: 'hidden',
+                gap: 0,
+                '& .MuiToggleButtonGroup-grouped': {
+                  border: 'none',
+                  margin: 0,
+                  borderRadius: 0,
+                },
+                '& .MuiToggleButton-root': {
+                  borderRadius: 0,
+                }
+              }}
+            >
+              <ToggleButton
+                value="mios"
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  color: '#2596be',
+                  border: 'none',
+                  px: 1.8,
+                  ...(isMobile ? { flex: 1 } : {}),
+                  '&.Mui-selected': {
+                    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                    color: 'white',
+                    boxShadow: '0 2px 8px rgba(37,150,190,0.35)',
+                    borderRadius: '999px',
+                  },
+                  '&.Mui-selected:hover': {
+                    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                  },
+                  '&:hover': { background: 'rgba(255,255,255,0.12)' },
+                  transition: 'background 160ms ease-out, color 160ms ease-out',
+                }}
+              >
+                Mis pacientes
+              </ToggleButton>
+              <ToggleButton
+                value="sucursal"
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  color: '#2596be',
+                  border: 'none',
+                  px: 1.8,
+                  ...(isMobile ? { flex: 1 } : {}),
+                  '&.Mui-selected': {
+                    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                    color: 'white',
+                    boxShadow: '0 2px 8px rgba(37,150,190,0.35)',
+                    borderRadius: '999px',
+                  },
+                  '&.Mui-selected:hover': {
+                    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                  },
+                  '&:hover': { background: 'rgba(255,255,255,0.12)' },
+                  transition: 'background 160ms ease-out, color 160ms ease-out',
+                }}
+              >
+                Sucursal
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
           <TextField
             fullWidth
             placeholder="Buscar por nombre o RUT"
@@ -253,36 +375,78 @@ export default function PatientsPage() {
               No se encontraron pacientes.
             </Typography>
           ) : (
-            <List sx={{ p: 0 }}>
+            <List sx={{ p: isMobile ? 0.5 : 1.5 }}>
               {paginated.map((paciente) => (
                 <React.Fragment key={paciente._id}>
                   <ListItem
                     onClick={() => handlePacienteClick(paciente)}
                     alignItems="flex-start"
                     sx={{
-                      border: "2px solid #e3f2fd",
-                      "&:hover": {
-                        boxShadow: 3,
-                        borderColor: "#2596be",
+                      position: 'relative',
+                      backgroundColor: 'white',
+                      border: '1px solid rgba(37,150,190,0.15)',
+                      boxShadow: '0 1px 6px rgba(37,150,190,0.08)',
+                      transition: 'box-shadow 160ms ease, transform 120ms ease, border-color 160ms ease',
+                      '&:hover': {
+                        boxShadow: '0 6px 20px rgba(37,150,190,0.18)',
+                        borderColor: '#2596be',
+                        transform: 'translateY(-1px)'
                       },
-                      borderRadius: 2,
+                      '&:focus-visible': {
+                        outline: '3px solid rgba(33,203,230,0.4)',
+                        outlineOffset: 2,
+                      },
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        height: '100%',
+                        width: 4,
+                        background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                        opacity: 0,
+                        transition: 'opacity 160ms ease',
+                      },
+                      '&:hover::before': { opacity: 1 },
+                      borderRadius: 2.5,
                       flexDirection: isMobile ? "column" : "row",
                       alignItems: isMobile ? "stretch" : "flex-start",
-                      px: isMobile ? 1 : 2,
+                      px: isMobile ? 1 : 2.25,
                       py: isMobile ? 1 : 2,
-                      mb: isMobile ? 1 : 0,
+                      mb: isMobile ? 1 : 1.25,
                     }}
                     secondaryAction={
                       <Button
                         startIcon={<MedicalInformationIcon />}
-                        variant="outlined"
+                        variant="contained"
                         size="small"
                         sx={{
-                          minWidth: 110,
-                          backgroundColor: "#2596be",
-                          color: "white",
-                          width: isMobile ? "100%" : "auto",
+                          minWidth: 120,
+                          px: 2,
+                          py: 0.75,
+                          borderRadius: '999px',
+                          textTransform: 'none',
+                          fontWeight: 700,
+                          letterSpacing: 0.2,
+                          background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                          color: 'white',
+                          boxShadow: '0 3px 10px rgba(37,150,190,0.28)',
+                          width: isMobile ? '100%' : 'auto',
                           mt: isMobile ? 1 : 0,
+                          transition: 'transform 120ms ease, box-shadow 120ms ease, background 120ms ease',
+                          '&:hover': {
+                            transform: 'translateY(-1px)',
+                            background: 'linear-gradient(45deg, #238db1 30%, #1fb8d1 90%)',
+                            boxShadow: '0 6px 14px rgba(37,150,190,0.35)'
+                          },
+                          '&:active': {
+                            transform: 'translateY(0)',
+                            boxShadow: '0 2px 8px rgba(37,150,190,0.25)'
+                          },
+                          '&:focus-visible': {
+                            outline: '3px solid rgba(255,255,255,0.6)',
+                            outlineOffset: 2,
+                          }
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -300,55 +464,46 @@ export default function PatientsPage() {
                     </ListItemAvatar>
                     <ListItemText
                       primary={
-                        <Stack
-                          direction={isMobile ? "column" : "row"}
-                          spacing={2}
-                          alignItems={isMobile ? "flex-start" : "center"}
-                        >
-                          <Typography fontWeight={600} component="span">{paciente.nombre}</Typography>
-                          <Chip
-                            label={"Rut: " + paciente.rut}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            sx={{ fontWeight: 600 }}
-                          />
-                        </Stack>
+                        <Typography fontWeight={700} component="span" color="text.primary">
+                          {paciente.nombre}
+                        </Typography>
                       }
                       secondary={
                         <Stack
                           direction={isMobile ? "column" : "row"}
-                          spacing={2}
-                          mt={1}
+                          spacing={isMobile ? 1 : 2}
+                          mt={0.75}
                           alignItems={isMobile ? "flex-start" : "center"}
+                          sx={{ color: 'text.secondary' }}
                         >
-                          <Typography variant="body2" color="text.secondary" component="span">
-                            <MailOutlineIcon fontSize="small" sx={{ mr: 0.5 }} />
-                            {paciente.email || "Sin email"}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" component="span">
-                            <PhoneIcon fontSize="small" sx={{ mr: 0.5 }} />
-                            +{paciente.telefono}
-                          </Typography>
-                          {paciente.edad && (
-                            <Chip
-                              label={`${paciente.edad} años`}
-                              size="small"
-                              color="info"
-                              variant="outlined"
-                              sx={{ mt: isMobile ? 1 : 0 }}
-                            />
-                          )}
-                          {paciente.direccion && (
-                            <Typography variant="body2" color="text.secondary" component="span" sx={{ mt: isMobile ? 1 : 0 }}>
-                              {paciente.direccion}
+                          <Chip
+                            label={`Rut: ${paciente.rut}`}
+                            size="small"
+                            sx={{
+                              fontWeight: 700,
+                              color: '#2596be',
+                              borderColor: '#2596be',
+                              backgroundColor: 'rgba(37,150,190,0.06)'
+                            }}
+                            variant="outlined"
+                          />
+                          <Box display="flex" alignItems="center">
+                            <PhoneIcon fontSize="small" sx={{ mr: 0.5, color: '#2596be' }} />
+                            <Typography variant="body2" component="span" color="text.primary">
+                              +{paciente.telefono}
                             </Typography>
-                          )}
+                          </Box>
+                          <Box display="flex" alignItems="center">
+                            <MailOutlineIcon fontSize="small" sx={{ mr: 0.5, color: '#2596be' }} />
+                            <Typography variant="body2" component="span" color="text.primary">
+                              {paciente.email || 'Sin email'}
+                            </Typography>
+                          </Box>
                         </Stack>
                       }
                     />
                   </ListItem>
-                  <Divider component="li" sx={{ display: isMobile ? "none" : "block" }} />
+                  {/* Divider eliminado para estilo de tarjetas espaciadas */}
                 </React.Fragment>
               ))}
             </List>

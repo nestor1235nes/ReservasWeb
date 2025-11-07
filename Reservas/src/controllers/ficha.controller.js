@@ -181,10 +181,28 @@ export const createPaciente = async (req, res) => {
     try {
         const { nombre, rut, telefono, direccion, edad, email, estado, eventId } = req.body;
 
-        // Verificar si el paciente ya existe
+        // Verificar si el paciente ya existe (idempotente). Si existe, retornarlo y asociar profesional.
         const pacienteExistente = await Paciente.findOne({ rut });
         if (pacienteExistente) {
-            return res.status(400).json({ message: "El paciente con este RUT ya existe" });
+            // Asegurar que el profesional actual quede asociado en la lista multi-atención
+            await Paciente.updateOne({ _id: pacienteExistente._id }, { $addToSet: { profesionales: req.user.id } });
+
+            // Asociar a sucursal o profesional como en el flujo normal
+            const userId = req.user.id;
+            const user = await User.findById(userId);
+            if (user.sucursal) {
+                await Sucursal.findByIdAndUpdate(
+                    user.sucursal,
+                    { $addToSet: { pacientes: pacienteExistente._id } }
+                );
+            } else {
+                await User.findByIdAndUpdate(
+                    userId,
+                    { $addToSet: { pacientes: pacienteExistente._id } }
+                );
+            }
+
+            return res.status(200).json(pacienteExistente);
         }
 
         // Normalizar teléfono
@@ -199,14 +217,14 @@ export const createPaciente = async (req, res) => {
             email,
             estado: estado || "Pendiente",
             eventId,
-            profesional: req.user.id, // Asignar el profesional que lo creó
-            diaPrimeraCita: new Date() // Siempre asignar la fecha actual como fecha de registro
-            // No inicializar comportamiento aquí, se queda como array vacío por defecto
+            profesional: req.user.id, // legacy principal profesional
+            profesionales: [req.user.id], // inicializar lista de profesionales
+            diaPrimeraCita: new Date() // fecha de registro
         });
 
         const pacienteGuardado = await newPaciente.save();
 
-        // Asociar el paciente al usuario logueado
+    // Asociar el paciente al usuario logueado
         const userId = req.user.id;
         const user = await User.findById(userId);
         
@@ -306,7 +324,7 @@ export const getReservas = async (req, res) => {
 
 export const getReserva = async (req, res) => {
     try {
-        const paciente = await Paciente.findOne({ rut: req.params.rut });
+    const paciente = await Paciente.findOne({ rut: req.params.rut });
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
@@ -328,8 +346,8 @@ export const createReserva = async (req, res) => {
             return res.status(404).json({ message: "Paciente not found" });
         }
 
-        // Usar el usuario autenticado como profesional
-        const profesionalId = req.body.profesional || req.user.id;
+    // Usar el usuario autenticado como profesional
+    const profesionalId = req.body.profesional || req.user.id;
         
         // Buscar sucursal donde el profesional trabaja
         const sucursal = await Sucursal.findOne({ profesionales: profesionalId });
@@ -350,6 +368,9 @@ export const createReserva = async (req, res) => {
                 await profesional.save();
             }
         }
+
+        // Añadir profesional a lista de profesionales del paciente (multi-atención)
+        await Paciente.updateOne({ _id: paciente._id }, { $addToSet: { profesionales: profesionalId } });
 
         // Normalizador de fechas de solo día (evita desfase UTC)
         const normalizeDateField = (val) => {
@@ -382,26 +403,52 @@ export const createReserva = async (req, res) => {
         diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         const siguienteCitaNorm = normalizeDateField(req.body.siguienteCita);
 
-        const nuevaReserva = new Reserva({
-            paciente: paciente._id,
-            diaPrimeraCita: diaPrimeraCitaValue,
-            siguienteCita: siguienteCitaNorm,
-            hora: req.body.hora,
-            mensajePaciente: req.body.mensajePaciente,
-            profesional: profesionalId,
-            diagnostico: req.body.diagnostico,
-            anamnesis: req.body.anamnesis,
-            historial: req.body.historial,
-            eventId: req.body.eventId,
-            modalidad: req.body.modalidad || 'Presencial', // Valor por defecto
-            servicio: req.body.servicio || 'Consulta', // Valor por defecto
-        });
-        
-        if (sucursalId) {
-            nuevaReserva.sucursal = sucursalId;
+        // Si ya existe una reserva para este paciente y profesional en la misma fecha y hora, actualizar en lugar de crear
+        let reservaExistente = null;
+        if (siguienteCitaNorm && req.body.hora) {
+            reservaExistente = await Reserva.findOne({
+                paciente: paciente._id,
+                profesional: profesionalId,
+                siguienteCita: siguienteCitaNorm,
+                hora: req.body.hora
+            });
         }
 
-        await nuevaReserva.save();
+        let nuevaReserva;
+        if (reservaExistente) {
+            reservaExistente.mensajePaciente = req.body.mensajePaciente || reservaExistente.mensajePaciente;
+            reservaExistente.diagnostico = req.body.diagnostico || reservaExistente.diagnostico;
+            reservaExistente.anamnesis = req.body.anamnesis || reservaExistente.anamnesis;
+            reservaExistente.historial = req.body.historial || reservaExistente.historial;
+            reservaExistente.eventId = req.body.eventId || reservaExistente.eventId;
+            reservaExistente.modalidad = req.body.modalidad || reservaExistente.modalidad || 'Presencial';
+            reservaExistente.servicio = req.body.servicio || reservaExistente.servicio || 'Consulta';
+            // Actualizar diaPrimeraCita si se envía y no estaba
+            if (diaPrimeraCitaValue && !reservaExistente.diaPrimeraCita) {
+                reservaExistente.diaPrimeraCita = diaPrimeraCitaValue;
+            }
+            await reservaExistente.save();
+            nuevaReserva = reservaExistente;
+        } else {
+            nuevaReserva = new Reserva({
+                paciente: paciente._id,
+                diaPrimeraCita: diaPrimeraCitaValue,
+                siguienteCita: siguienteCitaNorm,
+                hora: req.body.hora,
+                mensajePaciente: req.body.mensajePaciente,
+                profesional: profesionalId,
+                diagnostico: req.body.diagnostico,
+                anamnesis: req.body.anamnesis,
+                historial: req.body.historial,
+                eventId: req.body.eventId,
+                modalidad: req.body.modalidad || 'Presencial', // Valor por defecto
+                servicio: req.body.servicio || 'Consulta', // Valor por defecto
+            });
+            if (sucursalId) {
+                nuevaReserva.sucursal = sucursalId;
+            }
+            await nuevaReserva.save();
+        }
 
                 // Enviar WhatsApp de confirmación de registro si el profesional tiene credenciales Green API
                 try {
@@ -435,15 +482,17 @@ export const deleteReserva = async (req, res) => {
 
 export const updateReserva = async (req, res) => {
     try {
-        const paciente = await Paciente.findOne({ rut: req.params.rut });
+    const paciente = await Paciente.findOne({ rut: req.params.rut });
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
-        
-                const reserva = await Reserva.findOne({ paciente: paciente._id });
+        // Determinar a qué reserva queremos aplicar la actualización
+        // Prioridad: profesionalOriginal (cuando se reasigna), luego req.user.id (profesional actual)
+        const profesionalFiltro = req.body.profesionalOriginal || req.user.id;
+        let reserva = await Reserva.findOne({ paciente: paciente._id, profesional: profesionalFiltro }).sort({ createdAt: -1 });
         if (!reserva) {
-            return res.status(404).json({ message: "Reserva not found" });
-        }        
+            return res.status(404).json({ message: "Reserva not found for this professional" });
+        }
         
         const normalizeDateField = (val) => {
             if (!val) return val;
@@ -472,7 +521,11 @@ export const updateReserva = async (req, res) => {
             imagenes: req.body.imagenes,
             eventId: req.body.eventId,
         }
-                await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
+        await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
+        // Mantener relación multi-profesional al actualizar (si se cambia profesional)
+        if (req.body.profesional) {
+            await Paciente.updateOne({ _id: paciente._id }, { $addToSet: { profesionales: req.body.profesional } });
+        }
 
                 // Email notifications deprecated: ignoring notifyEmailMessage/Subject intentionally
 
@@ -513,9 +566,11 @@ export const addHistorial = async (req, res) => {
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
-        const reserva = await Reserva.findOne({ paciente : paciente._id });
+        // Adjuntar historial a la reserva del profesional actual (o al indicado en profesionalOriginal)
+        const profesionalFiltro = req.body.profesionalOriginal || req.user.id;
+        const reserva = await Reserva.findOne({ paciente : paciente._id, profesional: profesionalFiltro }).sort({ createdAt: -1 });
         if (!reserva) {
-            return res.status(404).json({ message: "Reserva not found" });
+            return res.status(404).json({ message: "Reserva not found for this professional" });
         }
 
         // Asegurar que la fecha sea un objeto Date válido
@@ -566,34 +621,43 @@ export const addHistorial = async (req, res) => {
 export const getPacientesUsuario = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = await User.findById(userId);
-    
-    let pacientes = [];
-    if (user.sucursal) {
-        // Buscar pacientes de la sucursal
-        const sucursal = await Sucursal.findById(user.sucursal).populate({
-          path: 'pacientes',
-          populate: {
-            path: 'profesional',
-            select: 'username email'
-          }
-        });
-        if (sucursal) {
-            pacientes = sucursal.pacientes;
-        }
-    } else {
-      // Buscar pacientes del profesional
-        const userWithPacientes = await User.findById(userId).populate({
-          path: 'pacientes',
-          populate: {
-            path: 'profesional',
-            select: 'username email'
-          }
-        });
-        pacientes = userWithPacientes.pacientes;
+        const user = await User.findById(userId);
 
-    }
-    res.json(pacientes);
+        // Reconciliación: incluir pacientes derivados de reservas y también asociaciones directas (user.pacientes o sucursal.pacientes)
+        let pacienteIdsSet = new Set();
+
+        if (user.sucursal) {
+            const sucursal = await Sucursal.findById(user.sucursal);
+            if (sucursal) {
+                // Si es asistente de la sucursal: ver todos los pacientes de la sucursal
+                const esAsistente = sucursal.asistentes?.some(a => a.equals(userId));
+                if (esAsistente) {
+                    const reservasSucursal = await Reserva.find({ sucursal: sucursal._id }).select('paciente');
+                    reservasSucursal.forEach(r => pacienteIdsSet.add(r.paciente.toString()));
+                    // Unir con pacientes asociados directamente a la sucursal
+                    (sucursal.pacientes || []).forEach(p => pacienteIdsSet.add(p.toString()));
+                } else {
+                    // Profesional de sucursal: ver solo sus pacientes
+                    const reservasProfesional = await Reserva.find({ profesional: userId }).select('paciente');
+                    reservasProfesional.forEach(r => pacienteIdsSet.add(r.paciente.toString()));
+                    // Unir con pacientes asociados directamente al profesional (no toda la sucursal para evitar fugas)
+                    const userDoc = await User.findById(userId).select('pacientes');
+                    (userDoc?.pacientes || []).forEach(p => pacienteIdsSet.add(p.toString()));
+                }
+            }
+        } else {
+            // Profesional independiente
+            const reservasProfesional = await Reserva.find({ profesional: userId }).select('paciente');
+            reservasProfesional.forEach(r => pacienteIdsSet.add(r.paciente.toString()));
+            const userDoc = await User.findById(userId).select('pacientes');
+            (userDoc?.pacientes || []).forEach(p => pacienteIdsSet.add(p.toString()));
+        }
+
+        const pacienteIds = Array.from(pacienteIdsSet);
+        const pacientes = await Paciente.find({ _id: { $in: pacienteIds } })
+            .populate({ path: 'profesionales', select: 'username email' });
+
+        res.json(pacientes);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -669,9 +733,11 @@ export const publicCreatePaciente = async (req, res) => {
 
         // Si existe, devolver existente (idempotente)
         const existente = await Paciente.findOne({ rut });
-        if (existente) {
-            return res.status(200).json(existente);
-        }
+            if (existente) {
+                // Asegurar asociación multi-profesional cuando ya existía
+                await Paciente.updateOne({ _id: existente._id }, { $addToSet: { profesionales: profesionalId } });
+                return res.status(200).json(existente);
+            }
 
         // Validar profesional
         const profesional = await User.findById(profesionalId);
@@ -690,7 +756,8 @@ export const publicCreatePaciente = async (req, res) => {
             email,
             estado: estado || "Pendiente",
             eventId,
-            profesional: profesionalId,
+            profesional: profesionalId, // legacy
+                profesionales: [profesionalId], // inicializar lista de profesionales
             diaPrimeraCita: new Date()
         });
 
@@ -750,6 +817,9 @@ export const publicCreateReserva = async (req, res) => {
             }
         }
 
+        // Añadir profesional a lista multi-atención
+        await Paciente.updateOne({ _id: paciente._id }, { $addToSet: { profesionales: profesionalId } });
+
         // Normalizador de fechas de solo día (evita desfase UTC)
         const normalizeDateField = (val) => {
             if (!val) return val;
@@ -779,24 +849,49 @@ export const publicCreateReserva = async (req, res) => {
         diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         const siguienteCitaNorm = normalizeDateField(siguienteCita);
 
-        const nuevaReserva = new Reserva({
-            paciente: paciente._id,
-            diaPrimeraCita: diaPrimeraCitaValue,
-            siguienteCita: siguienteCitaNorm,
-            hora,
-            mensajePaciente,
-            profesional: profesionalId,
-            diagnostico,
-            anamnesis,
-            historial,
-            eventId,
-            modalidad: modalidad || 'Presencial',
-            servicio: servicio || 'Consulta',
-        });
+        // Deduplicar en flujo público también
+        let reservaExistente = null;
+        if (siguienteCitaNorm && hora) {
+            reservaExistente = await Reserva.findOne({
+                paciente: paciente._id,
+                profesional: profesionalId,
+                siguienteCita: siguienteCitaNorm,
+                hora
+            });
+        }
 
-        if (sucursalId) nuevaReserva.sucursal = sucursalId;
-
-        await nuevaReserva.save();
+        let nuevaReserva;
+        if (reservaExistente) {
+            reservaExistente.mensajePaciente = mensajePaciente || reservaExistente.mensajePaciente;
+            reservaExistente.diagnostico = diagnostico || reservaExistente.diagnostico;
+            reservaExistente.anamnesis = anamnesis || reservaExistente.anamnesis;
+            reservaExistente.historial = historial || reservaExistente.historial;
+            reservaExistente.eventId = eventId || reservaExistente.eventId;
+            reservaExistente.modalidad = modalidad || reservaExistente.modalidad || 'Presencial';
+            reservaExistente.servicio = servicio || reservaExistente.servicio || 'Consulta';
+            if (diaPrimeraCitaValue && !reservaExistente.diaPrimeraCita) {
+                reservaExistente.diaPrimeraCita = diaPrimeraCitaValue;
+            }
+            await reservaExistente.save();
+            nuevaReserva = reservaExistente;
+        } else {
+            nuevaReserva = new Reserva({
+                paciente: paciente._id,
+                diaPrimeraCita: diaPrimeraCitaValue,
+                siguienteCita: siguienteCitaNorm,
+                hora,
+                mensajePaciente,
+                profesional: profesionalId,
+                diagnostico,
+                anamnesis,
+                historial,
+                eventId,
+                modalidad: modalidad || 'Presencial',
+                servicio: servicio || 'Consulta',
+            });
+            if (sucursalId) nuevaReserva.sucursal = sucursalId;
+            await nuevaReserva.save();
+        }
 
                 // Enviar WhatsApp de confirmación de registro usando credenciales del profesional (flujo público)
                 try {

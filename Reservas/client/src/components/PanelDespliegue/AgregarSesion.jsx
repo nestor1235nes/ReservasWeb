@@ -75,7 +75,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
   const [closing, setClosing] = useState(false);
   const [horasDisponibles, setHorasDisponibles] = useState([]);
   const [agendarNuevaCita, setAgendarNuevaCita] = useState(false); // Toggle para nueva cita
-  const { addHistorial, getFeriados, createReserva } = useReserva();
+  const { addHistorial, getFeriados, updateReserva } = useReserva();
   const showAlert = useAlert();
   const { user, obtenerHorasDisponibles } = useAuth();
   const [diasDeTrabajo, setDiasDeTrabajo] = useState([]);
@@ -163,27 +163,21 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
         notas: sesionData,
         siguienteCita: agendarNuevaCita && fecha ? new Date(fecha) : null, // Solo si se agenda nueva cita
         hora: agendarNuevaCita ? hora : null,
+        profesionalOriginal: user.id || user._id // Para asegurar que el historial se adjunte a la reserva del profesional actual
       };
   
       console.log('Datos a enviar al historial:', sessionData); // Debug
       await addHistorial(paciente.rut, sessionData);
   
-      // Si se quiere agendar nueva cita, crear la reserva
+      // Si se quiere agendar nueva cita, actualizar la reserva del profesional actual (no crear una nueva)
       if (agendarNuevaCita && fecha && hora) {
-        const reservaData = {
-          nombre: paciente.nombre,
-          celular: paciente.telefono,
-          rut: paciente.rut,
-          email: paciente.email || '',
-          fecha: fecha,
-          hora: hora,
+        console.log('Actualizando siguiente cita en reserva existente');
+        await updateReserva(paciente.rut, {
+          siguienteCita: new Date(fecha),
+          hora,
           profesional: user.id || user._id,
-          sucursal: user.sucursal,
-          isNewPatient: false, // Es un paciente existente
-        };
-
-        console.log('Creando nueva reserva:', reservaData); // Debug
-        const nuevaReserva = await createReserva(paciente.rut, reservaData);
+          profesionalOriginal: user.id || user._id
+        });
 
         // Crear evento en Google Calendar para la nueva cita
         if (gapi?.auth2?.getAuthInstance?.()) {

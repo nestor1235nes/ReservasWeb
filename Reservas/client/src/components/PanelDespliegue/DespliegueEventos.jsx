@@ -292,7 +292,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
         
         // Actualizar la reserva con las nuevas imágenes
         await updateReserva(event.paciente.rut, {
-          imagenes: newImagenes
+          imagenes: newImagenes,
+          profesionalOriginal: event.profesional?._id || event.profesional?.id
         });
 
         showAlert('success', 'Imágenes subidas correctamente');
@@ -354,6 +355,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             siguienteCita: new Date(editableFields.fecha),
             hora: editableFields.hora,
             profesional: profesionalParaGuardar,
+            profesionalOriginal: event.profesional?._id || event.profesional?.id, // asegurar que se edita la reserva correcta
             mensajePaciente: mensajePaciente,
           });
           event.diaPrimeraCita = new Date(editableFields.fecha);

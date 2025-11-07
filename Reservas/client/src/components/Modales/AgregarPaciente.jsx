@@ -48,7 +48,7 @@ const steps = ['Datos del paciente', 'Datos de la consulta', 'Fecha y hora de la
 const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}) => {
   const theme = useTheme();
   const { createPaciente, updatePaciente, getPacientePorRut } = usePaciente();
-  const { createReserva, updateReserva, getReserva } = useReserva();
+  const { createReserva, updateReserva, getReserva, getReservasPorRut } = useReserva();
   const { user, obtenerHorasDisponibles } = useAuth();
   const showAlert = useAlert();
   const [activeStep, setActiveStep] = useState(0);
@@ -94,24 +94,24 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
   const handleNext = async () => {
     if (activeStep === 0) {
       try {
-        const response = await getReserva(patientData.rut);
-        if (response) {
+        // Buscar todas las reservas del paciente por RUT y quedarnos con la del profesional actual (si existe)
+        const todas = await getReservasPorRut(patientData.rut);
+        const propia = Array.isArray(todas) ? todas.find(r => (r.profesional?._id || r.profesional) === (user.id || user._id)) : null;
+        if (propia) {
           setPatientData({
             ...patientData,
-            nombre: response.paciente.nombre,
-            telefono: response.paciente.telefono,
-            email: response.paciente.email,
-            profesional: response.profesional,
+            nombre: propia.paciente.nombre,
+            telefono: propia.paciente.telefono,
+            email: propia.paciente.email,
+            profesional: propia.profesional?._id || propia.profesional,
           });
           setPacienteExistente(true);
-          setReservaExistente(response);
-          // Establecer base por defecto para primer día de consulta: existente.diaPrimeraCita -> existente.siguienteCita -> hoy
-          const basePrimera = (response.diaPrimeraCita
-            ? dayjs(response.diaPrimeraCita).format('YYYY-MM-DD')
-            : (response.siguienteCita ? dayjs(response.siguienteCita).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD')));
+          setReservaExistente(propia);
+          const basePrimera = (propia.diaPrimeraCita
+            ? dayjs(propia.diaPrimeraCita).format('YYYY-MM-DD')
+            : (propia.siguienteCita ? dayjs(propia.siguienteCita).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD')));
           setDiaPrimeraCitaOverride(basePrimera);
-        }
-        else {
+        } else {
           setPacienteExistente(false);
           setPatientData({ ...patientData, profesional: user.id });
           setReservaExistente(null);
@@ -215,9 +215,16 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         // Intentar detectar paciente existente por RUT para evitar error 400 de duplicado
         const existente = patientData.rut ? await getPacientePorRut(patientData.rut) : null;
         if (existente && existente._id) {
-          // Ya existe el paciente: usar su ID y tratar como actualización de reserva/datos
-          pacienteId = existente._id;
-          console.log('Paciente ya existe, se evita recreación. ID:', pacienteId);
+          // Ya existe el paciente: invocar createPaciente igualmente para asociarlo al profesional/sucursal (idempotente en backend)
+          try {
+            const resp = await createPaciente(patientData);
+            pacienteId = (resp && resp._id) || (resp && resp.data && resp.data._id) || existente._id;
+            console.log('Paciente existente asociado correctamente. ID:', pacienteId);
+          } catch (e) {
+            // Si por alguna razón falla la asociación idempotente, al menos mantener el ID existente
+            pacienteId = existente._id;
+            console.warn('Fallo al asociar paciente existente, usando ID existente:', e?.message || e);
+          }
         } else {
           // Crear nuevo paciente con fallback si ya existe
           console.log('Creando nuevo paciente:', patientData);
@@ -289,7 +296,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         const necesitaReserva = agendarNuevaCita || tieneInformacionMedica;
         
         if (necesitaReserva) {
-          await updateReserva(patientData.rut, { imagenes: response.data.urls });
+          await updateReserva(patientData.rut, { imagenes: response.data.urls, profesional: patientData.profesional });
         }
       }
   
@@ -337,7 +344,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
                     const reservaData = {
                       eventId: createdEvent.id,
                     };
-                    await updateReserva(patientData.rut, reservaData);
+                    await updateReserva(patientData.rut, { ...reservaData, profesional: patientData.profesional });
                     console.log('EventId guardado correctamente en la reserva');
                   } catch (error) {
                     console.error('Error al guardar eventId en la reserva:', error);
