@@ -302,6 +302,7 @@ export function PerfilPage() {
   const [modalServicioOpen, setModalServicioOpen] = useState(false);
   const [servicioEditing, setServicioEditing] = useState(null);
   const [servicioEditingIndex, setServicioEditingIndex] = useState(null);
+  const [deletingServicioIndex, setDeletingServicioIndex] = useState(null);
   const fotoPerfilRef = useRef(null);
   const showAlert = useAlert();
 
@@ -417,12 +418,15 @@ export function PerfilPage() {
 
   const handleDeleteServicio = async (index) => {
     try {
+      setDeletingServicioIndex(index);
       await deleteServicio(index);
       showAlert('success', 'Servicio eliminado correctamente.');
     } catch (error) {
       console.error('Error al eliminar servicio:', error);
       const message = error?.response?.data?.message || 'No se pudo eliminar el servicio.';
       showAlert('error', message);
+    } finally {
+      setDeletingServicioIndex(null);
     }
   };
 
@@ -1037,6 +1041,7 @@ export function PerfilPage() {
                           size="small" 
                           onClick={() => handleEditServicio(servicio, index)} 
                           sx={{ color: "#1976d2" }}
+                          disabled={deletingServicioIndex === index}
                         >
                           <EditIcon />
                         </IconButton>
@@ -1044,6 +1049,7 @@ export function PerfilPage() {
                           size="small" 
                           onClick={() => handleDeleteServicio(index)} 
                           sx={{ color: "#d32f2f" }}
+                          disabled={deletingServicioIndex === index}
                         >
                           <DeleteIcon />
                         </IconButton>
@@ -1175,6 +1181,12 @@ export function PerfilPage() {
           open={modalSyncOpen}
           onClose={() => setModalSyncOpen(false)}
           user={user}
+          onSynced={(email) => {
+            try {
+              setFormData(prev => ({ ...(prev || {}), googleEmail: email }));
+              if (typeof showAlert === 'function') showAlert('success', `Correo de Google sincronizado: ${email}`);
+            } catch(_) {}
+          }}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from "react";
-import { getHistorialRequest, getReservaRequest, getReservasRequest, updateReservaRequest, deleteReservaRequest, createReservaRequest, addHistorialRequest, obtenerPacientesSinSesionesRequest, getFeriadosRequest } from "../api/reservas";
+import { getHistorialRequest, getReservaRequest, getReservasRequest, updateReservaRequest, deleteReservaRequest, createReservaRequest, addHistorialRequest, obtenerPacientesSinSesionesRequest, getFeriadosRequest, getReservasPorRutRequest } from "../api/reservas";
 
 const ReservaContext = createContext();
 
@@ -26,6 +26,16 @@ export const ReservaProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error(error);
+    }
+  }
+
+  const getReservasPorRut = async (rut) => {
+    try {
+      const response = await getReservasPorRutRequest(rut);
+      return response.data;
+    } catch (error) {
+      console.error(error);
+      return [];
     }
   }
 
@@ -99,7 +109,7 @@ export const ReservaProvider = ({ children }) => {
 
 
   return (
-    <ReservaContext.Provider value={{getReservas, getReserva, createReserva, deleteReserva, updateReserva, getHistorial, addHistorial, pacientesSinSesiones, getFeriados }}>
+    <ReservaContext.Provider value={{getReservas, getReserva, getReservasPorRut, createReserva, deleteReserva, updateReserva, getHistorial, addHistorial, pacientesSinSesiones, getFeriados }}>
       {children}
     </ReservaContext.Provider>
   );

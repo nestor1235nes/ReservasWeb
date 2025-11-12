@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import Reserva from '../models/ficha.model.js';
+import { FRONTEND_URL } from '../config.js';
+// Email sending disabled: confirmation links are shared via WhatsApp only
 
 const TOKEN_BYTES = 24; // 32 chars aprox en base64url
 const TOKEN_TTL_HOURS = 48;
@@ -21,13 +23,11 @@ export const generateConfirmationLink = async (req, res) => {
     reserva.confirmationLog.push({ action: 'generated', meta: { by: req.user?.id } });
     await reserva.save();
 
-  // Determinar base URL preferentemente desde env; si no, inferir de la petición (soporta proxies configurando X-Forwarded-Proto)
-  const proto = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const dynamicBase = `${proto}://${host}`;
-  const devFallback = process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : undefined;
-  const baseUrl = process.env.FRONTEND_BASE_URL || devFallback || dynamicBase;
-  const link = `${baseUrl.replace(/\/$/, '')}/confirmacion/${raw}`;
+  // Base del frontend: prioriza FRONTEND_BASE_URL o FRONTEND_URL; evita usar el host del backend para no romper en producción
+  const baseUrl = (process.env.FRONTEND_BASE_URL || FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const link = `${baseUrl}/confirmacion/${raw}`;
+    // Email confirmation sending removed; deliver link via WhatsApp or UI only
+
     res.json({ link, expiresAt: reserva.confirmTokenExpires });
   } catch (err) {
     console.error('generateConfirmationLink error', err);
@@ -118,12 +118,8 @@ export const resendLink = async (req, res) => {
       reserva.confirmTokenExpires = new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000);
       reserva.confirmationLog.push({ action: 'generated' });
       await reserva.save();
-  const proto = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const dynamicBase = `${proto}://${host}`;
-  const devFallback = process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : undefined;
-  const baseUrl = process.env.FRONTEND_BASE_URL || devFallback || dynamicBase;
-  const link = `${baseUrl.replace(/\/$/, '')}/confirmacion/${raw}`;
+  const baseUrl = (process.env.FRONTEND_BASE_URL || FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const link = `${baseUrl}/confirmacion/${raw}`;
       return res.json({ link, expiresAt: reserva.confirmTokenExpires, regenerated: true });
     }
     // reutilizar

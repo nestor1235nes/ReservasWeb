@@ -13,7 +13,8 @@ import {
     agregarProfesional,
     obtenerProfesionalesSucursal,
     esAsistente,
-    quitarProfesional
+    quitarProfesional,
+    obtenerPacientesSucursal
 } from '../controllers/sucursal.controller.js';
 import { auth } from '../middlewares/auth.middleware.js';
 
@@ -35,5 +36,6 @@ router.post("/sucursal/:id/profesionales", agregarProfesional);
 router.get("/sucursal/:id/profesionales", obtenerProfesionalesSucursal);
 router.get('/es-asistente/:id', esAsistente);
 router.delete("/sucursal/:id/profesionales", quitarProfesional);
+router.get("/sucursal/:id/pacientes", obtenerPacientesSucursal);
 
 export default router;

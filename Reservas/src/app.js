@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,11 +20,25 @@ import analyticsRoutes from './routes/analytics.routes.js';
 import transbankRoutes from './routes/transbank.routes.js';
 import dailyRoutes from './routes/daily.routes.js';
 import confirmationRoutes from './routes/confirmation.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
 
+// Ocultar cabecera X-Powered-By
+app.disable('x-powered-by');
+
 // Si corres detrás de proxy (Cloud Run) permite cookies seguras y IP correcta
 app.set('trust proxy', 1);
+
+// Helmet: cabeceras de seguridad por defecto (sin CSP aquí porque lo maneja Vercel para el frontend)
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false, // evitar romper librerías que no estén listas para COEP
+  })
+);
+// Política de Referer estricta
+app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
 
 // CORS: permitir lista de orígenes (frontend principal + localhost + posibles IPs locales)
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
@@ -32,13 +48,15 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   // Producción Vercel
-  'https://agendavitalink.vercel.app/',
+  'https://agendavitalink.vercel.app',
   // Agrega dinámicamente la IP local si se despliega en red (acepta cualquier origen que empiece con http://192.168.)
 ];
 
 app.use(
   cors({
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     origin: (origin, callback) => {
       if (!origin) return callback(null, true); // mobile apps webview a veces no mandan origin
       if (allowedOrigins.includes(origin) || /http:\/\/192\.168\./.test(origin)) {
@@ -60,6 +78,22 @@ app.use(cookieParser());
 // Health endpoint
 app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
 
+// Endpoint para reports de CSP (enviado por el frontend en modo Report-Only)
+app.post('/api/csp-report', express.json({ type: ['json', 'application/csp-report'] }), (req, res) => {
+  // Registrar de forma mínima; en producción enviar a logs/monitoring
+  console.warn('CSP report:', JSON.stringify(req.body));
+  res.status(204).end();
+});
+
+// Límite de tasa general para API (protege de scraping/abuso en endpoints no sensibles)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 1000, // hasta 1000 req por IP en la ventana
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', apiLimiter);
+
 // Rutas API
 app.use('/api/auth', authRoutes);
 app.use('/api/', reservaRoutes);
@@ -73,6 +107,7 @@ app.use('/api/', analyticsRoutes);
 app.use('/api/transbank', transbankRoutes);
 app.use('/api/daily', dailyRoutes);
 app.use('/api/', confirmationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Archivos estáticos de uploads
 // Asegurar que existan las carpetas de subida
@@ -86,13 +121,11 @@ try {
 app.use('/uploads', express.static('uploads'));
 app.use('/imagenesPacientes', express.static('imagenesPacientes'));
 
-// Redirección en desarrollo para /confirmacion/:token
-if (process.env.NODE_ENV !== 'production') {
-  app.get('/confirmacion/:token', (req, res) => {
-    const frontend = FRONTEND_URL;
-    return res.redirect(`${frontend}/confirmacion/${req.params.token}`);
-  });
-}
+// Redirección universal para /confirmacion/:token hacia el frontend
+app.get('/confirmacion/:token', (req, res) => {
+  const frontend = FRONTEND_URL;
+  return res.redirect(`${frontend}/confirmacion/${req.params.token}`);
+});
 
 // Servir frontend solo si existe un build
 const __filename = fileURLToPath(import.meta.url);

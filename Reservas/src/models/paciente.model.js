@@ -47,7 +47,6 @@ const PacienteSchema = new mongoose.Schema({
     },
     telefono: {
         type: String,
-        required: true,
         trim: true,
     },
     direccion: {
@@ -67,10 +66,16 @@ const PacienteSchema = new mongoose.Schema({
     eventId: {
         type: String,
     },
+    // Profesional "principal" histórico (legacy). No usar para lógica nueva.
     profesional: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
     },
+    // NUEVO: lista de profesionales que han atendido al paciente
+    profesionales: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+    }],
     diaPrimeraCita: {
         type: Date,
         default: Date.now,

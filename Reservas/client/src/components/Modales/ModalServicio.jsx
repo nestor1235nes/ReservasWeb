@@ -27,22 +27,32 @@ import {
 import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
 
-const modalidades = [
+const MODALIDADES_ALL = [
   'Presencial',
   'Telemedicina',
   'Presencial y Telemedicina'
 ];
 
-const duraciones = [
+// Duraciones base (se complementarán dinámicamente con el intervalo del horario si falta)
+const DURACIONES_BASE = [
+  '15 minutos',
+  '20 minutos',
+  '25 minutos',
   '30 minutos',
+  '35 minutos',
+  '40 minutos',
   '45 minutos',
+  '50 minutos',
+  '55 minutos',
   '60 minutos',
+  '75 minutos',
   '90 minutos',
+  '105 minutos',
   '120 minutos'
 ];
 
 export default function ModalServicio({ open, onClose, servicio, index, isEditing }) {
-  const { addServicio, updateServicio } = useAuth();
+  const { addServicio, updateServicio, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     tipo: '',
@@ -51,27 +61,69 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
     modalidad: 'Presencial',
     descripcion: ''
   });
+  const [duracionesDisponibles, setDuracionesDisponibles] = useState(DURACIONES_BASE);
   const showAlert = useAlert();
+
+  // Detectar si existe un único bloque de horario y tomar su intervalo como duración fija
+  const timetable = user?.timetable || [];
+  const singleSchedule = timetable.length === 1 && timetable[0];
+  const singleInterval = singleSchedule?.interval; // número de minutos
+  // Modalidades permitidas según perfil del usuario
+  const allowPresencial = !!user?.cita_presencial;
+  const allowVirtual = !!user?.cita_virtual;
+  const allowedModalidades = allowPresencial && allowVirtual
+    ? MODALIDADES_ALL
+    : allowPresencial
+      ? ['Presencial']
+      : allowVirtual
+        ? ['Telemedicina']
+        : [];
+
+  // Cuando abre el modal, preparar duraciones y autoseleccionar duración vinculada al intervalo si aplica
+  useEffect(() => {
+    if (!open) return;
+    // Construir lista de duraciones incluyendo el intervalo si no está
+    let lista = [...DURACIONES_BASE];
+    if (singleInterval) {
+      const label = `${singleInterval} minutos`;
+      if (!lista.includes(label)) lista = [label, ...lista];
+    }
+    setDuracionesDisponibles(lista);
+
+    if (!isEditing) {
+      if (singleInterval) {
+        setFormData(prev => ({ ...prev, duracion: `${singleInterval} minutos` }));
+      } else {
+        // Mantener valor por defecto si no hay un solo horario
+        setFormData(prev => ({ ...prev }));
+      }
+    } else if (isEditing && servicio?.duracion) {
+      // Asegurar que la duración existente esté en la lista
+      const label = servicio.duracion;
+      setDuracionesDisponibles(prev => (prev.includes(label) ? prev : [label, ...prev]));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, singleInterval, isEditing, servicio?.duracion]);
 
   useEffect(() => {
     if (isEditing && servicio) {
       setFormData({
         tipo: servicio.tipo || '',
-        duracion: servicio.duracion || '60 minutos',
+        duracion: servicio.duracion || (singleInterval ? `${singleInterval} minutos` : '60 minutos'),
         precio: servicio.precio || '',
-        modalidad: servicio.modalidad || 'Presencial',
+        modalidad: servicio.modalidad || (allowedModalidades[0] || ''),
         descripcion: servicio.descripcion || ''
       });
     } else {
       setFormData({
         tipo: '',
-        duracion: '60 minutos',
+        duracion: singleInterval ? `${singleInterval} minutos` : '60 minutos',
         precio: '',
-        modalidad: 'Presencial',
+        modalidad: allowedModalidades[0] || '',
         descripcion: ''
       });
     }
-  }, [isEditing, servicio, open]);
+  }, [isEditing, servicio, open, singleInterval, allowPresencial, allowVirtual]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -178,13 +230,19 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
                   value={formData.duracion}
                   onChange={handleChange}
                   label="Duración"
+                  disabled={!!singleInterval && !isEditing}
                 >
-                  {duraciones.map((duracion) => (
+                  {duracionesDisponibles.map((duracion) => (
                     <MenuItem key={duracion} value={duracion}>
                       {duracion}
                     </MenuItem>
                   ))}
                 </Select>
+                {singleInterval && !isEditing && (
+                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                    Duración fijada por tu intervalo de agenda ({singleInterval} min). Agrega otro bloque de horario para habilitar más duraciones.
+                  </Typography>
+                )}
               </FormControl>
 
               <TextField
@@ -209,20 +267,31 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
               />
             </Box>
 
-            <FormControl fullWidth>
+            <FormControl fullWidth disabled={allowedModalidades.length === 0}>
               <InputLabel>Modalidad de Atención</InputLabel>
               <Select
                 name="modalidad"
                 value={formData.modalidad}
                 onChange={handleChange}
                 label="Modalidad de Atención"
+                disabled={allowedModalidades.length <= 1}
               >
-                {modalidades.map((modalidad) => (
+                {allowedModalidades.map((modalidad) => (
                   <MenuItem key={modalidad} value={modalidad}>
                     {modalidad}
                   </MenuItem>
                 ))}
               </Select>
+              {allowedModalidades.length === 0 && (
+                <Typography variant="caption" color="error" sx={{ ml: 1 }}>
+                  No tienes modalidades habilitadas en tu perfil. Activa Presencial y/o Telemedicina en "Información Profesional".
+                </Typography>
+              )}
+              {allowedModalidades.length === 1 && (
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  Modalidad fijada por tu configuración de perfil.
+                </Typography>
+              )}
             </FormControl>
 
             <Divider />
@@ -261,7 +330,7 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
             type="submit"
             variant="contained"
             startIcon={<SaveIcon />}
-            disabled={loading || !formData.tipo || !formData.precio}
+            disabled={loading || !formData.tipo || !formData.precio || allowedModalidades.length === 0}
             sx={{ 
               minWidth: 140,
               background: "#2596be",

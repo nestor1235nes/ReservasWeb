@@ -2,6 +2,9 @@ import Paciente from "../models/paciente.model.js";
 import Reserva from "../models/ficha.model.js";
 import Sucursal from "../models/sucursal.model.js";
 import User from "../models/user.model.js";
+import crypto from 'crypto';
+import axios from 'axios';
+import { FRONTEND_URL } from "../config.js";
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -32,6 +35,120 @@ const normalizarTelefono = (telefono) => {
   // Si no cumple ningún caso, lo dejamos vacío
   return '';
 };
+
+// Helpers para token de confirmación
+const TOKEN_BYTES = 24; // ~32 chars base64url
+const TOKEN_TTL_HOURS = 48;
+const base64UrlEncode = (buf) => buf.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+// Enviar WhatsApp (Green API) usando credenciales del profesional para notificar registro de cita
+// Si la reserva no tiene token de confirmación vigente, se genera uno automáticamente
+async function enviarWhatsAppRegistroCita({ profesional, paciente, reserva }) {
+    try {
+        if (!profesional?.idInstance || !profesional?.apiTokenInstance) return { ok: false, reason: 'missing_credentials' };
+        const rawPhone = paciente?.telefono;
+        const phone = normalizarTelefono(rawPhone);
+        if (!/^569\d{8}$/.test(String(phone))) return { ok: false, reason: 'invalid_phone' };
+
+        // Formatear fecha a DD-MM-YYYY evitando desfase por UTC (cuando llega como YYYY-MM-DD o T00:00:00Z)
+        const formatFecha = (fecha) => {
+            try {
+                if (!fecha) return '';
+                let y, m, d;
+                if (typeof fecha === 'string') {
+                    // Caso fecha solo con día: "YYYY-MM-DD"
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                        const parts = fecha.split('-').map(Number);
+                        [y, m, d] = parts;
+                        // Construir usando zona local
+                        const local = new Date(y, m - 1, d);
+                        y = local.getFullYear();
+                        m = local.getMonth() + 1;
+                        d = local.getDate();
+                    } else if (fecha.endsWith('Z') && fecha.includes('T00:00:00')) {
+                        // Medianoche UTC => tomar solo la parte de fecha y construir local
+                        const [yy, mm, dd] = fecha.slice(0, 10).split('-').map(Number);
+                        const local = new Date(yy, mm - 1, dd);
+                        y = local.getFullYear();
+                        m = local.getMonth() + 1;
+                        d = local.getDate();
+                    } else {
+                        const dt = new Date(fecha);
+                        if (isNaN(dt.getTime())) return '';
+                        y = dt.getFullYear();
+                        m = dt.getMonth() + 1;
+                        d = dt.getDate();
+                    }
+                } else if (fecha instanceof Date) {
+                    // Si ya es Date, usar componentes locales
+                    y = fecha.getFullYear();
+                    m = fecha.getMonth() + 1;
+                    d = fecha.getDate();
+                } else {
+                    const dt = new Date(fecha);
+                    if (isNaN(dt.getTime())) return '';
+                    y = dt.getFullYear();
+                    m = dt.getMonth() + 1;
+                    d = dt.getDate();
+                }
+                const ddStr = String(d).padStart(2, '0');
+                const mmStr = String(m).padStart(2, '0');
+                const yyyyStr = String(y);
+                return `${ddStr}-${mmStr}-${yyyyStr}`;
+            } catch { return ''; }
+        };
+
+        const fecha = formatFecha(reserva?.siguienteCita || reserva?.diaPrimeraCita);
+        const hora = reserva?.hora || '';
+        const nombre = paciente?.nombre || '';
+        const profesionalNombre = profesional?.username || '';
+
+        // Asegurar link de confirmación (token nuevo si no hay o expiró)
+        let tokenRaw = null;
+        const now = new Date();
+        const expired = !reserva.confirmTokenExpires || reserva.confirmTokenExpires < now;
+        if (!reserva.confirmTokenHash || expired) {
+            tokenRaw = base64UrlEncode(crypto.randomBytes(TOKEN_BYTES));
+            reserva.confirmTokenHash = hashToken(tokenRaw);
+            reserva.confirmTokenExpires = new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000);
+            // Mantener o establecer estado pendiente si estaba cancelada
+            if (reserva.confirmStatus === 'cancelled' || !reserva.confirmStatus) {
+                reserva.confirmStatus = 'pending';
+            }
+            await reserva.save();
+        }
+        // Si ya existía y seguía vigente, no generamos otro; construimos link con el token actual no disponible en claro
+        // Para esto, cuando no generamos token nuevo, no conocemos el valor raw; en ese caso regeneramos de forma segura
+        if (!tokenRaw) {
+            // Cuando solo tenemos el hash no es posible recuperar el token original; preferimos regenerar uno nuevo para enviar
+            tokenRaw = base64UrlEncode(crypto.randomBytes(TOKEN_BYTES));
+            reserva.confirmTokenHash = hashToken(tokenRaw);
+            reserva.confirmTokenExpires = new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000);
+            await reserva.save();
+        }
+
+        const baseUrl = (process.env.FRONTEND_BASE_URL || FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+        const confirmLink = `${baseUrl}/confirmacion/${tokenRaw}`;
+
+        const message = (
+            `Hola ${nombre}, hemos registrado su cita para el ${fecha} a las ${hora} con ${profesionalNombre}.
+
+Puede confirmar su asistencia ahora a través del siguiente enlace:
+${confirmLink}
+
+Además, se le recordará su cita agendada 24 horas antes. Gracias por su preferencia.`
+        ).trim();
+
+        const url = `https://api.green-api.com/waInstance${profesional.idInstance}/sendMessage/${profesional.apiTokenInstance}`;
+        const data = { chatId: `${phone}@c.us`, message };
+        const resp = await axios.post(url, data);
+        if (resp?.status >= 200 && resp?.status < 300) return { ok: true };
+        return { ok: false, reason: `http_${resp?.status}` };
+    } catch (e) {
+        return { ok: false, reason: 'request_error', detail: e?.response?.data || e?.message || String(e) };
+    }
+}
 
 export const getPacientePorRut = async (req, res) => {
     try {
@@ -64,10 +181,28 @@ export const createPaciente = async (req, res) => {
     try {
         const { nombre, rut, telefono, direccion, edad, email, estado, eventId } = req.body;
 
-        // Verificar si el paciente ya existe
+        // Verificar si el paciente ya existe (idempotente). Si existe, retornarlo y asociar profesional.
         const pacienteExistente = await Paciente.findOne({ rut });
         if (pacienteExistente) {
-            return res.status(400).json({ message: "El paciente con este RUT ya existe" });
+            // Asegurar que el profesional actual quede asociado en la lista multi-atención
+            await Paciente.updateOne({ _id: pacienteExistente._id }, { $addToSet: { profesionales: req.user.id } });
+
+            // Asociar a sucursal o profesional como en el flujo normal
+            const userId = req.user.id;
+            const user = await User.findById(userId);
+            if (user.sucursal) {
+                await Sucursal.findByIdAndUpdate(
+                    user.sucursal,
+                    { $addToSet: { pacientes: pacienteExistente._id } }
+                );
+            } else {
+                await User.findByIdAndUpdate(
+                    userId,
+                    { $addToSet: { pacientes: pacienteExistente._id } }
+                );
+            }
+
+            return res.status(200).json(pacienteExistente);
         }
 
         // Normalizar teléfono
@@ -82,14 +217,14 @@ export const createPaciente = async (req, res) => {
             email,
             estado: estado || "Pendiente",
             eventId,
-            profesional: req.user.id, // Asignar el profesional que lo creó
-            diaPrimeraCita: new Date() // Siempre asignar la fecha actual como fecha de registro
-            // No inicializar comportamiento aquí, se queda como array vacío por defecto
+            profesional: req.user.id, // legacy principal profesional
+            profesionales: [req.user.id], // inicializar lista de profesionales
+            diaPrimeraCita: new Date() // fecha de registro
         });
 
         const pacienteGuardado = await newPaciente.save();
 
-        // Asociar el paciente al usuario logueado
+    // Asociar el paciente al usuario logueado
         const userId = req.user.id;
         const user = await User.findById(userId);
         
@@ -189,7 +324,7 @@ export const getReservas = async (req, res) => {
 
 export const getReserva = async (req, res) => {
     try {
-        const paciente = await Paciente.findOne({ rut: req.params.rut });
+    const paciente = await Paciente.findOne({ rut: req.params.rut });
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
@@ -211,8 +346,8 @@ export const createReserva = async (req, res) => {
             return res.status(404).json({ message: "Paciente not found" });
         }
 
-        // Usar el usuario autenticado como profesional
-        const profesionalId = req.body.profesional || req.user.id;
+    // Usar el usuario autenticado como profesional
+    const profesionalId = req.body.profesional || req.user.id;
         
         // Buscar sucursal donde el profesional trabaja
         const sucursal = await Sucursal.findOne({ profesionales: profesionalId });
@@ -234,6 +369,25 @@ export const createReserva = async (req, res) => {
             }
         }
 
+        // Añadir profesional a lista de profesionales del paciente (multi-atención)
+        await Paciente.updateOne({ _id: paciente._id }, { $addToSet: { profesionales: profesionalId } });
+
+        // Normalizador de fechas de solo día (evita desfase UTC)
+        const normalizeDateField = (val) => {
+            if (!val) return val;
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                    const [y, m, d] = val.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                if (val.endsWith('Z') && val.includes('T00:00:00')) {
+                    const [y, m, d] = val.slice(0, 10).split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+            }
+            return val;
+        };
+
         // Determinar diaPrimeraCita según reglas de negocio
         // - Si no viene en el body y es la primera reserva del paciente, usar siguienteCita si existe; si no, hoy
         // - Si viene, respetarlo
@@ -245,29 +399,70 @@ export const createReserva = async (req, res) => {
                 diaPrimeraCitaValue = req.body.siguienteCita ? req.body.siguienteCita : new Date();
             }
         }
+        // Normalizar posibles cadenas de fecha
+        diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
+        const siguienteCitaNorm = normalizeDateField(req.body.siguienteCita);
 
-        const nuevaReserva = new Reserva({
-            paciente: paciente._id,
-            diaPrimeraCita: diaPrimeraCitaValue,
-            siguienteCita: req.body.siguienteCita,
-            hora: req.body.hora,
-            mensajePaciente: req.body.mensajePaciente,
-            profesional: profesionalId,
-            diagnostico: req.body.diagnostico,
-            anamnesis: req.body.anamnesis,
-            historial: req.body.historial,
-            eventId: req.body.eventId,
-            modalidad: req.body.modalidad || 'Presencial', // Valor por defecto
-            servicio: req.body.servicio || 'Consulta', // Valor por defecto
-        });
-        
-        if (sucursalId) {
-            nuevaReserva.sucursal = sucursalId;
+        // Si ya existe una reserva para este paciente y profesional en la misma fecha y hora, actualizar en lugar de crear
+        let reservaExistente = null;
+        if (siguienteCitaNorm && req.body.hora) {
+            reservaExistente = await Reserva.findOne({
+                paciente: paciente._id,
+                profesional: profesionalId,
+                siguienteCita: siguienteCitaNorm,
+                hora: req.body.hora
+            });
         }
 
-        await nuevaReserva.save();
+        let nuevaReserva;
+        if (reservaExistente) {
+            reservaExistente.mensajePaciente = req.body.mensajePaciente || reservaExistente.mensajePaciente;
+            reservaExistente.diagnostico = req.body.diagnostico || reservaExistente.diagnostico;
+            reservaExistente.anamnesis = req.body.anamnesis || reservaExistente.anamnesis;
+            reservaExistente.historial = req.body.historial || reservaExistente.historial;
+            reservaExistente.eventId = req.body.eventId || reservaExistente.eventId;
+            reservaExistente.modalidad = req.body.modalidad || reservaExistente.modalidad || 'Presencial';
+            reservaExistente.servicio = req.body.servicio || reservaExistente.servicio || 'Consulta';
+            // Actualizar diaPrimeraCita si se envía y no estaba
+            if (diaPrimeraCitaValue && !reservaExistente.diaPrimeraCita) {
+                reservaExistente.diaPrimeraCita = diaPrimeraCitaValue;
+            }
+            await reservaExistente.save();
+            nuevaReserva = reservaExistente;
+        } else {
+            nuevaReserva = new Reserva({
+                paciente: paciente._id,
+                diaPrimeraCita: diaPrimeraCitaValue,
+                siguienteCita: siguienteCitaNorm,
+                hora: req.body.hora,
+                mensajePaciente: req.body.mensajePaciente,
+                profesional: profesionalId,
+                diagnostico: req.body.diagnostico,
+                anamnesis: req.body.anamnesis,
+                historial: req.body.historial,
+                eventId: req.body.eventId,
+                modalidad: req.body.modalidad || 'Presencial', // Valor por defecto
+                servicio: req.body.servicio || 'Consulta', // Valor por defecto
+            });
+            if (sucursalId) {
+                nuevaReserva.sucursal = sucursalId;
+            }
+            await nuevaReserva.save();
+        }
 
-        res.status(201).json(nuevaReserva);
+                // Enviar WhatsApp de confirmación de registro si el profesional tiene credenciales Green API
+                try {
+                    const profesional = await User.findById(profesionalId);
+                    const pacienteCompleto = await Paciente.findById(paciente._id);
+                    const result = await enviarWhatsAppRegistroCita({ profesional, paciente: pacienteCompleto, reserva: nuevaReserva });
+                    if (!result.ok) {
+                        console.warn('No se pudo enviar WhatsApp de registro de cita:', result);
+                    }
+                } catch (e) {
+                    console.warn('Error enviando WhatsApp de registro (createReserva):', e?.message || e);
+                }
+
+                res.status(201).json(nuevaReserva);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -287,19 +482,36 @@ export const deleteReserva = async (req, res) => {
 
 export const updateReserva = async (req, res) => {
     try {
-        const paciente = await Paciente.findOne({ rut: req.params.rut });
+    const paciente = await Paciente.findOne({ rut: req.params.rut });
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
-        
-        const reserva = await Reserva.findOne({ paciente: paciente._id });
+        // Determinar a qué reserva queremos aplicar la actualización
+        // Prioridad: profesionalOriginal (cuando se reasigna), luego req.user.id (profesional actual)
+        const profesionalFiltro = req.body.profesionalOriginal || req.user.id;
+        let reserva = await Reserva.findOne({ paciente: paciente._id, profesional: profesionalFiltro }).sort({ createdAt: -1 });
         if (!reserva) {
-            return res.status(404).json({ message: "Reserva not found" });
-        }        
+            return res.status(404).json({ message: "Reserva not found for this professional" });
+        }
         
+        const normalizeDateField = (val) => {
+            if (!val) return val;
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                    const [y, m, d] = val.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                if (val.endsWith('Z') && val.includes('T00:00:00')) {
+                    const [y, m, d] = val.slice(0, 10).split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+            }
+            return val;
+        };
+
         const datosReserva = {
-            diaPrimeraCita: req.body.diaPrimeraCita,
-            siguienteCita: req.body.siguienteCita,
+            diaPrimeraCita: normalizeDateField(req.body.diaPrimeraCita),
+            siguienteCita: normalizeDateField(req.body.siguienteCita),
             hora: req.body.hora,
             mensajePaciente: req.body.mensajePaciente,
             profesional: req.body.profesional,
@@ -307,9 +519,15 @@ export const updateReserva = async (req, res) => {
             anamnesis: req.body.anamnesis,
             historial: req.body.historial,
             imagenes: req.body.imagenes,
-            eventId: req.body.eventId, 
+            eventId: req.body.eventId,
         }
         await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
+        // Mantener relación multi-profesional al actualizar (si se cambia profesional)
+        if (req.body.profesional) {
+            await Paciente.updateOne({ _id: paciente._id }, { $addToSet: { profesionales: req.body.profesional } });
+        }
+
+                // Email notifications deprecated: ignoring notifyEmailMessage/Subject intentionally
 
         const updatedReservas = await Reserva.find().populate('paciente');
         res.json(updatedReservas);
@@ -348,14 +566,31 @@ export const addHistorial = async (req, res) => {
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
-        const reserva = await Reserva.findOne({ paciente : paciente._id });
+        // Adjuntar historial a la reserva del profesional actual (o al indicado en profesionalOriginal)
+        const profesionalFiltro = req.body.profesionalOriginal || req.user.id;
+        const reserva = await Reserva.findOne({ paciente : paciente._id, profesional: profesionalFiltro }).sort({ createdAt: -1 });
         if (!reserva) {
-            return res.status(404).json({ message: "Reserva not found" });
+            return res.status(404).json({ message: "Reserva not found for this professional" });
         }
 
         // Asegurar que la fecha sea un objeto Date válido
-        const fechaSesion = req.body.fecha ? new Date(req.body.fecha) : new Date();
-        const siguienteCitaDate = req.body.siguienteCita ? new Date(req.body.siguienteCita) : null;
+        const normalizeDateField = (val) => {
+            if (!val) return val;
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                    const [y, m, d] = val.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                if (val.endsWith('Z') && val.includes('T00:00:00')) {
+                    const [y, m, d] = val.slice(0, 10).split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+            }
+            return new Date(val);
+        };
+
+        const fechaSesion = req.body.fecha ? normalizeDateField(req.body.fecha) : new Date();
+        const siguienteCitaDate = req.body.siguienteCita ? normalizeDateField(req.body.siguienteCita) : null;
 
         const newHistorialEntry = {
             fecha: fechaSesion,
@@ -386,34 +621,43 @@ export const addHistorial = async (req, res) => {
 export const getPacientesUsuario = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = await User.findById(userId);
-    
-    let pacientes = [];
-    if (user.sucursal) {
-        // Buscar pacientes de la sucursal
-        const sucursal = await Sucursal.findById(user.sucursal).populate({
-          path: 'pacientes',
-          populate: {
-            path: 'profesional',
-            select: 'username email'
-          }
-        });
-        if (sucursal) {
-            pacientes = sucursal.pacientes;
-        }
-    } else {
-      // Buscar pacientes del profesional
-        const userWithPacientes = await User.findById(userId).populate({
-          path: 'pacientes',
-          populate: {
-            path: 'profesional',
-            select: 'username email'
-          }
-        });
-        pacientes = userWithPacientes.pacientes;
+        const user = await User.findById(userId);
 
-    }
-    res.json(pacientes);
+        // Reconciliación: incluir pacientes derivados de reservas y también asociaciones directas (user.pacientes o sucursal.pacientes)
+        let pacienteIdsSet = new Set();
+
+        if (user.sucursal) {
+            const sucursal = await Sucursal.findById(user.sucursal);
+            if (sucursal) {
+                // Si es asistente de la sucursal: ver todos los pacientes de la sucursal
+                const esAsistente = sucursal.asistentes?.some(a => a.equals(userId));
+                if (esAsistente) {
+                    const reservasSucursal = await Reserva.find({ sucursal: sucursal._id }).select('paciente');
+                    reservasSucursal.forEach(r => pacienteIdsSet.add(r.paciente.toString()));
+                    // Unir con pacientes asociados directamente a la sucursal
+                    (sucursal.pacientes || []).forEach(p => pacienteIdsSet.add(p.toString()));
+                } else {
+                    // Profesional de sucursal: ver solo sus pacientes
+                    const reservasProfesional = await Reserva.find({ profesional: userId }).select('paciente');
+                    reservasProfesional.forEach(r => pacienteIdsSet.add(r.paciente.toString()));
+                    // Unir con pacientes asociados directamente al profesional (no toda la sucursal para evitar fugas)
+                    const userDoc = await User.findById(userId).select('pacientes');
+                    (userDoc?.pacientes || []).forEach(p => pacienteIdsSet.add(p.toString()));
+                }
+            }
+        } else {
+            // Profesional independiente
+            const reservasProfesional = await Reserva.find({ profesional: userId }).select('paciente');
+            reservasProfesional.forEach(r => pacienteIdsSet.add(r.paciente.toString()));
+            const userDoc = await User.findById(userId).select('pacientes');
+            (userDoc?.pacientes || []).forEach(p => pacienteIdsSet.add(p.toString()));
+        }
+
+        const pacienteIds = Array.from(pacienteIdsSet);
+        const pacientes = await Paciente.find({ _id: { $in: pacienteIds } })
+            .populate({ path: 'profesionales', select: 'username email' });
+
+        res.json(pacientes);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -489,9 +733,11 @@ export const publicCreatePaciente = async (req, res) => {
 
         // Si existe, devolver existente (idempotente)
         const existente = await Paciente.findOne({ rut });
-        if (existente) {
-            return res.status(200).json(existente);
-        }
+            if (existente) {
+                // Asegurar asociación multi-profesional cuando ya existía
+                await Paciente.updateOne({ _id: existente._id }, { $addToSet: { profesionales: profesionalId } });
+                return res.status(200).json(existente);
+            }
 
         // Validar profesional
         const profesional = await User.findById(profesionalId);
@@ -510,7 +756,8 @@ export const publicCreatePaciente = async (req, res) => {
             email,
             estado: estado || "Pendiente",
             eventId,
-            profesional: profesionalId,
+            profesional: profesionalId, // legacy
+                profesionales: [profesionalId], // inicializar lista de profesionales
             diaPrimeraCita: new Date()
         });
 
@@ -538,7 +785,7 @@ export const publicCreatePaciente = async (req, res) => {
 // Crear reserva desde flujo público (sin autenticación)
 export const publicCreateReserva = async (req, res) => {
     try {
-        const { rut, profesional: profesionalId, diaPrimeraCita, siguienteCita, hora, mensajePaciente, diagnostico, anamnesis, historial, eventId, modalidad, servicio } = req.body;
+    const { rut, profesional: profesionalId, diaPrimeraCita, siguienteCita, hora, mensajePaciente, diagnostico, anamnesis, historial, eventId, modalidad, servicio } = req.body;
 
         if (!rut || !profesionalId || !siguienteCita || !hora) {
             return res.status(400).json({ message: "Datos insuficientes para crear la reserva" });
@@ -570,6 +817,25 @@ export const publicCreateReserva = async (req, res) => {
             }
         }
 
+        // Añadir profesional a lista multi-atención
+        await Paciente.updateOne({ _id: paciente._id }, { $addToSet: { profesionales: profesionalId } });
+
+        // Normalizador de fechas de solo día (evita desfase UTC)
+        const normalizeDateField = (val) => {
+            if (!val) return val;
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                    const [y, m, d] = val.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                if (val.endsWith('Z') && val.includes('T00:00:00')) {
+                    const [y, m, d] = val.slice(0, 10).split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+            }
+            return val;
+        };
+
         // Determinar diaPrimeraCita si viene vacío: si es la primera reserva del paciente, usar siguienteCita o hoy
         let diaPrimeraCitaValue = diaPrimeraCita;
         if (!diaPrimeraCitaValue) {
@@ -579,27 +845,67 @@ export const publicCreateReserva = async (req, res) => {
                 diaPrimeraCitaValue = siguienteCita ? siguienteCita : new Date();
             }
         }
+        // Normalizar posibles cadenas de fecha
+        diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
+        const siguienteCitaNorm = normalizeDateField(siguienteCita);
 
-        const nuevaReserva = new Reserva({
-            paciente: paciente._id,
-            diaPrimeraCita: diaPrimeraCitaValue,
-            siguienteCita,
-            hora,
-            mensajePaciente,
-            profesional: profesionalId,
-            diagnostico,
-            anamnesis,
-            historial,
-            eventId,
-            modalidad: modalidad || 'Presencial',
-            servicio: servicio || 'Consulta',
-        });
+        // Deduplicar en flujo público también
+        let reservaExistente = null;
+        if (siguienteCitaNorm && hora) {
+            reservaExistente = await Reserva.findOne({
+                paciente: paciente._id,
+                profesional: profesionalId,
+                siguienteCita: siguienteCitaNorm,
+                hora
+            });
+        }
 
-        if (sucursalId) nuevaReserva.sucursal = sucursalId;
+        let nuevaReserva;
+        if (reservaExistente) {
+            reservaExistente.mensajePaciente = mensajePaciente || reservaExistente.mensajePaciente;
+            reservaExistente.diagnostico = diagnostico || reservaExistente.diagnostico;
+            reservaExistente.anamnesis = anamnesis || reservaExistente.anamnesis;
+            reservaExistente.historial = historial || reservaExistente.historial;
+            reservaExistente.eventId = eventId || reservaExistente.eventId;
+            reservaExistente.modalidad = modalidad || reservaExistente.modalidad || 'Presencial';
+            reservaExistente.servicio = servicio || reservaExistente.servicio || 'Consulta';
+            if (diaPrimeraCitaValue && !reservaExistente.diaPrimeraCita) {
+                reservaExistente.diaPrimeraCita = diaPrimeraCitaValue;
+            }
+            await reservaExistente.save();
+            nuevaReserva = reservaExistente;
+        } else {
+            nuevaReserva = new Reserva({
+                paciente: paciente._id,
+                diaPrimeraCita: diaPrimeraCitaValue,
+                siguienteCita: siguienteCitaNorm,
+                hora,
+                mensajePaciente,
+                profesional: profesionalId,
+                diagnostico,
+                anamnesis,
+                historial,
+                eventId,
+                modalidad: modalidad || 'Presencial',
+                servicio: servicio || 'Consulta',
+            });
+            if (sucursalId) nuevaReserva.sucursal = sucursalId;
+            await nuevaReserva.save();
+        }
 
-        await nuevaReserva.save();
+                // Enviar WhatsApp de confirmación de registro usando credenciales del profesional (flujo público)
+                try {
+                    const profesionalDoc = await User.findById(profesionalId);
+                    const pacienteCompleto = await Paciente.findById(paciente._id);
+                    const result = await enviarWhatsAppRegistroCita({ profesional: profesionalDoc, paciente: pacienteCompleto, reserva: nuevaReserva });
+                    if (!result.ok) {
+                        console.warn('No se pudo enviar WhatsApp de registro de cita (public):', result);
+                    }
+                } catch (e) {
+                    console.warn('Error enviando WhatsApp de registro (publicCreateReserva):', e?.message || e);
+                }
 
-        res.status(201).json(nuevaReserva);
+                res.status(201).json(nuevaReserva);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

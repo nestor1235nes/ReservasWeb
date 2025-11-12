@@ -23,7 +23,7 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import VentanaNotificaciones from '../components/VentanaNotificaciones';
 import { gapi } from 'gapi-script';
 import { getBlockedDaysRequest } from '../api/funcion';
-import { initClient } from '../googleCalendarConfig';
+import { initClient, ensureGoogleToken } from '../googleCalendarConfig';
 import { useSucursal } from '../context/sucursalContext';
 import FullPageLoader from '../components/ui/FullPageLoader';
 import { useAlert } from '../context/AlertContext';
@@ -231,7 +231,7 @@ export function CalendarioPage() {
 
   useEffect(() => {
       const initGapi = async () => {
-        await gapi.load('client:auth2', initClient);
+        await gapi.load('client', initClient);
       };
       initGapi();
     }, []);
@@ -275,12 +275,17 @@ export function CalendarioPage() {
         return;
       }
       setSyncing(true);
-      // Alinear cuenta preferida si existe
-      if (user?.googleEmail) {
-        try { await syncWithGoogle(user.googleEmail); } catch (e) { /* ignore */ }
-      }
-      if (!gapi?.auth2?.getAuthInstance?.() || !gapi.auth2.getAuthInstance().isSignedIn.get()) {
-        showAlert('warning', 'Inicia sesión con Google Calendar para sincronizar');
+      // Asegurar gapi client listo
+      try {
+        if (!gapi?.client?.calendar) {
+          await gapi.load('client', initClient);
+        }
+      } catch (_) {}
+      // Obtener token de forma silenciosa usando la cuenta que ya fue sincronizada en Perfil
+      try {
+        await ensureGoogleToken(user?.googleEmail, { silent: true });
+      } catch (e) {
+        showAlert('warning', 'Debes sincronizar tu cuenta desde Perfil > Horarios antes de enviar eventos.');
         return;
       }
       const intervalMinutes = interval || 60;
@@ -312,14 +317,16 @@ export function CalendarioPage() {
           } else {
             continue;
           }
-          const [h, m] = String(horaStr).split(':');
-          const horaFin = `${String(parseInt(h || '9', 10) + 1).padStart(2, '0')}:${m || '00'}`;
+          // Calcular hora de término según el intervalo configurado del profesional
+          const startDateLocal = dayjs(`${fechaISO}T${String(horaStr).padStart(5, '0')}:00`);
+          const endDateLocal = startDateLocal.add(intervalMinutes, 'minute');
+          const horaFin = endDateLocal.format('HH:mm');
 
           const eventResource = {
             summary: `Cita con ${r?.paciente?.nombre || 'Paciente'}`,
             description: r?.diagnostico ? `Diagnóstico: ${r.diagnostico}` : 'Cita sincronizada automáticamente',
             start: {
-              dateTime: `${fechaISO}T${horaStr}:00`,
+              dateTime: `${fechaISO}T${String(horaStr).padStart(5, '0')}:00`,
               timeZone: 'America/Santiago',
             },
             end: {
@@ -345,6 +352,16 @@ export function CalendarioPage() {
             failed += 1;
           }
         } catch (e) {
+          // Log detallado del error de Google para depurar 400
+          try {
+            const gerr = e?.result?.error || e?.body || e;
+            console.error('[Calendar][insert] Error:', gerr);
+            const msg = e?.result?.error?.message || e?.message || 'Error desconocido al crear evento';
+            // Muestra solo el primer error encontrado para no saturar
+            if (failed === 0) {
+              showAlert('error', `No se pudo crear un evento en Google Calendar: ${msg}`);
+            }
+          } catch (_) {}
           // fallo con este registro, continuar con siguientes
           failed += 1;
         }
@@ -436,13 +453,18 @@ export function CalendarioPage() {
     };
   };
 
-  // Filtrar eventos según selección de tipos
-  const filteredEvents = events.filter(ev => {
-    if (ev.tipo === 'primera') return visibleTypes.primera;
-    if (ev.tipo === 'pendiente') return visibleTypes.pendiente;
-    if (ev.tipo === 'historial') return visibleTypes.historial;
-    return true;
-  });
+  // Filtrar eventos según selección de tipos y ocultar cualquier evento en días bloqueados
+  const filteredEvents = events
+    .filter(ev => {
+      if (ev.tipo === 'primera') return visibleTypes.primera;
+      if (ev.tipo === 'pendiente') return visibleTypes.pendiente;
+      if (ev.tipo === 'historial') return visibleTypes.historial;
+      return true;
+    })
+    .filter(ev => {
+      const dateStr = dayjs(ev.start).format('YYYY-MM-DD');
+      return !blockedDaysSet.has(dateStr);
+    });
 
   const toggleType = (key) => setVisibleTypes(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -498,7 +520,7 @@ export function CalendarioPage() {
                 cursor: 'pointer'
               }} 
             />
-            {!esAsistente && (
+            {!esAsistente && Boolean(user?.googleEmail) && (
               <Button 
                 size="small" 
                 variant="contained"

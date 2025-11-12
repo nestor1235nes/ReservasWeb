@@ -1,8 +1,22 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "Permissions-Policy", "value": "interest-cohort=()" },
+        { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" },
+        { "key": "Content-Security-Policy-Report-Only", "value": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://reservas-backend-738093538653.southamerica-east1.run.app https://www.googleapis.com https://accounts.google.com https://vitals.vercel-insights.com https://vercel.live wss:; frame-src 'self' https://accounts.google.com https://checkout.transbank.cl; upgrade-insecure-requests; report-uri /api/csp-report" }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://reservas-backend-286462538213.us-central1.run.app/api/$1" },
-    { "source": "/uploads/(.*)", "destination": "https://reservas-backend-286462538213.us-central1.run.app/uploads/$1" },
-    { "source": "/imagenesPacientes/(.*)", "destination": "https://reservas-backend-286462538213.us-central1.run.app/imagenesPacientes/$1" },
+    { "source": "/api/(.*)", "destination": "https://reservas-backend-738093538653.southamerica-east1.run.app/api/$1" },
+    { "source": "/uploads/(.*)", "destination": "https://reservas-backend-738093538653.southamerica-east1.run.app/uploads/$1" },
+    { "source": "/imagenesPacientes/(.*)", "destination": "https://reservas-backend-738093538653.southamerica-east1.run.app/imagenesPacientes/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "installCommand": "pnpm install --no-frozen-lockfile",

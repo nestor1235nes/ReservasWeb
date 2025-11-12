@@ -1,5 +1,4 @@
-// Usamos dos instancias: una configurada para nuestro backend y otra cruda para Green API
-import externalAxios from 'axios';
+// Envío vía backend para evitar CORS y exponer credenciales
 import api from './api/axios.js';
 import dayjs from 'dayjs';
 
@@ -28,10 +27,11 @@ export async function fetchConfirmationLink(reservaId, _authToken) {
 
 // Reemplaza placeholders usando datos de la reserva.
 // Si template no incluye {enlaceConfirmacion} no se intenta generar.
-export function buildMessage(template, reserva, link) {
+export function buildMessage(template, reserva, link, _options = {}) {
+    // Política: enviar EXACTAMENTE el mensaje escrito por el profesional, solo reemplazando placeholders.
+    // No agregamos líneas automáticas ni textos por defecto.
     if (!template) return '';
-    // Normalizamos todas las variantes de {enlaceconfirmacion} a la forma canónica {enlaceConfirmacion}
-    let normalized = template.replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
+    let normalized = String(template || '').replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
 
     // Formatea fecha a DD-MM-YYYY manejando distintos formatos de entrada
     const formatFecha = (fecha) => {
@@ -59,41 +59,80 @@ export function buildMessage(template, reserva, link) {
         '{sucursal}': reserva?.sucursal?.nombre || '',
         '{enlaceConfirmacion}': link || '{enlaceConfirmacion}'
     };
-    return Object.entries(map).reduce((acc, [k,v]) => acc.replaceAll(k, v), normalized);
+    return Object.entries(map).reduce((acc, [k,v]) => acc.replaceAll(k, v), normalized).trim();
 }
 
-const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, _authToken) => {
-    const { idInstance, apiTokenInstance } = user;
-    if (!idInstance || !apiTokenInstance) {
-        console.warn('Faltan credenciales de Green API');
-        return;
-    }
+// Normaliza teléfono a formato 569XXXXXXXX (solo dígitos)
+function normalizarTelefono(telefono) {
+    if (!telefono) return '';
+    let tel = String(telefono).replace(/\D/g, '');
+    // Si ya está en formato correcto
+    if (tel.length === 11 && tel.startsWith('569')) return tel;
+    // 9 dígitos comenzando con 9 -> agregar 56
+    if (tel.length === 9 && tel.startsWith('9')) return '56' + tel;
+    // 8 dígitos -> agregar 569
+    if (tel.length === 8) return '569' + tel;
+    // Si empieza con 56 pero no 569 -> corregir
+    if (tel.startsWith('56') && !tel.startsWith('569')) return '569' + tel.slice(2);
+    // Si viene con 12 dígitos tipo 0569XXXXXXXX -> quitar 0 extra
+    if (tel.length === 12 && tel.startsWith('0569')) return tel.slice(1);
+    // Como fallback, si tiene 11 y no cumple patrón, devolver tal cual para logueo
+    return tel;
+}
 
-    for (const reserva of reservasLiberadas) {
-        const phoneNumber = reserva?.paciente?.telefono;
-        if (!phoneNumber) continue;
+const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, options = {}) => {
+    // Las credenciales ahora las usa el backend desde el perfil del usuario
+
+    let sent = 0;
+    const failures = [];
+    for (const reserva of reservasLiberadas || []) {
+        const rawPhone = reserva?.paciente?.telefono;
+        if (!rawPhone) {
+            failures.push({ phone: null, reason: 'missing_phone', reservaId: reserva?._id });
+            continue;
+        }
+        const phoneNumber = normalizarTelefono(rawPhone);
+        const validPhone = /^569\d{8}$/.test(String(phoneNumber));
+        if (!validPhone) {
+            failures.push({ phone: rawPhone, normalized: phoneNumber, reason: 'invalid_phone_format', reservaId: reserva?._id });
+            continue;
+        }
 
         // Generar link si el template requiere placeholder
         let link = '';
-        // Normalizar para detección case-insensitive
-        const needsLink = /\{enlaceconfirmacion\}/i.test(messageTemplate);
+        const needsLink = /\{enlaceconfirmacion\}/i.test(messageTemplate || '') || /\{enlaceConfirmacion\}/.test(messageTemplate || '');
         if (needsLink) {
-            link = await fetchConfirmationLink(reserva._id);
+            try {
+                link = await fetchConfirmationLink(reserva._id);
+            } catch (e) {
+                console.warn('No se pudo obtener enlace de confirmación para', reserva?._id, e);
+            }
         }
 
-        const finalMessage = buildMessage(messageTemplate, reserva, link);
+    const finalMessage = buildMessage(messageTemplate, reserva, link, options);
+        if (!finalMessage || !finalMessage.trim()) {
+            failures.push({ phone: phoneNumber, reason: 'empty_message', reservaId: reserva?._id });
+            continue;
+        }
 
-        const url = `https://api.green-api.com/waInstance${idInstance}/sendMessage/${apiTokenInstance}`;
-        const data = {
-            chatId: `${phoneNumber}@c.us`,
-            message: finalMessage,
-        };
         try {
-            await externalAxios.post(url, data);
+            const resp = await api.post('/notifications/whatsapp', { phoneNumber, message: finalMessage });
+            if (resp?.data?.ok) {
+                // Consideramos enviado si el backend no reporta fallos para este número
+                const failedForPhone = Array.isArray(resp?.data?.details)
+                  ? resp.data.details.find((d) => d.phone === phoneNumber)
+                  : null;
+                if (!failedForPhone) sent += 1; else failures.push({ phone: phoneNumber, reason: failedForPhone.reason, detail: failedForPhone.detail });
+            } else {
+                failures.push({ phone: phoneNumber, reason: 'backend_error', detail: resp?.data?.message });
+            }
         } catch (error) {
-            console.error(`Error sending WhatsApp message to ${phoneNumber}:`, error);
+            const msg = error?.response?.data || error?.message || String(error);
+            failures.push({ phone: phoneNumber, reason: 'request_error', detail: msg });
+            console.error(`Error sending WhatsApp to ${phoneNumber}:`, msg);
         }
     }
+    return { sent, failed: failures.length, details: failures };
 };
 
 export default sendWhatsAppMessage;

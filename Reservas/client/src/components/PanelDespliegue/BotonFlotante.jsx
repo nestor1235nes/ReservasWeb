@@ -32,7 +32,7 @@ const BotonFlotante = ({ onClick, fetchReservas, gapi }) => {
               background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
               color: 'white',
               pointerEvents: 'auto',
-              '&:hover': { filter: 'brightness(0.95)' }
+              '&:hover': { filter: 'brightness(0.95)' },
             }}
           >
             <PriorityHighIcon sx={{ fontSize: { xs: 30, sm: 36 }, color: 'inherit' }} />

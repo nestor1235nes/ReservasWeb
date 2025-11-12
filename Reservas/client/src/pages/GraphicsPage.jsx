@@ -206,8 +206,8 @@ export default function GraphicsPage() {
         </FormControl>
       </Stack> 
 
-      {/* KPIs Cards */}
-      <Grid container spacing={2} mb={3}>
+      {/* KPIs principales */}
+      <Grid container spacing={2} mb={3} mt={1}>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
             <CardContent>

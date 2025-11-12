@@ -1,7 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { resolveToken, confirmByToken, cancelByToken, requestReschedule } from '../api/confirmation.js';
-import { Box, Card, CardContent, Typography, Button, Stack, TextField, Alert } from '@mui/material';
+import { Box, Card, CardContent, Typography, Button, Stack, TextField, Alert, Chip, Divider } from '@mui/material';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import PersonIcon from '@mui/icons-material/Person';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import TopAppBar from '../components/ui/TopAppBar';
+import SiteFooter from '../components/ui/SiteFooter';
 
 const ConfirmationPage = () => {
 	const { token } = useParams();
@@ -27,6 +34,27 @@ const ConfirmationPage = () => {
 		};
 		load();
 	}, [token]);
+
+		// Formateo robusto de fecha para evitar desfase de un día cuando llega como "YYYY-MM-DD" o "T00:00:00Z"
+		const fechaLabel = useMemo(() => {
+			if (!info?.fecha) return '—';
+			const f = info.fecha;
+			if (typeof f === 'string') {
+				if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
+					const [y, m, d] = f.split('-');
+					return `${d}/${m}/${y}`;
+				}
+				if (f.endsWith('Z') && f.includes('T00:00:00')) {
+					const [y, m, d] = f.slice(0,10).split('-');
+					return `${d}/${m}/${y}`;
+				}
+			}
+			try {
+				return new Date(f).toLocaleDateString('es-CL');
+			} catch {
+				return '—';
+			}
+		}, [info]);
 
 	const handleConfirm = async () => {
 		setActionMsg(null);
@@ -62,52 +90,97 @@ const ConfirmationPage = () => {
 		}
 	};
 
-	if (loading) return <Typography>Cargando...</Typography>;
-	if (error) return <Alert severity='error'>{error}</Alert>;
-	if (!info) return <Alert severity='warning'>No se encontró información de la cita.</Alert>;
+	if (loading) return <Typography sx={{ p: 2 }}>Cargando...</Typography>;
+	if (error) return <Alert severity='error' sx={{ m: 2 }}>{error}</Alert>;
+	if (!info) return <Alert severity='warning' sx={{ m: 2 }}>No se encontró información de la cita.</Alert>;
 
 	return (
-		<Box display='flex' justifyContent='center' mt={4} px={2}>
-			<Card sx={{ maxWidth: 600, width: '100%' }}>
-				<CardContent>
-					<Typography variant='h5' fontWeight={600} gutterBottom>
-						Confirmación de Cita
-					</Typography>
-					{actionMsg && <Alert severity='success' sx={{ mb:2 }}>{actionMsg}</Alert>}
-					<Stack spacing={1} mb={2}>
-						<Typography><strong>Paciente:</strong> {info.paciente}</Typography>
-						<Typography><strong>Servicio:</strong> {info.servicio}</Typography>
-						<Typography><strong>Fecha:</strong> {info.fecha ? new Date(info.fecha).toLocaleDateString() : '—'}</Typography>
-						<Typography><strong>Hora:</strong> {info.hora || '—'}</Typography>
-						<Typography><strong>Estado:</strong> {info.status}</Typography>
-					</Stack>
-					{info.status === 'pending' && !rescheduleMode && (
-						<Stack direction='row' spacing={2} flexWrap='wrap'>
-							<Button variant='contained' color='success' onClick={handleConfirm}>Confirmar</Button>
-							<Button variant='outlined' color='error' onClick={handleCancel}>Cancelar</Button>
-							<Button variant='text' onClick={() => setRescheduleMode(true)}>Solicitar cambio horario</Button>
-						</Stack>
-					)}
-					{info.status === 'confirmed' && <Alert severity='info'>La cita ya está confirmada. Si necesitas cambiar, solicita un ajuste.</Alert>}
-					{info.status === 'cancelled' && <Alert severity='warning'>La cita fue cancelada.</Alert>}
-					{info.status === 'reschedule_requested' && <Alert severity='info'>Solicitud de cambio enviada. El centro se contactará contigo.</Alert>}
-					{rescheduleMode && info.status === 'pending' && (
-						<Box mt={3}>
-							<Typography variant='subtitle1' fontWeight={600}>Solicitar nuevo horario</Typography>
-							<Stack spacing={2} mt={1}>
-								<TextField type='date' label='Nueva fecha' InputLabelProps={{ shrink: true }} value={newDate} onChange={e=>setNewDate(e.target.value)} />
-								<TextField type='time' label='Nueva hora' InputLabelProps={{ shrink: true }} value={newTime} onChange={e=>setNewTime(e.target.value)} />
-								<TextField label='Motivo o comentario' multiline minRows={2} value={reason} onChange={e=>setReason(e.target.value)} />
-								<Stack direction='row' spacing={2}>
-									<Button variant='contained' onClick={handleReschedule} disabled={!newDate || !newTime}>Enviar</Button>
-									<Button variant='text' onClick={()=>setRescheduleMode(false)}>Cancelar</Button>
+			<Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg,#ffffff 0%, #f0fbff 100%)' }}>
+				<TopAppBar hideProLink />
+						<Box display='flex' justifyContent='center' mt={6} px={2} sx={{ flex: 1, pb: 6 }}>
+					<Card sx={{ maxWidth: 700, width: '100%', border: '1px solid #e3f2fd', boxShadow: '0 8px 24px rgba(37,150,190,0.10)', borderRadius: 4 }}>
+						<CardContent>
+							<Stack direction='row' spacing={1.5} alignItems='center' mb={1.5}>
+								<EventAvailableIcon sx={{ color: '#2596be' }} />
+								<Typography variant='h5' fontWeight={900} sx={{ background: 'linear-gradient(135deg,#2596be,#21cbe6)', WebkitBackgroundClip: 'text', color: 'transparent' }}>
+									Confirmación de Cita
+								</Typography>
+							</Stack>
+							<Divider sx={{ mb: 2 }} />
+							{actionMsg && <Alert severity='success' sx={{ mb:2 }}>{actionMsg}</Alert>}
+							<Stack spacing={1.5} mb={3}>
+								<Stack direction='row' spacing={1} alignItems='center'>
+									<PersonIcon sx={{ color: '#2596be' }} />
+									<Typography><strong>Paciente:</strong> {info.paciente}</Typography>
+								</Stack>
+								<Typography><strong>Servicio:</strong> {info.servicio}</Typography>
+								<Stack direction='row' spacing={1} alignItems='center'>
+									<EventAvailableIcon sx={{ color: '#2596be' }} />
+									<Typography><strong>Fecha:</strong> {fechaLabel}</Typography>
+								</Stack>
+								<Stack direction='row' spacing={1} alignItems='center'>
+									<AccessTimeIcon sx={{ color: '#2596be' }} />
+									<Typography><strong>Hora:</strong> {info.hora || '—'}</Typography>
+								</Stack>
+								<Stack direction='row' spacing={1} alignItems='center'>
+									<Typography><strong>Estado:</strong></Typography>
+									<Chip
+										size='small'
+										label={info.status}
+										sx={(() => {
+											if (info.status === 'pending') return { borderColor: '#2596be', color: '#2596be', backgroundColor: 'rgba(37,150,190,0.06)' };
+											if (info.status === 'confirmed') return { background: 'linear-gradient(135deg,#2596be,#21cbe6)', color: '#fff' };
+											if (info.status === 'cancelled') return { backgroundColor: '#fdecea', color: '#d32f2f' };
+											if (info.status === 'reschedule_requested') return { backgroundColor: '#fff4e5', color: '#b26a00' };
+											return {};
+										})()}
+										variant={info.status === 'pending' ? 'outlined' : 'filled'}
+									/>
 								</Stack>
 							</Stack>
-						</Box>
-					)}
-				</CardContent>
-			</Card>
-		</Box>
+							{info.status === 'pending' && !rescheduleMode && (
+								<Stack direction='row' spacing={1.5} flexWrap='wrap'>
+									<Button
+										variant='contained'
+										onClick={handleConfirm}
+										startIcon={<CheckCircleOutlineIcon />}
+										sx={{
+											textTransform: 'none',
+											borderRadius: 3,
+											px: 3,
+											fontWeight: 600,
+											background: 'linear-gradient(135deg,#2596be,#21cbe6)',
+											boxShadow: '0 4px 12px rgba(37,150,190,0.35)',
+											'&:hover': { background: 'linear-gradient(135deg,#1e7fa0,#1ab9d3)' }
+										}}
+									>
+										Confirmar Cita
+									</Button>
+									<Button
+										variant='outlined'
+										onClick={handleCancel}
+										startIcon={<CancelOutlinedIcon />}
+										sx={{
+											textTransform: 'none',
+											borderRadius: 3,
+											px: 3,
+											fontWeight: 600,
+											borderColor: '#d32f2f',
+											color: '#d32f2f',
+											'&:hover': { backgroundColor: 'rgba(211,47,47,0.06)', borderColor: '#b71c1c' }
+										}}
+									>
+										Cancelar Cita
+									</Button>
+								</Stack>
+							)}
+							{info.status === 'confirmed' && <Alert severity='info'>La cita ya está confirmada. Si necesitas cambiar, solicita un ajuste.</Alert>}
+							{info.status === 'cancelled' && <Alert severity='warning'>La cita fue cancelada.</Alert>}
+						</CardContent>
+					</Card>
+				</Box>
+				<SiteFooter />
+			</Box>
 	);
 };
 

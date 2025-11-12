@@ -206,7 +206,16 @@ const VerHistorial = ({ open, onClose, paciente }) => {
                   </Tooltip>
                 </Box>
               ) : (
-                <Button variant="contained" color="secondary" onClick={handleGeneratePDF} startIcon={<PictureAsPdfIcon />} style={{ boxShadow: '0 0 5px 0 rgba(0,0,0,0.2)' }}>
+                <Button
+                  variant="contained"
+                  onClick={handleGeneratePDF}
+                  startIcon={<PictureAsPdfIcon />}
+                  sx={{
+                    background: 'white',
+                    color: '#2596be',
+                    boxShadow: '0 0 5px 0 rgba(0,0,0,0.2)',
+                  }}
+                >
                   Generar PDF
                 </Button>
               )}
@@ -229,6 +238,7 @@ const VerHistorial = ({ open, onClose, paciente }) => {
                     />
                   )}
                   <ListItemText
+                    
                     primary={`Sesión ${index + 1} -> ${dayjs(sesion.fecha).isValid() ? dayjs(sesion.fecha).format('DD/MM/YYYY') : 'Fecha no válida'}`}
                   />
                   <Box>

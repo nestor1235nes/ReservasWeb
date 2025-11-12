@@ -8,3 +8,8 @@ export const getCalendarsSync = async (userId) => {
 export const setCalendarSync = async (userId, type, email) => {
   await axios.post(`/calendarsync/${userId}`, { type, email });
 };
+
+export const clearCalendarSyncRequest = async (userId, type) => {
+  const res = await axios.delete(`/calendarsync/${userId}/${type}`);
+  return res.data;
+};

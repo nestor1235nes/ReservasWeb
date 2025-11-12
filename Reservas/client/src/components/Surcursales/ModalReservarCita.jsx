@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   Box,
@@ -15,7 +15,8 @@ import {
   Fade,
   IconButton,
   Typography,
-  Alert
+  Alert,
+  Snackbar
 } from '@mui/material';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
@@ -73,6 +74,23 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [selectedService, setSelectedService] = useState(null);
   const [selectedServiceIndex, setSelectedServiceIndex] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('presencial'); // 'presencial' | 'webpay'
+  const [messageChannel, setMessageChannel] = useState('whatsapp'); // WhatsApp-only
+  const [contactAttempted, setContactAttempted] = useState(false);
+  // Feedback local (similar a HomePageNew)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Si el profesional tiene un único servicio, seleccionarlo automáticamente
+  useEffect(() => {
+    if (!open) return;
+    const servicios = datosPreseleccionados?.profesional?.servicios || [];
+    if (Array.isArray(servicios) && servicios.length === 1) {
+      setSelectedService(servicios[0]);
+      setSelectedServiceIndex(0);
+    } else {
+      setSelectedService(null);
+      setSelectedServiceIndex(null);
+    }
+  }, [open, datosPreseleccionados?.profesional?._id]);
 
   // Paso 1: Rutificador
   const handleRutValidated = async (rutIngresado) => {
@@ -120,27 +138,35 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
     setLoading(false);
   };
 
-  // Paso 2: Guardar datos si es nuevo
+  // Paso 2: Guardar datos si es nuevo (en flujo público, diferir creación hasta finalizar si pago es presencial)
   const handleNext = async () => {
     if (activeStep === 0 && !rutValido) {
       setError('Debe ingresar un RUT válido.');
       return;
     }
-    if (activeStep === 1 && (!paciente.nombre || !paciente.telefono)) {
-      setError('Complete todos los campos obligatorios.');
-      return;
+    if (activeStep === 1) {
+      // Activar visualización de errores en UI
+      setContactAttempted(true);
+      // Validaciones: WhatsApp obligatorio
+      if (!paciente.nombre) {
+        setError('Ingrese su nombre.');
+        return;
+      }
+      if (!paciente.telefono) {
+        setError('Ingrese su teléfono para recibir confirmaciones por WhatsApp.');
+        return;
+      }
+      // Si todo ok, limpiar error
+      setError('');
     }
     setError('');
-    // Si es el paso de datos de contacto y aún no existe paciente, crearlo
+    // Si es el paso de datos de contacto y aún no existe paciente
     if (activeStep === 1 && !paciente._id) {
       setLoading(true);
       try {
         if (datosPreseleccionados?.publicFlow) {
-          // Usar axios instance con baseURL http://localhost:4000/api -> no anteponer "/api" ni "/"
-          const { data } = await axios.post('public/ficha', { ...paciente, profesional: datosPreseleccionados?.profesional?._id });
-          if (data && (data._id || data.id)) {
-            setPaciente(prev => ({ ...prev, _id: data._id || data.id }));
-          }
+          // En flujo público no creamos paciente aún (se hará al finalizar en presencial, o tras pago en webpay)
+          // Simplemente continuamos sin persistir
         } else {
           const { data } = await createPacienteRequest(paciente);
           if (data && (data._id || data.id)) {
@@ -165,7 +191,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
 
   const handleBack = () => setActiveStep((prev) => prev - 1);
 
-  const handleChange = (e) => setPaciente({ ...paciente, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    setPaciente({ ...paciente, [e.target.name]: e.target.value });
+  };
 
   const handleFinish = async () => {
     setLoading(true);
@@ -211,12 +239,31 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       if (paymentMethod === 'presencial') {
         // Crear reserva normalmente
         if (datosPreseleccionados?.publicFlow) {
+          // Asegurar creación de paciente ahora (diferida)
+          if (!pacienteId) {
+            const { data: pData } = await axios.post('public/ficha', { ...paciente, profesional: datosPreseleccionados?.profesional?._id });
+            pacienteId = pData?._id || pData?.id;
+            setPaciente(prev => ({ ...prev, _id: pacienteId }));
+          }
           await axios.post('public/reserva', { ...reserva, rut: paciente.rut });
           onReserva({ ...paciente, _id: pacienteId || '' });
         } else {
           await createReservaRequest(paciente.rut, reserva);
           onReserva({ ...paciente, _id: pacienteId });
         }
+        // No cerrar inmediatamente para que el usuario vea el mensaje
+        setTimeout(() => {
+          setActiveStep(0);
+          setPaciente({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
+          setRut('');
+          setRutValido(false);
+          setSelectedService(null);
+          setSelectedServiceIndex(null);
+          setSnackbar(prev => ({ ...prev, open: false }));
+          onClose();
+        }, 2200);
+        setLoading(false);
+        return; // Evita ejecutar la limpieza duplicada al final
       } else if (paymentMethod === 'webpay') {
         // Asegurarse que hay servicio seleccionado y precio
         if (!selectedService) {
@@ -225,41 +272,58 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           return;
         }
 
-        // Crear la reserva en estado pendiente en el backend
-        const createRes = datosPreseleccionados?.publicFlow
-          ? await axios.post('public/reserva', { ...reserva, rut: paciente.rut })
-          : await createReservaRequest(paciente.rut, reserva);
-        const reservaCreada = createRes.data; // asume que el endpoint devuelve la reserva creada
-        const reservaId = reservaCreada._id || reservaCreada.id;
+        const amount = Number(selectedService.precio || selectedService.price || selectedService.monto || 0);
+        if (datosPreseleccionados?.publicFlow) {
+          // Iniciar transacción pública sin crear paciente ni reserva todavía
+          const payload = {
+            amount,
+            patient: { nombre: paciente.nombre, rut: paciente.rut, telefono: paciente.telefono, email: paciente.email },
+            reserva: {
+              profesional: datosPreseleccionados.profesional?._id,
+              siguienteCita: reserva.siguienteCita,
+              hora: reserva.hora,
+              modalidad: reserva.modalidad,
+              servicio: reserva.servicio,
+            }
+          };
+          const paymentResp = await axios.post('transbank/create-public', payload);
 
-        // Iniciar transacción con backend
-  const amount = Number(selectedService.precio || selectedService.price || selectedService.monto || 0);
-        const paymentResp = await createPaymentRequest(reservaId, amount, paciente.rut);
+          // Redirigir a Webpay (form POST)
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = paymentResp.data.url;
+          const tokenInput = document.createElement('input');
+          tokenInput.type = 'hidden';
+          tokenInput.name = 'token_ws';
+          tokenInput.value = paymentResp.data.token;
+          form.appendChild(tokenInput);
+          document.body.appendChild(form);
+          form.submit();
+        } else {
+          // Flujo autenticado actual: crear reserva, luego iniciar pago
+          const createRes = await createReservaRequest(paciente.rut, reserva);
+          const reservaCreada = createRes.data;
+          const reservaId = reservaCreada._id || reservaCreada.id;
+          const paymentResp = await createPaymentRequest(reservaId, amount, paciente.rut);
 
-        // Redirigir a Webpay (form POST)
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = paymentResp.data.url;
-        const tokenInput = document.createElement('input');
-        tokenInput.type = 'hidden';
-        tokenInput.name = 'token_ws';
-        tokenInput.value = paymentResp.data.token;
-        form.appendChild(tokenInput);
-        document.body.appendChild(form);
-        form.submit();
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = paymentResp.data.url;
+          const tokenInput = document.createElement('input');
+          tokenInput.type = 'hidden';
+          tokenInput.name = 'token_ws';
+          tokenInput.value = paymentResp.data.token;
+          form.appendChild(tokenInput);
+          document.body.appendChild(form);
+          form.submit();
+        }
         // No cerrar modal: la redirección llevará al frontend de vuelta a /payment/confirm
       }
 
-      // 4. Si se guardó en presencial, limpiar y cerrar
-      if (paymentMethod === 'presencial') {
-        setActiveStep(0);
-        setPaciente({ nombre: '', rut: '', telefono: '', email: '', _id: '' });
-        setRut('');
-        setRutValido(false);
-        onClose();
-      }
+      // 4. En webpay no cerramos el modal: se redirige a Webpay
     } catch (e) {
       setError('Error al crear o actualizar la reserva');
+      setSnackbar({ open: true, message: 'Hubo un problema al crear la reserva. Inténtalo nuevamente.', severity: 'error' });
     }
     setLoading(false);
   };
@@ -268,6 +332,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const headerGradient = "linear-gradient(90deg, #2596be 60%, #21cbe6 100%)";
 
   return (
+    <>
     <Modal open={open} onClose={onClose} closeAfterTransition>
       <Fade in={open}>
         <Box sx={style}>
@@ -290,12 +355,23 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           </Box>
           {/* Stepper */}
           <Box px={{ xs: 2, sm: 3 }} pt={2} pb={0}>
-            <Stepper activeStep={activeStep} alternativeLabel>
+            <Stepper
+              activeStep={activeStep}
+              alternativeLabel
+              sx={{
+                '& .MuiStepIcon-root': { color: '#b9e0ee' },
+                '& .MuiStepIcon-root.Mui-active': { color: '#2596be' },
+                '& .MuiStepIcon-root.Mui-completed': { color: '#21cbe6' },
+                '& .MuiStepConnector-line': { borderColor: '#cfeaf5' }
+              }}
+            >
               {steps.map(label => (
                 <Step key={label}>
                   <StepLabel
                     sx={{
-                      '& .MuiStepLabel-label': { fontWeight: 600, color: '#2596be', fontSize: { xs: '0.85rem', sm: '0.95rem' }, whiteSpace: 'normal' }
+                      '& .MuiStepLabel-label': { fontWeight: 600, color: '#2596be', fontSize: { xs: '0.85rem', sm: '0.95rem' }, whiteSpace: 'normal' },
+                      '& .MuiStepLabel-label.Mui-completed': { color: '#21cbe6' },
+                      '& .MuiStepLabel-label.Mui-active': { color: '#2596be' }
                     }}
                   >
                     {label}
@@ -309,7 +385,11 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           <Box px={{ xs: 2, sm: 3 }} pb={{ xs: 2, sm: 3 }} minHeight={260} sx={{ flex: 1, overflowY: 'auto' }}>
             {activeStep === 0 && (
               <Stack spacing={2} alignItems="center" justifyContent="center" minHeight={200}>
-                <Rutificador onRutValidated={handleRutValidated} />
+                <Rutificador
+                  onRutValidated={handleRutValidated}
+                  onValidChange={(isValid) => setRutValido(isValid)}
+                  exampleText="Ejemplo: 12345678-9"
+                />
                 {loading && <CircularProgress size={28} sx={{ color: '#2596be' }} />}
                 {error && <Typography color="error">{error}</Typography>}
               </Stack>
@@ -323,6 +403,8 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   onChange={handleChange}
                   fullWidth
                   required
+                  placeholder="Ej: Juan Pérez"
+                  autoComplete="name"
                   InputProps={{
                     startAdornment: <PersonIcon sx={{ mr: 1, color: '#2596be' }} />
                   }}
@@ -334,7 +416,11 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   
                   onChange={handleChange}
                   fullWidth
-                  required
+                  required={messageChannel === 'whatsapp'}
+                  error={contactAttempted && messageChannel === 'whatsapp' && !paciente.telefono}
+                  helperText={contactAttempted && messageChannel === 'whatsapp' && !paciente.telefono ? 'Requerido para confirmar por WhatsApp' : ''}
+                  placeholder="Ej: 912345678"
+                  inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 9 }}
                   InputProps={{
                     startAdornment: <PhoneIphoneIcon sx={{ mr: 1, color: '#2596be' }} />
                   }}
@@ -345,10 +431,18 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   value={paciente.email}
                   onChange={handleChange}
                   fullWidth
+                  required={messageChannel === 'email'}
+                  error={contactAttempted && messageChannel === 'email' && !paciente.email}
+                  helperText={contactAttempted && messageChannel === 'email' && !paciente.email ? 'Requerido para confirmar por correo' : ''}
                   InputProps={{
                     startAdornment: <EmailIcon sx={{ mr: 1, color: '#2596be' }} />
                   }}
                 />
+                <Paper elevation={1} sx={{ width: '100%', p: 1.5, borderRadius: 2, background: '#f7fbfc' }}>
+                  <Typography fontWeight={600} mb={1} color="#2596be">
+                    Recibirás la confirmación y recordatorios por WhatsApp al número ingresado.
+                  </Typography>
+                </Paper>
                 {proximaCita && (
                   <Paper elevation={1} sx={{ width: '100%', p: 1.5, mt: 1, background: '#e3f7fa' }}>
                     <Typography variant="subtitle2" color="#2596be" fontWeight={600}>
@@ -522,7 +616,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
               <Button
                 variant="contained"
                 onClick={handleNext}
-                disabled={loading}
+                disabled={loading || (activeStep === 0 && !rutValido)}
                 sx={{
                   background: 'linear-gradient(90deg, #2596be 60%, #21cbe6 100%)',
                   color: 'white',
@@ -557,5 +651,16 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
         </Box>
       </Fade>
     </Modal>
+    <Snackbar
+      open={snackbar.open}
+      autoHideDuration={3000}
+      onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    >
+      <Alert onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+    </>
   );
 }

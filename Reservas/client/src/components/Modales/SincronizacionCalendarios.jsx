@@ -4,10 +4,11 @@ import GoogleIcon from '@mui/icons-material/Google';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import DownloadIcon from '@mui/icons-material/Download';
 import EventIcon from '@mui/icons-material/Event';
-import { getCalendarsSync, setCalendarSync } from "../../api/calendarsync"; // Debes crear estos métodos
+import { getCalendarsSync, setCalendarSync, clearCalendarSyncRequest } from "../../api/calendarsync"; // Debes crear estos métodos
 import { syncWithGoogle } from '../../googleCalendarConfig';
 import { getReservasParaExportacionRequest } from "../../api/reservas";
 import dayjs from 'dayjs';
+import { useAuth } from '../../context/authContext';
 
 const style = {
   position: 'absolute',
@@ -21,23 +22,72 @@ const style = {
   p: 4,
 };
 
-const SincronizacionCalendarios = ({ open, onClose, user }) => {
+const SincronizacionCalendarios = ({ open, onClose, user, onSynced }) => {
+  const { updatePerfil } = useAuth();
   const [syncStatus, setSyncStatus] = useState({ google: null, ical: null });
   const [isGeneratingICS, setIsGeneratingICS] = useState(false);
   const [alert, setAlert] = useState({ show: false, message: '', severity: 'success' });
   useEffect(() => {
     if (open && user) {
-      getCalendarsSync(user.id).then(setSyncStatus);
+      const userId = user.id || user._id;
+      if (!userId) {
+        setAlert({ show: true, message: 'No se pudo determinar el usuario para sincronizar.', severity: 'error' });
+        return;
+      }
+      getCalendarsSync(userId).then(setSyncStatus).catch(err => {
+        console.error('Error obteniendo estado de sincronización:', err);
+        setAlert({ show: true, message: 'Error al consultar el estado de sincronización.', severity: 'error' });
+      });
     }
   }, [open, user]);
 
   const handleGoogleSync = async () => {
-    // Inicia autenticación de Google usando como sugerencia el correo de sincronización
-    const loginHint = user?.googleEmail || undefined;
-    const email = await syncWithGoogle(loginHint);
-    if (email) {
-      await setCalendarSync(user.id, "google", email);
+    try {
+      const userId = user?.id || user?._id;
+      if (!userId) {
+        setAlert({ show: true, message: 'No se pudo determinar el usuario para sincronizar.', severity: 'error' });
+        return;
+      }
+      // Inicia autenticación de Google usando como sugerencia el correo de sincronización
+      const loginHint = user?.googleEmail || undefined;
+      const email = await syncWithGoogle(loginHint);
+      if (!email) {
+        setAlert({ show: true, message: 'No se pudo obtener el correo de Google. Vuelve a intentar.', severity: 'warning' });
+        return;
+      }
+      await setCalendarSync(userId, "google", email);
       setSyncStatus(prev => ({ ...prev, google: email }));
+      try {
+        await updatePerfil(userId, { googleEmail: email });
+      } catch (e) {
+        console.warn('No se pudo actualizar googleEmail en el perfil:', e);
+      }
+      if (typeof onSynced === 'function') onSynced(email);
+      setAlert({ show: true, message: `Cuenta sincronizada: ${email}`, severity: 'success' });
+    } catch (err) {
+      console.error('Error al sincronizar Google Calendar:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Error al sincronizar con Google Calendar';
+      setAlert({ show: true, message: msg, severity: 'error' });
+    }
+  };
+
+  const handleGoogleDesync = async () => {
+    try {
+      const userId = user?.id || user?._id;
+      if (!userId) {
+        setAlert({ show: true, message: 'No se pudo determinar el usuario.', severity: 'error' });
+        return;
+      }
+      await clearCalendarSyncRequest(userId, 'google');
+      setSyncStatus(prev => ({ ...prev, google: null }));
+      try {
+        await updatePerfil(userId, { googleEmail: '' });
+      } catch(e) { /* silent */ }
+      setAlert({ show: true, message: 'Cuenta de Google desincronizada.', severity: 'success' });
+    } catch (err) {
+      console.error('Error al desincronizar Google Calendar:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Error al desincronizar';
+      setAlert({ show: true, message: msg, severity: 'error' });
     }
   };
 
@@ -152,23 +202,44 @@ const SincronizacionCalendarios = ({ open, onClose, user }) => {
 
         <Stack spacing={2}>
           {/* Botón para sincronizar con Google Calendar */}
-          <Button
-            variant="contained"
-            startIcon={<GoogleIcon />}
-            onClick={handleGoogleSync}
-            disabled={!!syncStatus.google}
-            sx={{
-              background: 'linear-gradient(45deg, #4285f4 30%, #34a853 90%)',
-              '&:hover': {
-                background: 'linear-gradient(45deg, #3367d6 30%, #2d8e47 90%)',
-              },
-              '&:disabled': {
-                background: 'linear-gradient(45deg, #9aa0a6 30%, #9aa0a6 90%)',
-              }
-            }}
-          >
-            {syncStatus.google ? "Google Calendar sincronizado" : "Sincronizar con Google Calendar"}
-          </Button>
+          {syncStatus.google ? (
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="contained"
+                startIcon={<GoogleIcon />}
+                disabled
+                sx={{
+                  background: 'linear-gradient(45deg, #4285f4 30%, #34a853 90%)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #3367d6 30%, #2d8e47 90%)',
+                  }
+                }}
+              >
+                {syncStatus.google}
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleGoogleDesync}
+              >
+                Desincronizar
+              </Button>
+            </Stack>
+          ) : (
+            <Button
+              variant="contained"
+              startIcon={<GoogleIcon />}
+              onClick={handleGoogleSync}
+              sx={{
+                background: 'linear-gradient(45deg, #4285f4 30%, #34a853 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #3367d6 30%, #2d8e47 90%)',
+                }
+              }}
+            >
+              Sincronizar con Google Calendar
+            </Button>
+          )}
 
           {/* Botón para descargar archivo ICS */}
           <Button

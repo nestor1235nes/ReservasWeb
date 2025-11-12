@@ -1,0 +1,9 @@
+### Send test email (requires auth token cookie or Authorization: Bearer)
+POST http://localhost:4000/api/notifications/email
+Content-Type: application/json
+
+{
+  "to": "destinatario@example.com",
+  "subject": "Prueba de correo",
+  "text": "Hola! Este es un correo de prueba desde Reservas."
+}

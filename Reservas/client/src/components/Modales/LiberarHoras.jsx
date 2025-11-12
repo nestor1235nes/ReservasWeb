@@ -10,6 +10,9 @@ import { useAlert } from '../../context/AlertContext';
 import sendWhatsAppMessage, { PLACEHOLDERS } from '../../sendWhatsAppMessage';
 import { CSSTransition } from 'react-transition-group';
 import '../ui/LiberarHoras.css';
+import { getReservasRequest } from '../../api/reservas';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 dayjs.locale('es');
 
@@ -23,6 +26,13 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const [customMessage, setCustomMessage] = useState('');
     const [showPlaceholdersHelp, setShowPlaceholdersHelp] = useState(false);
     const [blockDay, setBlockDay] = useState(true);
+    const [reservasDelDia, setReservasDelDia] = useState([]);
+    const [loadingReservas, setLoadingReservas] = useState(false);
+
+    const hasWhatsApp = Boolean(user?.idInstance && user?.apiTokenInstance);
+    const hasReservas = reservasDelDia.length > 0;
+    const mustWriteMessage = hasReservas && hasWhatsApp;
+    const messageError = mustWriteMessage && (!customMessage || customMessage.trim() === '');
 
     const handleFechaChange = (newValue) => {
         const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
@@ -32,10 +42,16 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
 
     const handleLiberarHoras = async () => {
         try {
+            // Validación: si hay horas agendadas y tiene WhatsApp, debe escribir mensaje
+            if (mustWriteMessage && (!customMessage || customMessage.trim() === '')) {
+                showAlert('error', 'Debes escribir un mensaje para notificar por WhatsApp a los pacientes de este día.');
+                return;
+            }
             const data = {
                 id: user.id || user._id,
                 fecha,
                 blockDay,
+                customMessage,
             };
             const reservasLiberadas = await liberarHoras(data);
             showAlert('success', blockDay ? 'Horas liberadas y día bloqueado' : 'Horas liberadas correctamente');
@@ -47,40 +63,39 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
             
             if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
                 for (const reserva of reservasLiberadas.reservasLiberadas) {
-                    if (reserva.paciente.eventId) {
+                    if (reserva.eventId) {
                         console.log(reserva);
                         const request = gapi.client.calendar.events.delete({
                             calendarId: 'primary',
-                            eventId: reserva.paciente.eventId,
+                            eventId: reserva.eventId,
                         });
     
                         request.execute((response) => {
                             if (response.error) {
                                 console.error('Error deleting event: ', response.error);
                             } else {
-                                console.log('Event deleted: ', reserva.paciente.eventId);
+                                console.log('Event deleted: ', reserva.eventId);
                             }
                         });
                     }
                 }
             }
     
-            if (user.idInstance) {
-                if(user.defaultMessage === '' && customMessage === '') {
-                    showAlert('error', 'No hay mensaje por defecto ni mensaje personalizado. No se enviará mensaje a los pacientes.');
-                    return;
-                }
-                if(customMessage){
-                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, customMessage, user);
-                    showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
-                    return;
-                }
-                else{
-                    const message = user.defaultMessage;
-                    await sendWhatsAppMessage(reservasLiberadas.reservasLiberadas, message, user);
-                    showAlert('success', 'Horas liberadas y mensaje enviado a los pacientes');
-                    return;
-                }
+            if (user.idInstance && user.apiTokenInstance) {
+                // Enviar WhatsApp a todos los afectados (política WhatsApp-only)
+                const waList = (reservasLiberadas?.reservasLiberadas || []);
+                if (waList.length > 0) {
+                  if (customMessage && customMessage.trim() !== '') {
+                    const report = await sendWhatsAppMessage(waList, customMessage, user, { suppressConfirmLine: true });
+                    if (report?.sent) {
+                        showAlert('success', `WhatsApp enviado a ${report.sent} paciente(s). ${report.failed ? report.failed + ' fallos' : ''}`);
+                    } else {
+                        showAlert('warning', 'No se pudo enviar WhatsApp. Revisa tus credenciales y el formato de teléfono (ej. 569XXXXXXXX).');
+                    }
+                  }
+                }             
+            } else {
+                showAlert('warning', 'Green API no está configurado (idInstance y apiTokenInstance). Ve a tu Perfil para configurarlo.');
             }
         } catch (error) {
             console.error(error);
@@ -89,6 +104,11 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     };
 
     const handleConfirmOpen = () => {
+        // Evitar abrir confirmación si debe escribir mensaje y está vacío
+        if (mustWriteMessage && (!customMessage || customMessage.trim() === '')) {
+            showAlert('error', 'Debes escribir un mensaje para notificar por WhatsApp a los pacientes de este día.');
+            return;
+        }
         setConfirmOpen(true);
     };
 
@@ -109,6 +129,65 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     // Inserta placeholder en posición del cursor
     const handleInsertPlaceholder = (token) => {
         setCustomMessage(prev => (prev || '') + (prev?.endsWith(' ') || prev === '' ? '' : ' ') + token + ' ');
+    };
+
+    // Cargar reservas del día seleccionado para validar reglas
+    useEffect(() => {
+        const fetchReservasDia = async () => {
+            if (!fecha) { setReservasDelDia([]); return; }
+            try {
+                setLoadingReservas(true);
+                const { data } = await getReservasRequest();
+                const target = dayjs(fecha);
+                const reservas = (data || []).filter(r => {
+                    const d = r?.siguienteCita || r?.diaPrimeraCita;
+                    if (!d) return false;
+                    const dj = dayjs(d);
+                    return dj.isValid() && dj.format('YYYY-MM-DD') === target.format('YYYY-MM-DD');
+                });
+                setReservasDelDia(reservas);
+            } catch (e) {
+                console.error('Error obteniendo reservas del día:', e);
+                setReservasDelDia([]);
+            } finally {
+                setLoadingReservas(false);
+            }
+        };
+        fetchReservasDia();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fecha]);
+
+    // Descargar PDF con pacientes del día (fallback sin WhatsApp)
+    const handleDescargarPDF = () => {
+        try {
+            const doc = new jsPDF();
+            const title = `Pacientes con reserva - ${dayjs(fecha).format('DD/MM/YYYY')}`;
+            doc.setFontSize(14);
+            doc.text(title, 14, 18);
+
+            const rows = reservasDelDia.map((r, idx) => [
+                idx + 1,
+                r?.paciente?.nombre || '-',
+                r?.paciente?.rut || '-',
+                r?.paciente?.telefono || '-',
+                r?.hora || '-',
+                r?.servicio || '-',
+            ]);
+
+            // @ts-ignore - autotable extend
+            doc.autoTable({
+                startY: 24,
+                head: [['#', 'Nombre', 'RUT', 'Teléfono', 'Hora', 'Servicio']],
+                body: rows,
+                styles: { fontSize: 10 },
+                headStyles: { fillColor: [37, 150, 190] },
+            });
+
+            doc.save(`contactos_${fecha}.pdf`);
+        } catch (e) {
+            console.error('Error generando PDF:', e);
+            showAlert('error', 'No se pudo generar el PDF.');
+        }
     };
 
     return (
@@ -227,7 +306,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                             {/* Sección de placeholders y mensaje personalizado */}
                             {!showCalendar && (
                                 <Box>
-                                    {user?.idInstance && (
+                                    {mustWriteMessage && user?.idInstance && (
                                         <Box mb={1} display="flex" alignItems="center" flexWrap="wrap" gap={0.5}>
                                             {PLACEHOLDERS.map(ph => (
                                                 <Chip key={ph.token} size="small" label={ph.token} onClick={() => handleInsertPlaceholder(ph.token)} clickable />
@@ -243,16 +322,34 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                         control={<Checkbox checked={blockDay} onChange={(e) => setBlockDay(e.target.checked)} />}
                                         label="Bloquear este día (impide nuevas reservas)"
                                     />
-                                    <TextField
-                                        label={(user && user.idInstance) ? "Mensaje personalizado (al dejar vacio se enviará el mensaje por defecto)" : "Sin autorización"}
-                                        multiline
-                                        rows={8}
-                                        value={customMessage}
-                                        onChange={(e) => setCustomMessage(e.target.value)}
-                                        fullWidth
-                                        margin="normal"
-                                        disabled={!(user && user.idInstance)}
-                                    />
+                                    {mustWriteMessage && (
+                                        <TextField
+                                            label="Mensaje general para notificar por WhatsApp (obligatorio)"
+                                            multiline
+                                            rows={8}
+                                            value={customMessage}
+                                            onChange={(e) => setCustomMessage(e.target.value)}
+                                            fullWidth
+                                            margin="normal"
+                                            error={messageError}
+                                            helperText={messageError ? 'Debes escribir un mensaje para notificar a los pacientes de este día.' : `Se enviará por WhatsApp a ${reservasDelDia.length} paciente(s).`}
+                                        />
+                                    )}
+                                    {hasReservas && !hasWhatsApp && (
+                                        <Button
+                                            variant="outlined"
+                                            onClick={handleDescargarPDF}
+                                            sx={{
+                                                mt: 1,
+                                                borderColor: '#2596be',
+                                                color: '#2596be',
+                                                fontWeight: 700,
+                                                '&:hover': { borderColor: '#21cbe6', color: '#21cbe6' }
+                                            }}
+                                        >
+                                            Descargar PDF de contactos
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="contained"
                                         onClick={handleConfirmOpen}
@@ -267,6 +364,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                                 filter: 'brightness(0.95)'
                                             }
                                         }}
+                                        disabled={(mustWriteMessage && messageError) || loadingReservas}
                                     >
                                         Confirmar
                                     </Button>

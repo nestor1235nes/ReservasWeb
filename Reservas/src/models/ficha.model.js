@@ -178,6 +178,10 @@ const ReservasSchema = new mongoose.Schema({
     timestamps: true // Agrega createdAt y updatedAt automáticamente
 });
 
+// Índice compuesto para evitar reservas duplicadas exactas por profesional/hora/día
+ReservasSchema.index({ profesional: 1, siguienteCita: 1, hora: 1 }, { unique: false });
+
+
 // Índices para optimizar consultas de pago
 ReservasSchema.index({ paymentStatus: 1 });
 ReservasSchema.index({ paymentToken: 1 });
