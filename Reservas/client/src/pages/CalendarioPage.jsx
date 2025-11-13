@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { AppBar, Toolbar, Typography, Box, Drawer, Slide, Stack, Chip, Paper, useMediaQuery, Button, CircularProgress } from '@mui/material';
@@ -81,6 +81,13 @@ export function CalendarioPage() {
     const transformedEvents = [];
     
     data.forEach(reserva => {
+      const historialPlano = Array.isArray(reserva.historial)
+        ? (Array.isArray(reserva.historial[0]) ? reserva.historial.flat() : reserva.historial)
+        : [];
+      const hasFicha = historialPlano.length > 0
+        || (typeof reserva.diagnostico === 'string' && reserva.diagnostico.trim().length > 0)
+        || (typeof reserva.anamnesis === 'string' && reserva.anamnesis.trim().length > 0);
+
       // 1. Agregar cita pendiente (siguienteCita) si existe
       if (reserva.siguienteCita) {
         let localStartDate;
@@ -100,15 +107,12 @@ export function CalendarioPage() {
           localStartDate = startDate.hour(hours).minute(minutes).second(0).toDate();
         }
 
-        // Determinar si coincide con el primer día de consulta (no duplicar)
-        let isFirstConsultSameDay = false;
-        if (reserva.diaPrimeraCita) {
-          const d1 = dayjs(localStartDate).format('YYYY-MM-DD');
-          const d2 = dayjs(reserva.diaPrimeraCita).format('YYYY-MM-DD');
-          isFirstConsultSameDay = d1 === d2;
-        }
+        const sameDayAsFirstVisit = Boolean(
+          hasFicha && reserva.diaPrimeraCita &&
+          dayjs(localStartDate).format('YYYY-MM-DD') === dayjs(reserva.diaPrimeraCita).format('YYYY-MM-DD')
+        );
 
-        if (!isFirstConsultSameDay) {
+        if (!sameDayAsFirstVisit) {
           transformedEvents.push({
             id: `${reserva._id}-siguiente`,
             title: `${reserva.paciente.nombre}`,
@@ -121,8 +125,8 @@ export function CalendarioPage() {
         }
       }
 
-      // 2. Agregar primera cita si existe diaPrimeraCita
-      if (reserva.diaPrimeraCita) {
+      // 2. Agregar primera cita solo si existe ficha registrada
+      if (hasFicha && reserva.diaPrimeraCita) {
         let primeraCitaDate;
 
         if (typeof reserva.diaPrimeraCita === 'string') {
@@ -156,12 +160,8 @@ export function CalendarioPage() {
       }
 
       // 3. Agregar todas las citas del historial (aplanando si es array de arrays)
-      if (reserva.historial && reserva.historial.length > 0) {
-        const sesiones = Array.isArray(reserva.historial[0])
-          ? reserva.historial.flat()
-          : reserva.historial;
-
-        sesiones.forEach((sesion, index) => {
+      if (historialPlano.length > 0) {
+        historialPlano.forEach((sesion, index) => {
           if (!sesion || !sesion.fecha) return;
 
           // Usar hora de la sesión si existiera, si no hora de reserva o por defecto
@@ -380,13 +380,55 @@ export function CalendarioPage() {
     }
   };
 
-  const feriadosSet = new Set(
-    feriados
-      ?.filter(f => f.date) // Asegúrate que cada feriado tenga la propiedad 'date'
-      .map(f => dayjs(f.date).format("YYYY-MM-DD"))
-  );
+  const { feriadosSet, feriadosMap } = useMemo(() => {
+    const set = new Set();
+    const map = new Map();
+    (Array.isArray(feriados) ? feriados : []).forEach((feriado) => {
+      const rawDate = feriado?.date || feriado?.fecha;
+      if (!rawDate) return;
+      const dateStr = dayjs(rawDate).format('YYYY-MM-DD');
+      set.add(dateStr);
+      const labelSource = [
+        feriado?.title,
+        feriado?.name,
+        feriado?.localName,
+        feriado?.motivo,
+        feriado?.description,
+        feriado?.holiday,
+        feriado?.summary,
+      ].find((text) => typeof text === 'string' && text.trim().length > 0);
+      if (labelSource) {
+        map.set(dateStr, labelSource.trim());
+      }
+    });
+    return { feriadosSet: set, feriadosMap: map };
+  }, [feriados]);
 
-  const blockedDaysSet = new Set((blockedDays || []).map(d => dayjs(d).format("YYYY-MM-DD")));
+  const blockedDaysSet = useMemo(() => {
+    const set = new Set();
+    (blockedDays || []).forEach((date) => {
+      if (!date) return;
+      set.add(dayjs(date).format('YYYY-MM-DD'));
+    });
+    return set;
+  }, [blockedDays]);
+
+  const DateCellWrapper = ({ value, children }) => {
+    const dateStr = dayjs(value).format('YYYY-MM-DD');
+    let tooltip;
+    if (blockedDaysSet.has(dateStr)) {
+      tooltip = 'Día bloqueado por el profesional';
+    } else if (feriadosSet.has(dateStr)) {
+      const motivo = feriadosMap.get(dateStr);
+      tooltip = motivo ? `Feriado: ${motivo}` : 'Feriado';
+    }
+
+    if (!tooltip || !React.isValidElement(children)) {
+      return children;
+    }
+
+    return React.cloneElement(children, { title: tooltip });
+  };
 
   // Esta función se usa para cambiar el estilo de los días feriados
   const dayPropGetter = (date) => {
@@ -561,6 +603,9 @@ export function CalendarioPage() {
           eventPropGetter={eventStyleGetter}
           min={new Date(0, 0, 0, 8, 0, 0)}  // Limitar a las 8:00 AM
           max={new Date(0, 0, 0, 21, 0, 0)}
+          components={{
+            dateCellWrapper: DateCellWrapper,
+          }}
         />
       </Box>
 

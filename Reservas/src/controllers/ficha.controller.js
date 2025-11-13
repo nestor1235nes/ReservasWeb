@@ -388,19 +388,26 @@ export const createReserva = async (req, res) => {
             return val;
         };
 
-        // Determinar diaPrimeraCita según reglas de negocio
-        // - Si no viene en el body y es la primera reserva del paciente, usar siguienteCita si existe; si no, hoy
-        // - Si viene, respetarlo
-        let diaPrimeraCitaValue = req.body.diaPrimeraCita;
-        if (!diaPrimeraCitaValue) {
-            const reservasPrevias = await Reserva.find({ paciente: paciente._id }).limit(1);
-            const esPrimera = reservasPrevias.length === 0;
-            if (esPrimera) {
-                diaPrimeraCitaValue = req.body.siguienteCita ? req.body.siguienteCita : new Date();
+        const rawHistorial = Array.isArray(req.body.historial)
+            ? (Array.isArray(req.body.historial[0]) ? req.body.historial.flat() : req.body.historial)
+            : [];
+        const hasClinicalData = [req.body.diagnostico, req.body.anamnesis].some(
+            (value) => typeof value === 'string' && value.trim().length > 0
+        ) || rawHistorial.length > 0;
+
+        // Determinar diaPrimeraCita solo cuando existe información clínica registrada
+        let diaPrimeraCitaValue = null;
+        if (hasClinicalData) {
+            diaPrimeraCitaValue = req.body.diaPrimeraCita;
+            if (!diaPrimeraCitaValue) {
+                const reservasPrevias = await Reserva.find({ paciente: paciente._id }).limit(1);
+                const esPrimera = reservasPrevias.length === 0;
+                if (esPrimera) {
+                    diaPrimeraCitaValue = req.body.siguienteCita ? req.body.siguienteCita : new Date();
+                }
             }
+            diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         }
-        // Normalizar posibles cadenas de fecha
-        diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         const siguienteCitaNorm = normalizeDateField(req.body.siguienteCita);
 
         // Si ya existe una reserva para este paciente y profesional en la misma fecha y hora, actualizar en lugar de crear
@@ -430,9 +437,8 @@ export const createReserva = async (req, res) => {
             await reservaExistente.save();
             nuevaReserva = reservaExistente;
         } else {
-            nuevaReserva = new Reserva({
+            const reservaPayload = {
                 paciente: paciente._id,
-                diaPrimeraCita: diaPrimeraCitaValue,
                 siguienteCita: siguienteCitaNorm,
                 hora: req.body.hora,
                 mensajePaciente: req.body.mensajePaciente,
@@ -443,7 +449,11 @@ export const createReserva = async (req, res) => {
                 eventId: req.body.eventId,
                 modalidad: req.body.modalidad || 'Presencial', // Valor por defecto
                 servicio: req.body.servicio || 'Consulta', // Valor por defecto
-            });
+            };
+            if (diaPrimeraCitaValue) {
+                reservaPayload.diaPrimeraCita = diaPrimeraCitaValue;
+            }
+            nuevaReserva = new Reserva(reservaPayload);
             if (sucursalId) {
                 nuevaReserva.sucursal = sucursalId;
             }
@@ -600,6 +610,10 @@ export const addHistorial = async (req, res) => {
         };
 
         reserva.historial.push(newHistorialEntry);
+
+        if (!reserva.diaPrimeraCita) {
+            reserva.diaPrimeraCita = fechaSesion;
+        }
         
         // Solo actualizar siguienteCita y hora si se proporcionan
         if (siguienteCitaDate) {
@@ -836,17 +850,26 @@ export const publicCreateReserva = async (req, res) => {
             return val;
         };
 
-        // Determinar diaPrimeraCita si viene vacío: si es la primera reserva del paciente, usar siguienteCita o hoy
-        let diaPrimeraCitaValue = diaPrimeraCita;
-        if (!diaPrimeraCitaValue) {
-            const reservasPrevias = await Reserva.find({ paciente: paciente._id }).limit(1);
-            const esPrimera = reservasPrevias.length === 0;
-            if (esPrimera) {
-                diaPrimeraCitaValue = siguienteCita ? siguienteCita : new Date();
+        const rawHistorial = Array.isArray(historial)
+            ? (Array.isArray(historial[0]) ? historial.flat() : historial)
+            : [];
+        const hasClinicalData = [diagnostico, anamnesis].some(
+            (value) => typeof value === 'string' && value.trim().length > 0
+        ) || rawHistorial.length > 0;
+
+        // Determinar diaPrimeraCita solo cuando existe información clínica registrada
+        let diaPrimeraCitaValue = null;
+        if (hasClinicalData) {
+            diaPrimeraCitaValue = diaPrimeraCita;
+            if (!diaPrimeraCitaValue) {
+                const reservasPrevias = await Reserva.find({ paciente: paciente._id }).limit(1);
+                const esPrimera = reservasPrevias.length === 0;
+                if (esPrimera) {
+                    diaPrimeraCitaValue = siguienteCita ? siguienteCita : new Date();
+                }
             }
+            diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         }
-        // Normalizar posibles cadenas de fecha
-        diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         const siguienteCitaNorm = normalizeDateField(siguienteCita);
 
         // Deduplicar en flujo público también
@@ -875,9 +898,8 @@ export const publicCreateReserva = async (req, res) => {
             await reservaExistente.save();
             nuevaReserva = reservaExistente;
         } else {
-            nuevaReserva = new Reserva({
+            const reservaPayload = {
                 paciente: paciente._id,
-                diaPrimeraCita: diaPrimeraCitaValue,
                 siguienteCita: siguienteCitaNorm,
                 hora,
                 mensajePaciente,
@@ -888,7 +910,11 @@ export const publicCreateReserva = async (req, res) => {
                 eventId,
                 modalidad: modalidad || 'Presencial',
                 servicio: servicio || 'Consulta',
-            });
+            };
+            if (diaPrimeraCitaValue) {
+                reservaPayload.diaPrimeraCita = diaPrimeraCitaValue;
+            }
+            nuevaReserva = new Reserva(reservaPayload);
             if (sucursalId) nuevaReserva.sucursal = sucursalId;
             await nuevaReserva.save();
         }

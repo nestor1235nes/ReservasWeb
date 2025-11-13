@@ -26,7 +26,18 @@ const ensureRoom = async (roomName) => {
   try {
     // Try to get room
     const res = await dailyRequest('get', `/rooms/${roomName}`);
-    return res.data;
+    const room = res.data;
+    if ((room?.properties?.lang || '').toLowerCase() !== 'es') {
+      try {
+        const updated = await dailyRequest('post', `/rooms/${roomName}`, {
+          properties: { ...(room.properties || {}), lang: 'es' },
+        });
+        return updated.data;
+      } catch (updateError) {
+        console.warn('Failed to update Daily room language', updateError.response?.data || updateError.message);
+      }
+    }
+    return room;
   } catch (error) {
     // If not found, create it
     if (error.response && error.response.status === 404) {
@@ -36,6 +47,7 @@ const ensureRoom = async (roomName) => {
         properties: {
           enable_prejoin_ui: true,
           enable_people_ui: true,
+          lang: 'es',
           // Optional: try to limit participants to 2 (if supported by plan)
           // max_participants: 2,
         },

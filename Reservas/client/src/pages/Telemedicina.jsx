@@ -44,7 +44,10 @@ const Telemedicina = ({ reservaId }) => {
 
   const joinWithToken = async (roomUrl, token) => {
     try {
-      const frame = DailyIframe.createFrame(videoRef.current, { showLeaveButton: true });
+      const frame = DailyIframe.createFrame(videoRef.current, {
+        showLeaveButton: true,
+        lang: 'es',
+      });
       await frame.join({ url: roomUrl, token });
       setCallFrame(frame);
       setJoined(true);
@@ -85,7 +88,7 @@ const Telemedicina = ({ reservaId }) => {
   setSharePassword(resp.data.password || '');
   // Copia solo el link; la clave se comparte por separado
   await navigator.clipboard.writeText(`${resp.data.shareUrl}`);
-      try { showAlert && showAlert('success', 'Link copiado. Comparte la clave por separado.'); } catch(_){}
+      try { showAlert && showAlert('success', 'Link copiado.'); } catch(_){}
 
       // Auto-join as owner (professional) if ownerToken provided
       const ownerToken = resp.data.ownerToken;

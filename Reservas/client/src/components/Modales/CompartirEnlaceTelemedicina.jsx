@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   IconButton,
@@ -83,6 +83,15 @@ const CompartirEnlaceTelemedicina = ({ shareUrlFromParent, shareCodeFromParent }
     setOpen(true);
   };
   const handleClose = () => setOpen(false);
+
+  // Autoabrir solo una vez cuando se genera el link por primera vez
+  const didAutoOpenRef = useRef(false);
+  useEffect(() => {
+    if (shareUrlFromParent && !open && !didAutoOpenRef.current) {
+      setOpen(true);
+      didAutoOpenRef.current = true;
+    }
+  }, [shareUrlFromParent, open]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -189,53 +198,93 @@ const CompartirEnlaceTelemedicina = ({ shareUrlFromParent, shareCodeFromParent }
     if (loading) {
       return (
         <Box py={4} display="flex" alignItems="center" justifyContent="center">
-          <CircularProgress size={28} />
+          <CircularProgress size={32} />
         </Box>
       );
     }
     if (!items.length) {
       return (
-        <Box py={3} textAlign="center" color="text.secondary">
+        <Box py={3} textAlign="center" color="text.secondary" sx={{ fontStyle: 'italic' }}>
           No hay pacientes pendientes con modalidad de telemedicina.
         </Box>
       );
     }
+    const scrollNeeded = items.length > 6;
     return (
-      <List dense>
-        {items.map((r, idx) => {
-          const nombre = r?.paciente?.nombre || r?.paciente?.rut || 'Paciente';
-          const fecha = r?.when ? r.when.toLocaleDateString() : '';
-          const hora = r?.when ? r.when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (r?.hora || '');
-          const servicio = r?.servicio || 'Consulta';
-          return (
-            <React.Fragment key={r._id || idx}>
-              <ListItem alignItems="flex-start" secondaryAction={idx === 0 && Boolean(shareUrlFromParent) ? (
-                <Button size="small" variant="contained" sx={{ background: '#2596be' }} onClick={handleOpenSend}>
-                  Enviar link
-                </Button>
-              ) : null}>
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: '#2596be' }}>
-                    {String(nombre).trim().charAt(0).toUpperCase()}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={nombre}
-                  secondary={
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                      <Chip size="small" icon={<ScheduleIcon />} label={`${fecha} · ${hora}`} variant="outlined" />
-                      <Chip size="small" label={servicio} variant="outlined" />
-                    </Stack>
-                  }
-                />
-              </ListItem>
-              {idx < items.length - 1 && <Divider component="li" />}
-            </React.Fragment>
-          );
-        })}
-      </List>
+      <Box sx={{
+        maxHeight: scrollNeeded ? 380 : 'auto',
+        overflowY: scrollNeeded ? 'auto' : 'visible',
+        pr: 0.5,
+        '&::-webkit-scrollbar': { width: 8 },
+        '&::-webkit-scrollbar-track': { backgroundColor: '#eef2f7', borderRadius: 8 },
+        '&::-webkit-scrollbar-thumb': { backgroundColor: '#c2c9d6', borderRadius: 8 },
+      }}>
+        <List dense sx={{ p: 0 }}>
+          {items.map((r, idx) => {
+            const nombre = r?.paciente?.nombre || r?.paciente?.rut || 'Paciente';
+            const fecha = r?.when ? r.when.toLocaleDateString() : '';
+            const hora = r?.when ? r.when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (r?.hora || '');
+            const servicio = r?.servicio || 'Consulta';
+            return (
+              <React.Fragment key={r._id || idx}>
+                <ListItem
+                  alignItems="flex-start"
+                  sx={{
+                    mb: 1.25,
+                    bgcolor: idx === 0 ? 'rgba(37,150,190,0.12)' : 'common.white',
+                    border: '1px solid',
+                    borderColor: idx === 0 ? 'rgba(37,150,190,0.45)' : 'rgba(0,0,0,0.06)',
+                    borderRadius: 2,
+                    boxShadow: idx === 0 ? 2 : 0,
+                    transition: 'transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease',
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                      boxShadow: 3,
+                      backgroundColor: idx === 0 ? 'rgba(37,150,190,0.16)' : '#fafafa',
+                    }
+                  }}
+                  secondaryAction={idx === 0 && Boolean(shareUrlFromParent) ? (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      sx={{ background: '#2596be', fontWeight: 600, textTransform: 'none' }}
+                      onClick={handleOpenSend}
+                    >
+                      Enviar link
+                    </Button>
+                  ) : null}
+                >
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: idx === 0 ? 'primary.main' : '#2596be', color: 'common.white', fontWeight: 700 }}>
+                      {String(nombre).trim().charAt(0).toUpperCase()}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={<Typography fontWeight={idx === 0 ? 700 : 600}>{nombre}</Typography>}
+                    secondary={
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 0.75 }}>
+                        <Chip
+                          size="small"
+                          icon={<ScheduleIcon />}
+                          label={`${fecha} · ${hora}`}
+                          variant="outlined"
+                          sx={{
+                            borderColor: idx === 0 ? 'primary.main' : 'rgba(0,0,0,0.14)',
+                            color: idx === 0 ? 'primary.dark' : 'text.secondary',
+                          }}
+                        />
+                        <Chip size="small" label={servicio} variant="outlined" sx={{ borderColor: 'rgba(0,0,0,0.12)' }} />
+                      </Stack>
+                    }
+                  />
+                </ListItem>
+              </React.Fragment>
+            );
+          })}
+        </List>
+      </Box>
     );
-  }, [items, loading]);
+  }, [items, loading, shareUrlFromParent]);
 
   return (
     <>
@@ -245,11 +294,36 @@ const CompartirEnlaceTelemedicina = ({ shareUrlFromParent, shareCodeFromParent }
         </IconButton>
       </Tooltip>
 
-      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-        <DialogTitle>
-          Pacientes con telemedicina pendiente
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            overflow: 'hidden',
+            boxShadow: 12,
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          background: 'linear-gradient(90deg,#2596be 0%, #21cbe6 100%)',
+          color: 'common.white',
+          py: 1.75,
+          px: 2,
+          fontWeight: 800,
+          letterSpacing: 0.2,
+        }}>
+          Pacientes próximos (Telemedicina)
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent
+          dividers
+          sx={{
+            backgroundColor: '#f9fafb',
+            p: 2,
+          }}
+        >
           {content}
         </DialogContent>
       </Dialog>

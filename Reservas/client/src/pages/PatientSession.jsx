@@ -57,7 +57,10 @@ const PatientSession = () => {
       if (!password) { try { showAlert && showAlert('info', 'Ingresa la clave enviada por tu profesional'); } catch(_){}; return; }
       const resp = await axios.post('/daily/join-public', { shareId: sid, password });
       const { token, room } = resp.data;
-      const frame = DailyIframe.createFrame(videoRef.current, { showLeaveButton: true });
+      const frame = DailyIframe.createFrame(videoRef.current, {
+        showLeaveButton: true,
+        lang: 'es',
+      });
       await frame.join({ url: room.url, token });
       frameRef.current = frame;
       setJoined(true);
