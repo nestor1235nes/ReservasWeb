@@ -81,12 +81,27 @@ export function CalendarioPage() {
     const transformedEvents = [];
     
     data.forEach(reserva => {
-      const historialPlano = Array.isArray(reserva.historial)
+      const historialLegacyPlano = Array.isArray(reserva.historial)
         ? (Array.isArray(reserva.historial[0]) ? reserva.historial.flat() : reserva.historial)
         : [];
+
+      // NUEVO: soporte para historial por casos clínicos (clinicalCases)
+      const sesionesDesdeCasos = Array.isArray(reserva.clinicalCases)
+        ? reserva.clinicalCases.flatMap((c) => (Array.isArray(c?.sesiones) ? c.sesiones : []))
+        : [];
+
+      // Fuente de verdad para pintar sesiones en el calendario
+      const historialPlano = [...historialLegacyPlano, ...sesionesDesdeCasos];
+
       const hasFicha = historialPlano.length > 0
         || (typeof reserva.diagnostico === 'string' && reserva.diagnostico.trim().length > 0)
-        || (typeof reserva.anamnesis === 'string' && reserva.anamnesis.trim().length > 0);
+        || (typeof reserva.anamnesis === 'string' && reserva.anamnesis.trim().length > 0)
+        || (Array.isArray(reserva.clinicalCases) && reserva.clinicalCases.some((c) => {
+          const hasDx = typeof c?.diagnostico === 'string' && c.diagnostico.trim().length > 0;
+          const hasAna = typeof c?.anamnesis === 'string' && c.anamnesis.trim().length > 0;
+          const hasSes = Array.isArray(c?.sesiones) && c.sesiones.length > 0;
+          return hasDx || hasAna || hasSes;
+        }));
 
       // 1. Agregar cita pendiente (siguienteCita) si existe
       if (reserva.siguienteCita) {
@@ -159,9 +174,16 @@ export function CalendarioPage() {
         });
       }
 
-      // 3. Agregar todas las citas del historial (aplanando si es array de arrays)
+      // 3. Agregar todas las citas del historial (legacy + clinicalCases)
       if (historialPlano.length > 0) {
-        historialPlano.forEach((sesion, index) => {
+        // Orden estable por fecha (si existe)
+        const historialOrdenado = [...historialPlano].sort((a, b) => {
+          const aTime = a?.fecha ? new Date(a.fecha).getTime() : 0;
+          const bTime = b?.fecha ? new Date(b.fecha).getTime() : 0;
+          return aTime - bTime;
+        });
+
+        historialOrdenado.forEach((sesion, index) => {
           if (!sesion || !sesion.fecha) return;
 
           // Usar hora de la sesión si existiera, si no hora de reserva o por defecto

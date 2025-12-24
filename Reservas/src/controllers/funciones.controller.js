@@ -4,6 +4,43 @@ import User from "../models/user.model.js";
 import Sucursal from "../models/sucursal.model.js";
 import axios from "axios";
 
+const hasActiveSubscription = (endDate) => {
+  if (!endDate) return false;
+  return endDate > new Date();
+};
+
+const toYMDUtc = (d) => {
+  if (!d) return null;
+  const dt = new Date(d);
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+};
+
+const requireAdvancedPlan = async (userId) => {
+  const user = await User.findById(userId).populate('suscriptionPlan sucursal');
+  if (!user) return { allowed: false, reason: 'USER_NOT_FOUND' };
+
+  // Plan individual
+  if (user.suscriptionPlan && hasActiveSubscription(user.suscriptionEndDate)) {
+    const planName = user.suscriptionPlan?.name;
+    return { allowed: planName === 'Standard' || planName === 'Teams', planName, scope: 'USER' };
+  }
+
+  // Plan de sucursal (Teams)
+  if (user.sucursal) {
+    const suc = await Sucursal.findById(user.sucursal).populate('suscriptionPlan');
+    if (suc?.suscriptionPlan && hasActiveSubscription(suc.suscriptionEndDate)) {
+      const planName = suc.suscriptionPlan?.name;
+      // Requisito: Plan Avanzado (Standard) o Teams
+      return { allowed: planName === 'Standard' || planName === 'Teams', planName, scope: 'SUCURSAL' };
+    }
+  }
+
+  return { allowed: false, reason: 'NO_ACTIVE_SUBSCRIPTION' };
+};
+
 /////////////// Obtener todos los pacientes con hora previa y sin sesiones ///////////////
 
 export const obtenerPacientesSinSesiones = async (req, res) => {
@@ -77,6 +114,11 @@ export const obtenerHorasDisponibles = async (req, res) => {
       if (isBlocked) return res.status(200).json({ times: [] });
     }
 
+    // Horarios bloqueados (por día)
+    const blockedTimesForDay = Array.isArray(profesional.blockedHours)
+      ? (profesional.blockedHours.find(b => toYMDUtc(b?.date) === fecha)?.times || [])
+      : [];
+
     // Día de la semana en español (alineado con getDay(): 0=Domingo)
     const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
     // Parseo robusto de fecha 'YYYY-MM-DD' a fecha local para evitar desfases por zona horaria
@@ -146,7 +188,9 @@ export const obtenerHorasDisponibles = async (req, res) => {
     const reservedTimes = reservas.map(reserva => reserva.hora);
 
     // Filtra las horas ya reservadas
-    const availableTimes = horas.filter(time => !reservedTimes.includes(time));
+    const availableTimes = horas
+      .filter(time => !reservedTimes.includes(time))
+      .filter(time => !blockedTimesForDay.includes(time));
 
     return res.status(200).json({ times: availableTimes });
   } catch (error) {
@@ -158,45 +202,87 @@ export const obtenerHorasDisponibles = async (req, res) => {
 
 export const liberarHoras = async (req, res) => {
   try {
-    const { id, fecha, blockDay, customMessage } = req.body;
-    const profesional = await User.findById(id);
+    const { id, fecha, blockDay, customMessage, mode, blockedTimes } = req.body;
+    const profesionalId = req.user?.id || id;
+    if (!profesionalId) {
+      return res.status(400).json({ message: "Falta id de profesional" });
+    }
+
+    if (req.user?.id && id && String(req.user.id) !== String(id)) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+
+    const planCheck = await requireAdvancedPlan(profesionalId);
+    if (!planCheck.allowed) {
+      return res.status(403).json({ message: "Funcionalidad disponible solo en Plan Avanzado o Teams" });
+    }
+
+    const profesional = await User.findById(profesionalId);
 
     if (!profesional) {
       return res.status(400).json({ message: "Profesional no encontrado" });
     }
 
-    const startOfDay = new Date(fecha);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(fecha);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Parseo robusto de fecha 'YYYY-MM-DD'
+    const [yy, mm, dd] = (fecha || "").split("-").map(Number);
+    const startOfDay = new Date(yy, (mm || 1) - 1, dd || 1, 0, 0, 0, 0);
+    const endOfDay = new Date(yy, (mm || 1) - 1, dd || 1, 23, 59, 59, 999);
 
-    const reservasLiberadas = await Reserva.find({
-      profesional: id,
-      siguienteCita: { $gte: startOfDay, $lte: endOfDay }
-    }).populate('paciente').populate('profesional');
+    const resolvedMode = mode || (Array.isArray(blockedTimes) && blockedTimes.length ? 'times' : 'day');
+    const timesToBlock = Array.isArray(blockedTimes) ? blockedTimes.filter(Boolean) : [];
+    if (resolvedMode === 'times' && timesToBlock.length === 0) {
+      return res.status(400).json({ message: "Debes seleccionar al menos un horario" });
+    }
+
+    const baseFilter = {
+      profesional: profesionalId,
+      siguienteCita: { $gte: startOfDay, $lte: endOfDay },
+    };
+
+    const filter = resolvedMode === 'times'
+      ? { ...baseFilter, hora: { $in: timesToBlock } }
+      : baseFilter;
+
+    const reservasLiberadas = await Reserva.find(filter)
+      .populate('paciente')
+      .populate('profesional');
 
     await Reserva.updateMany(
-      {
-        profesional: id,
-        siguienteCita: { $gte: startOfDay, $lte: endOfDay }
-      },
-      {
-        $unset: { siguienteCita: "" }
-      }
+      filter,
+      { $unset: { siguienteCita: "" } }
     );
 
-    // Si se solicita, bloquear el día para evitar nuevas reservas
-    if (blockDay) {
-      // Guardar como UTC midnight del día seleccionado para evitar desfases
-      const blockDate = new Date(`${fecha}T00:00:00.000Z`);
-      const exists = (profesional.blockedDays || []).some(d => {
-        const dt = new Date(d);
-        return dt.getTime() === blockDate.getTime();
-      });
-      if (!exists) {
-        profesional.blockedDays = [...(profesional.blockedDays || []), blockDate];
-        await profesional.save();
+    // Persistir bloqueo
+    if (resolvedMode === 'day') {
+      // Si se solicita, bloquear el día para evitar nuevas reservas
+      if (blockDay) {
+        // Guardar como UTC midnight del día seleccionado para evitar desfases
+        const blockDate = new Date(`${fecha}T00:00:00.000Z`);
+        const exists = (profesional.blockedDays || []).some(d => {
+          const dt = new Date(d);
+          return dt.getTime() === blockDate.getTime();
+        });
+        if (!exists) {
+          profesional.blockedDays = [...(profesional.blockedDays || []), blockDate];
+          await profesional.save();
+        }
       }
+    } else if (resolvedMode === 'times') {
+      const blockDate = new Date(`${fecha}T00:00:00.000Z`);
+      const ymd = `${fecha}`;
+      const current = Array.isArray(profesional.blockedHours) ? profesional.blockedHours : [];
+      const idx = current.findIndex(b => toYMDUtc(b?.date) === ymd);
+      if (idx === -1) {
+        profesional.blockedHours = [
+          ...current,
+          { date: blockDate, times: Array.from(new Set(timesToBlock)).sort() },
+        ];
+      } else {
+        const merged = new Set([...(current[idx]?.times || []), ...timesToBlock]);
+        current[idx].times = Array.from(merged).sort();
+        profesional.blockedHours = current;
+      }
+      await profesional.save();
     }
 
     // Email notifications removed: customMessage should be delivered via WhatsApp on the client side

@@ -148,6 +148,22 @@ const userSchema = new mongoose.Schema({
         default: [],
     },
 
+    // Horarios bloqueados por día (no se puede agendar en esas horas)
+    blockedHours: {
+        type: [
+            new mongoose.Schema(
+                {
+                    // Fecha a medianoche UTC (para comparar por YYYY-MM-DD)
+                    date: { type: Date, required: true },
+                    // Lista de horas en formato 'HH:mm'
+                    times: { type: [String], default: [] },
+                },
+                { _id: false }
+            ),
+        ],
+        default: [],
+    },
+
     // Suscripción
     suscriptionPlan: {
         type: mongoose.Schema.Types.ObjectId,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Box, Typography, TextField, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Chip, IconButton, Tooltip, FormControlLabel, Checkbox, Divider } from '@mui/material';
+import { Modal, Box, Typography, TextField, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Chip, IconButton, Tooltip, FormControl, FormControlLabel, Radio, RadioGroup, Divider } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { StaticDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
+import { useSubscription } from '../../context/subscriptionContext';
 import sendWhatsAppMessage, { PLACEHOLDERS } from '../../sendWhatsAppMessage';
 import { CSSTransition } from 'react-transition-group';
 import '../ui/LiberarHoras.css';
@@ -20,41 +21,124 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const [fecha, setFecha] = useState('');
     const { user, liberarHoras } = useAuth();
     const showAlert = useAlert();
+    const { isAdvanced, isTeams } = useSubscription();
+    const canBlockHours = isAdvanced || isTeams;
     const [diasDeTrabajo, setDiasDeTrabajo] = useState([]);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [showCalendar, setShowCalendar] = useState(true);
     const [customMessage, setCustomMessage] = useState('');
     const [showPlaceholdersHelp, setShowPlaceholdersHelp] = useState(false);
-    const [blockDay, setBlockDay] = useState(true);
+    const [blockMode, setBlockMode] = useState('day'); // 'day' | 'times'
+    const [selectedTimes, setSelectedTimes] = useState([]);
     const [reservasDelDia, setReservasDelDia] = useState([]);
     const [loadingReservas, setLoadingReservas] = useState(false);
 
     const hasWhatsApp = Boolean(user?.idInstance && user?.apiTokenInstance);
-    const hasReservas = reservasDelDia.length > 0;
+    const reservasAfectadas = blockMode === 'times'
+        ? reservasDelDia.filter(r => selectedTimes.includes(r?.hora))
+        : reservasDelDia;
+    const hasReservas = reservasAfectadas.length > 0;
     const mustWriteMessage = hasReservas && hasWhatsApp;
     const messageError = mustWriteMessage && (!customMessage || customMessage.trim() === '');
+
+    const toggleTime = (t) => {
+        setSelectedTimes(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]));
+    };
+
+    const getTimesForDate = () => {
+        if (!user?.timetable || !fecha) return [];
+        const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        const [y, m, d] = (fecha || '').split('-').map(Number);
+        const localDate = new Date(y, (m || 1) - 1, d || 1);
+        const diaSemana = dias[localDate.getDay()];
+
+        const toMinutes = (hhmm) => {
+            if (!hhmm || typeof hhmm !== 'string') return null;
+            const parts = hhmm.split(':');
+            if (parts.length < 2) return null;
+            const h = parseInt(parts[0], 10);
+            const mm2 = parseInt(parts[1], 10);
+            if (Number.isNaN(h) || Number.isNaN(mm2)) return null;
+            return h * 60 + mm2;
+        };
+        const fmt = (mins) => {
+            const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+            const mm3 = String(mins % 60).padStart(2, '0');
+            return `${hh}:${mm3}`;
+        };
+        const generateTimes = (fromTime, toTime, breakFrom, breakTo, interval) => {
+            const start = toMinutes(fromTime);
+            const end = toMinutes(toTime);
+            const brFrom = toMinutes(breakFrom);
+            const brTo = toMinutes(breakTo);
+            const step = parseInt(interval || 30, 10);
+            if (start == null || end == null || !step || step <= 0) return [];
+            const times = [];
+            let t = start;
+            while (t < end) {
+                if (brFrom != null && brTo != null && t >= brFrom && t < brTo) {
+                    t = brTo;
+                    continue;
+                }
+                times.push(fmt(t));
+                t += step;
+            }
+            return times;
+        };
+
+        const bloquesDia = (user.timetable || []).filter(b => Array.isArray(b?.days) && b.days.includes(diaSemana));
+        const all = bloquesDia.flatMap(b => {
+            if (Array.isArray(b?.times) && b.times.length) {
+                const norm = b.times
+                    .map(t => {
+                        const mins = toMinutes(t);
+                        return mins == null ? null : fmt(mins);
+                    })
+                    .filter(Boolean);
+                return norm;
+            }
+            return generateTimes(b?.fromTime, b?.toTime, b?.breakFrom, b?.breakTo, b?.interval || 30);
+        });
+
+        return Array.from(new Set(all)).sort();
+    };
+
+    const timesForSelectedDate = getTimesForDate();
 
     const handleFechaChange = (newValue) => {
         const valid = newValue && typeof newValue.isValid === 'function' && newValue.isValid();
         setFecha(valid ? newValue.format('YYYY-MM-DD') : '');
         setShowCalendar(false);
+        setBlockMode('day');
+        setSelectedTimes([]);
     };
 
     const handleLiberarHoras = async () => {
         try {
+            if (!canBlockHours) {
+                showAlert('info', 'Esta funcionalidad está disponible solo en el Plan Avanzado o Teams.');
+                return;
+            }
+
+            if (blockMode === 'times' && selectedTimes.length === 0) {
+                showAlert('error', 'Debes seleccionar al menos un horario para bloquear.');
+                return;
+            }
+
             // Validación: si hay horas agendadas y tiene WhatsApp, debe escribir mensaje
             if (mustWriteMessage && (!customMessage || customMessage.trim() === '')) {
                 showAlert('error', 'Debes escribir un mensaje para notificar por WhatsApp a los pacientes de este día.');
                 return;
             }
             const data = {
-                id: user.id || user._id,
                 fecha,
-                blockDay,
+                blockDay: blockMode === 'day',
+                mode: blockMode,
+                blockedTimes: blockMode === 'times' ? selectedTimes : undefined,
                 customMessage,
             };
             const reservasLiberadas = await liberarHoras(data);
-            showAlert('success', blockDay ? 'Horas liberadas y día bloqueado' : 'Horas liberadas correctamente');
+            showAlert('success', blockMode === 'day' ? 'Día bloqueado correctamente' : 'Horarios bloqueados correctamente');
             fetchReservas();
             onClose();
             console.log(user);
@@ -104,6 +188,16 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     };
 
     const handleConfirmOpen = () => {
+        if (!canBlockHours) {
+            showAlert('info', 'Esta funcionalidad está disponible solo en el Plan Avanzado o Teams.');
+            return;
+        }
+
+        if (blockMode === 'times' && selectedTimes.length === 0) {
+            showAlert('error', 'Debes seleccionar al menos un horario para bloquear.');
+            return;
+        }
+
         // Evitar abrir confirmación si debe escribir mensaje y está vacío
         if (mustWriteMessage && (!customMessage || customMessage.trim() === '')) {
             showAlert('error', 'Debes escribir un mensaje para notificar por WhatsApp a los pacientes de este día.');
@@ -161,11 +255,13 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const handleDescargarPDF = () => {
         try {
             const doc = new jsPDF();
-            const title = `Pacientes con reserva - ${dayjs(fecha).format('DD/MM/YYYY')}`;
+            const title = blockMode === 'times'
+                ? `Pacientes afectados - ${dayjs(fecha).format('DD/MM/YYYY')}`
+                : `Pacientes con reserva - ${dayjs(fecha).format('DD/MM/YYYY')}`;
             doc.setFontSize(14);
             doc.text(title, 14, 18);
 
-            const rows = reservasDelDia.map((r, idx) => [
+            const rows = reservasAfectadas.map((r, idx) => [
                 idx + 1,
                 r?.paciente?.nombre || '-',
                 r?.paciente?.rut || '-',
@@ -222,7 +318,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                 <Box sx={{ backgroundColor: 'white', p: { xs: 1.5, sm: 2 }, maxHeight: { xs: 'calc(90vh - 58px)', sm: 'calc(90vh - 58px)' }, overflowY: 'auto' }}>
                     <Box p={1} mb={0}>
                         <Typography variant="body1" gutterBottom>
-                            Seleccione el día que desea liberar horas
+                            Seleccione el día que desea bloquear
                         </Typography>
                     </Box>
                     <Box p={1} mb={1}>
@@ -306,6 +402,48 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                             {/* Sección de placeholders y mensaje personalizado */}
                             {!showCalendar && (
                                 <Box>
+                                    <FormControl component="fieldset" sx={{ mt: 0.5 }}>
+                                        <RadioGroup
+                                            row
+                                            value={blockMode}
+                                            onChange={(e) => {
+                                                const next = e.target.value;
+                                                setBlockMode(next);
+                                                if (next === 'day') setSelectedTimes([]);
+                                            }}
+                                        >
+                                            <FormControlLabel value="day" control={<Radio />} label="Día completo" />
+                                            <FormControlLabel value="times" control={<Radio />} label="Horarios específicos" />
+                                        </RadioGroup>
+                                    </FormControl>
+
+                                    {blockMode === 'times' && (
+                                        <Box mt={1}>
+                                            <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.8 }}>
+                                                Selecciona los horarios a bloquear
+                                            </Typography>
+                                            <Box mt={1} display="flex" flexWrap="wrap" gap={0.8}>
+                                                {timesForSelectedDate.length === 0 ? (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        No hay horarios configurados para este día.
+                                                    </Typography>
+                                                ) : (
+                                                    timesForSelectedDate.map(t => (
+                                                        <Chip
+                                                            key={t}
+                                                            label={t}
+                                                            clickable
+                                                            onClick={() => toggleTime(t)}
+                                                            color={selectedTimes.includes(t) ? 'primary' : 'default'}
+                                                            variant={selectedTimes.includes(t) ? 'filled' : 'outlined'}
+                                                            size="small"
+                                                        />
+                                                    ))
+                                                )}
+                                            </Box>
+                                        </Box>
+                                    )}
+
                                     {mustWriteMessage && user?.idInstance && (
                                         <Box mb={1} display="flex" alignItems="center" flexWrap="wrap" gap={0.5}>
                                             {PLACEHOLDERS.map(ph => (
@@ -318,10 +456,6 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                             </Tooltip>
                                         </Box>
                                     )}
-                                    <FormControlLabel
-                                        control={<Checkbox checked={blockDay} onChange={(e) => setBlockDay(e.target.checked)} />}
-                                        label="Bloquear este día (impide nuevas reservas)"
-                                    />
                                     {mustWriteMessage && (
                                         <TextField
                                             label="Mensaje general para notificar por WhatsApp (obligatorio)"
@@ -332,7 +466,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                             fullWidth
                                             margin="normal"
                                             error={messageError}
-                                            helperText={messageError ? 'Debes escribir un mensaje para notificar a los pacientes de este día.' : `Se enviará por WhatsApp a ${reservasDelDia.length} paciente(s).`}
+                                            helperText={messageError ? 'Debes escribir un mensaje para notificar a los pacientes afectados.' : `Se enviará por WhatsApp a ${reservasAfectadas.length} paciente(s).`}
                                         />
                                     )}
                                     {hasReservas && !hasWhatsApp && (
@@ -364,7 +498,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                                 filter: 'brightness(0.95)'
                                             }
                                         }}
-                                        disabled={(mustWriteMessage && messageError) || loadingReservas}
+                                        disabled={!canBlockHours || (mustWriteMessage && messageError) || loadingReservas || (blockMode === 'times' && selectedTimes.length === 0)}
                                     >
                                         Confirmar
                                     </Button>
@@ -400,7 +534,9 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                     <DialogTitle>Confirmar Liberación de Horas</DialogTitle>
                     <DialogContent>
                         <DialogContentText>
-                            {blockDay ? '¿Está seguro que desea liberar las horas y bloquear el día seleccionado?' : '¿Está seguro que desea liberar las horas del día seleccionado?'}
+                            {blockMode === 'day'
+                                ? '¿Está seguro que desea bloquear el día completo?'
+                                : `¿Está seguro que desea bloquear ${selectedTimes.length} horario(s) seleccionado(s)?`}
                         </DialogContentText>
                     </DialogContent>
                     <DialogActions>
