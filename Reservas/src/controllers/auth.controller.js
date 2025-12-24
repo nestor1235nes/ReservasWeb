@@ -200,7 +200,7 @@ export const registerUserOnly = async (req, res) => {
     const { username, email, password, especialidad } = req.body;
     const userFound = await User.findOne({ email });
     if (userFound) {
-      throw new Error("The email is already in use");
+      return res.status(400).json({ message: "El correo ya está en uso" });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -218,16 +218,15 @@ export const registerUserOnly = async (req, res) => {
 
     const userSaved = await newUser.save();
 
-    res.json({
+    return res.json({
       id: userSaved._id,
       username: userSaved.username,
       email: userSaved.email,
       especialidad: userSaved.especialidad,
     });
-    return userSaved;
-
   } catch (error) {
-    throw new Error(error.message);
+    console.error('Error en registerUserOnly:', error);
+    return res.status(500).json({ message: error.message || 'Error registrando usuario' });
   }
 };
 
@@ -501,8 +500,16 @@ export const getAllProfiles = async (req, res) => {
     const asistenteIds = new Set(sucursales.flatMap(s => s.asistentes.map(id => id.toString())));
     const profesionalesIds = new Set(sucursales.flatMap(s => s.profesionales.map(id => id.toString())));
 
-    // Traer todos los usuarios
-    const users = await User.find().populate('sucursal');
+    // Traer todos los usuarios, incluyendo información de sucursal y plan de suscripción
+    const users = await User.find().populate([
+      {
+        path: 'sucursal',
+        populate: { path: 'suscriptionPlan' }
+      },
+      {
+        path: 'suscriptionPlan'
+      }
+    ]);
 
     // Filtrar:
     // - Independientes (sin sucursal)
@@ -602,7 +609,15 @@ export const generarEnlace = async (req, res) => {
 export const getBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
-    const user = await User.findOne({ slug }).populate('sucursal');
+    const user = await User.findOne({ slug }).populate([
+      {
+        path: 'sucursal',
+        populate: { path: 'suscriptionPlan' }
+      },
+      {
+        path: 'suscriptionPlan'
+      }
+    ]);
     if (!user) return res.status(404).json({ message: 'No encontrado' });
     res.json(user);
   } catch (error) {

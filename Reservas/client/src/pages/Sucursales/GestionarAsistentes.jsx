@@ -28,6 +28,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EmailIcon from "@mui/icons-material/Email";
 import { useSucursal } from "../../context/sucursalContext";
 import { useAuth } from "../../context/authContext";
+import { useSubscription } from "../../context/subscriptionContext";
 import RegisterAsistente from "../../components/Surcursales/RegisterAsistente";
 import { useTheme } from "@mui/material/styles";
 import { ASSETS_BASE } from "../../config";
@@ -53,8 +54,19 @@ export default function GestionarAsistentes() {
     severity: "success"
   });
 
+  const { teamConfig, planLevel, scope } = useSubscription();
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const isTeamsSucursalPlan = planLevel === "teams" && scope === "SUCURSAL";
+  const contractedAssistants = isTeamsSucursalPlan ? (teamConfig?.cantidadAssistants || 0) : Infinity;
+  const canAddAssistant =
+    !isTeamsSucursalPlan || (contractedAssistants > 0 && asistentes.length < contractedAssistants);
+  const assistantsTooltipTitle =
+    !canAddAssistant && isTeamsSucursalPlan
+      ? `No puedes añadir más asistentes. Cupos contratados: ${asistentes.length}/${contractedAssistants}`
+      : "";
 
   useEffect(() => {
     const fetchSucursal = async () => {
@@ -241,14 +253,22 @@ export default function GestionarAsistentes() {
         <Typography variant="h5" fontWeight={700} color="white">
           Lista de asistentes de la clínica {sucursal?.nombre || "desconocida"}
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          sx={{ background: "white", color: "#2596be", borderRadius: 2 }}
-          onClick={() => setOpenDialog(true)}
+        <Tooltip
+          title={assistantsTooltipTitle}
+          disableHoverListener={canAddAssistant || !isTeamsSucursalPlan}
         >
-          Agregar asistente
-        </Button>
+          <span>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              sx={{ background: "white", color: "#2596be", borderRadius: 2 }}
+              onClick={() => setOpenDialog(true)}
+              disabled={!canAddAssistant}
+            >
+              Agregar asistente
+            </Button>
+          </span>
+        </Tooltip>
       </Stack>
       <Box
         sx={{

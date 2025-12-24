@@ -49,6 +49,7 @@ import axios from '../../api/axios';
 import PaymentButton from '../../pages/PaymentButton';
 import { getPaymentStatusRequest } from '../../api/payment';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { useSubscription } from '../../context/subscriptionContext';
 
 
 dayjs.extend(localeData);
@@ -93,6 +94,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const { getProfesionalesSucursal } = useSucursal();
   const showAlert = useAlert();
   const { user, obtenerHorasDisponibles } = useAuth();
+  const { canUploadExamImages } = useSubscription();
   const [paymentStatus, setPaymentStatus] = useState('not_initiated');
 
 
@@ -136,6 +138,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
     },
     multiple: true,
+    disabled: !canUploadExamImages,
     onDrop: (acceptedFiles) => {
       setUploadFiles(acceptedFiles);
     }
@@ -662,17 +665,26 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     variant="outlined"
                   />
                   {!esAsistente && (
-                    <Tooltip title="Agregar imágenes">
-                      <IconButton 
-                        onClick={() => setOpenUploadModal(true)}
-                        sx={{ 
-                          bgcolor: '#f0f9ff',
-                          color: '#2596be',
-                          '&:hover': { bgcolor: '#e0f2fe' }
-                        }}
-                      >
-                        <AddPhotoAlternateIcon />
-                      </IconButton>
+                    <Tooltip
+                      title={
+                        canUploadExamImages
+                          ? 'Agregar imágenes'
+                          : 'Disponible en Plan Avanzado y Teams'
+                      }
+                    >
+                      <span>
+                        <IconButton 
+                          onClick={() => canUploadExamImages && setOpenUploadModal(true)}
+                          disabled={!canUploadExamImages}
+                          sx={{ 
+                            bgcolor: '#f0f9ff',
+                            color: '#2596be',
+                            '&:hover': { bgcolor: '#e0f2fe' }
+                          }}
+                        >
+                          <AddPhotoAlternateIcon />
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   )}
                 </Stack>
@@ -805,7 +817,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     <Button
                       variant="contained"
                       startIcon={<AddPhotoAlternateIcon />}
-                      onClick={() => setOpenUploadModal(true)}
+                      onClick={() => canUploadExamImages && setOpenUploadModal(true)}
+                      disabled={!canUploadExamImages}
                       sx={{ 
                         bgcolor: '#2596be',
                         '&:hover': { bgcolor: '#1e7a9b' }
@@ -813,6 +826,11 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     >
                       Agregar Imágenes
                     </Button>
+                  )}
+                  {!canUploadExamImages && !esAsistente && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      La subida de imágenes está disponible en el Plan Avanzado y Teams.
+                    </Typography>
                   )}
                 </Box>
               )}
@@ -1624,7 +1642,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     variant="contained"
                     fullWidth
                     onClick={handleUploadImages}
-                    disabled={uploadFiles.length === 0 || isUploading}
+                    disabled={uploadFiles.length === 0 || isUploading || !canUploadExamImages}
                     startIcon={isUploading ? <Skeleton width={20} height={20} /> : <CloudUploadIcon />}
                     sx={{
                       background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',

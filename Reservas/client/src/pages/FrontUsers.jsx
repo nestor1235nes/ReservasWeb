@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, useMediaQuery, IconButton, Drawer, List, ListItem, ListItemButton, ListItemText, Divider, ListItemIcon, Avatar, Chip, Snackbar, Alert } from '@mui/material';
+import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, useMediaQuery, IconButton, Drawer, List, ListItem, ListItemButton, ListItemText, Divider, ListItemIcon, Avatar, Chip, Snackbar, Alert, TextField } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -10,6 +10,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import GroupsIcon from '@mui/icons-material/Groups';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import LoginModal from '../components/LoginModal';
 import LoginIcon from '@mui/icons-material/Login';
@@ -33,12 +34,22 @@ import Template2 from '../components/Templates/Template2';
 import Template3 from '../components/Templates/Template3';
 import { generateICS } from '../utils/icalendar';
 import { getBlockedDaysRequest } from '../api/funcion';
+import { useSubscription } from '../context/subscriptionContext';
 
 export default function FrontUsers() {
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 	const primary = '#2596be';
 	dayjs.locale('es');
+
+	const PlanFeature = ({ children }) => (
+		<Stack direction="row" spacing={1} alignItems="flex-start" sx={{ py: 0.25 }}>
+			<CheckCircleIcon sx={{ color: primary, fontSize: 18, mt: '2px' }} />
+			<Typography variant="body2" sx={{ lineHeight: 1.35 }}>
+				{children}
+			</Typography>
+		</Stack>
+	);
 
 	const [loginOpen, setLoginOpen] = useState(false);
 	const [anchorEl, setAnchorEl] = useState(null);
@@ -55,6 +66,81 @@ export default function FrontUsers() {
 	const [modalReservaOpen, setModalReservaOpen] = useState(false);
 	const [datosPreseleccionados, setDatosPreseleccionados] = useState({});
 	const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+	const { plans, calculatePrice } = useSubscription();
+
+	// Planes desde backend
+	const basicPlan = useMemo(
+		() => plans.find((p) => p.name === 'Basic'),
+		[plans]
+	);
+	const standardPlan = useMemo(
+		() => plans.find((p) => p.name === 'Standard'),
+		[plans]
+	);
+	const teamsPlan = useMemo(
+		() => plans.find((p) => p.name === 'Teams'),
+		[plans]
+	);
+
+	// Planes (solo UI por ahora)
+	const [teamPlan, setTeamPlan] = useState({ asistentes: 0, profesionales: 1, administradores: 1 });
+	const teamPricing = useMemo(() => {
+		// Valores sugeridos (mercado Chile) - estimación UI
+		// Nota: luego mover a config/back y/o Stripe.
+		const base = 39900; // base mensual para equipos (incluye 1 administrador)
+		const porAsistente = 4900;
+		const porProfesional = 9900;
+		const porAdministrador = 14900;
+		const asistentes = Math.max(0, Number(teamPlan.asistentes || 0));
+		const profesionales = Math.max(0, Number(teamPlan.profesionales || 0));
+		const administradores = Math.max(1, Number(teamPlan.administradores || 1));
+		const administradoresCobrados = Math.max(0, administradores - 1);
+		const total = base + (asistentes * porAsistente) + (profesionales * porProfesional) + (administradoresCobrados * porAdministrador);
+		return { base, porAsistente, porProfesional, porAdministrador, asistentes, profesionales, administradores, administradoresCobrados, total };
+	}, [teamPlan]);
+
+	// Precio equipo calculado por backend cuando exista plan Teams
+	const [teamPriceFromBackend, setTeamPriceFromBackend] = useState(null);
+
+	useEffect(() => {
+		const fetchTeamPrice = async () => {
+			if (!teamsPlan) return;
+			try {
+				const data = await calculatePrice({
+					planId: teamsPlan._id,
+					cantidadAdmins: Number(teamPlan.administradores || 0),
+					cantidadProfessionals: Number(teamPlan.profesionales || 0),
+					cantidadAssistants: Number(teamPlan.asistentes || 0),
+				});
+				setTeamPriceFromBackend(data.finalPrice);
+			} catch (e) {
+				setTeamPriceFromBackend(null);
+			}
+		};
+
+		fetchTeamPrice();
+	}, [teamsPlan, teamPlan, calculatePrice]);
+
+	const pricing = useMemo(() => {
+		// Usa precios de backend si existen, si no, valores por defecto
+		const basico = basicPlan?.price ?? 24900;
+		const avanzado = standardPlan?.price ?? 34900;
+		const teamDesde = teamPriceFromBackend ?? teamPricing.total;
+
+		return {
+			basico,
+			avanzado,
+			teamDesde,
+		};
+	}, [basicPlan, standardPlan, teamPriceFromBackend, teamPricing.total]);
+
+	const formatCLP = (value) => {
+		try {
+			return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value);
+		} catch {
+			return `$${value}`;
+		}
+	};
 
 	const features = [
 		{ icon: <CalendarTodayIcon />, title: 'Gestión de Agenda', description: 'Sincroniza tu calendario y libera horas en un clic.' },
@@ -405,7 +491,245 @@ export default function FrontUsers() {
 				</Container>
 			</Box>
 
-			
+			{/* Planes */}
+			<Box id="planes" sx={{ py: 9, background: 'linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%)' }}>
+				<Container maxWidth="lg">
+					<Stack spacing={1} alignItems="center" sx={{ mb: 3 }}>
+						<Chip label="Planes" sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700 }} />
+						<Typography variant="h4" fontWeight={900} textAlign="center">
+							Elige el plan que se ajuste a tu forma de trabajar
+						</Typography>
+					</Stack>
+
+					<Grid container spacing={2} alignItems="stretch">
+						{/* Básico */}
+						<Grid item xs={12} md={4}>
+							<Card
+								elevation={0}
+								sx={{
+									border: '1px solid #e3f2fd',
+									borderRadius: 3,
+									height: '100%',
+									transition: 'transform 180ms ease, box-shadow 180ms ease',
+									'&:hover': { transform: 'translateY(-4px)', boxShadow: '0 14px 40px rgba(37,150,190,0.12)' },
+								}}
+							>
+								<CardContent sx={{ height: '100%' }}>
+									<Stack spacing={1.5} sx={{ height: '100%' }}>
+										<Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+											<Typography variant="h6" fontWeight={900}>Básico</Typography>
+											<Chip size="small" label="Individual" sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700 }} />
+										</Stack>
+
+										<Box>
+											<Typography variant="h4" fontWeight={950} lineHeight={1}>
+												{formatCLP(pricing.basico)}
+											</Typography>
+											<Typography variant="body2" color="text.secondary">/ mes</Typography>
+										</Box>
+
+										<Typography color="text.secondary" variant="body2">
+											Para profesionales independientes que necesitan agendar y confirmar citas.
+										</Typography>
+										<Divider />
+										<Stack spacing={1.2}>
+											<PlanFeature>Agenda digital y personal de citas</PlanFeature>
+											<PlanFeature>Perfil profesional público</PlanFeature>
+											<PlanFeature>Comparte tu enlace de reservas</PlanFeature>
+											<PlanFeature>Recordatorios automáticos por WhatsApp ilimitado</PlanFeature>
+											<PlanFeature>Gestión de citas</PlanFeature>
+											<PlanFeature>Descarga de informes en PDF</PlanFeature>
+											<PlanFeature>Reportes y métricas de mi negocio (Básicas)</PlanFeature>
+											<PlanFeature>Historial clínico</PlanFeature>
+											<PlanFeature>Bloqueo de horarios</PlanFeature>
+										</Stack>
+										<Box sx={{ flexGrow: 1 }} />
+										<Button component={RouterLink} to="/register" fullWidth variant="contained" sx={{ mt: 2, backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>
+											Comenzar
+										</Button>
+									</Stack>
+								</CardContent>
+							</Card>
+						</Grid>
+
+						{/* Avanzado */}
+						<Grid item xs={12} md={4}>
+							<Card
+								elevation={0}
+								sx={{
+									position: 'relative',
+									border: '2px solid rgba(37,150,190,0.55)',
+									borderRadius: 3,
+									height: '100%',
+									background: 'linear-gradient(180deg, rgba(37,150,190,0.06) 0%, #ffffff 55%)',
+									boxShadow: '0 10px 30px rgba(37,150,190,0.10)',
+									transition: 'transform 180ms ease, box-shadow 180ms ease',
+									'&:hover': { transform: 'translateY(-4px)', boxShadow: '0 16px 46px rgba(37,150,190,0.18)' },
+									'&::before': {
+										content: '""',
+										position: 'absolute',
+										left: 0,
+										right: 0,
+										top: 0,
+										height: 6,
+										borderTopLeftRadius: 12,
+										borderTopRightRadius: 12,
+										background: 'linear-gradient(90deg, #2596be 0%, #21cbe6 100%)',
+									},
+								}}
+							>
+								<CardContent sx={{ height: '100%' }}>
+									<Stack spacing={1.5} sx={{ height: '100%' }}>
+										<Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+											<Typography variant="h6" fontWeight={900}>Avanzado</Typography>
+											<Chip size="small" label="Recomendado" sx={{ bgcolor: primary, color: 'white', fontWeight: 800 }} />
+											<Chip size="small" label="Individual" sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700 }} />
+										</Stack>
+
+										<Box>
+											<Typography variant="h4" fontWeight={950} lineHeight={1}>
+												{formatCLP(pricing.avanzado)}
+											</Typography>
+											<Typography variant="body2" color="text.secondary">/ mes</Typography>
+										</Box>
+
+										<Typography color="text.secondary" variant="body2">
+											Para automatizar recordatorios, pagos y sincronización con calendario.
+										</Typography>
+										<Divider />
+										<Stack spacing={1.2}>
+											<PlanFeature>Todo lo del plan Básico</PlanFeature>
+											<PlanFeature>Sube imágenes de exámenes</PlanFeature>
+											<PlanFeature>Sincronización con Google Calendar</PlanFeature>
+											<PlanFeature>Modalidades de atención: presencial y videoconsulta</PlanFeature>
+											<PlanFeature>Pagos en línea</PlanFeature>
+											<PlanFeature>Reportes y métricas de mi negocio (Avanzadas)</PlanFeature>
+										</Stack>
+										<Box sx={{ flexGrow: 1 }} />
+										<Button component={RouterLink} to="/register" fullWidth variant="contained" sx={{ mt: 2, backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>
+											Comenzar
+										</Button>
+									</Stack>
+								</CardContent>
+							</Card>
+						</Grid>
+
+						{/* Empresas / Clínicas / Equipos */}
+						<Grid item xs={12} md={4}>
+							<Card
+								elevation={0}
+								sx={{
+									border: '1px solid #e3f2fd',
+									borderRadius: 3,
+									height: '100%',
+									transition: 'transform 180ms ease, box-shadow 180ms ease',
+									'&:hover': { transform: 'translateY(-4px)', boxShadow: '0 14px 40px rgba(37,150,190,0.12)' },
+								}}
+							>
+								<CardContent sx={{ height: '100%' }}>
+									<Stack spacing={1.5} sx={{ height: '100%' }}>
+										<Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+											<Typography variant="h6" fontWeight={900}>Empresas / Clínicas / Equipos</Typography>
+											<Chip size="small" label="Multiusuario" sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700 }} />
+										</Stack>
+
+										<Box>
+											<Typography variant="h4" fontWeight={950} lineHeight={1}>
+												Desde {formatCLP(pricing.teamDesde)}
+											</Typography>
+											<Typography variant="body2" color="text.secondary">/ mes (según usuarios)</Typography>
+										</Box>
+
+										<Typography color="text.secondary" variant="body2">
+											Multi-profesional con roles: asistentes, profesionales y administradores.
+										</Typography>
+
+										<Divider />
+
+										<Stack spacing={1.2}>
+											<PlanFeature>Cubre todas las funcionalidades</PlanFeature>
+											<PlanFeature>Sucursales y agendas por profesional</PlanFeature>
+											<PlanFeature>Roles y permisos (asistente/profesional/admin)</PlanFeature>
+											<PlanFeature>Panel de métricas por sucursal/equipo</PlanFeature>
+											<PlanFeature>Notificaciones y confirmaciones centralizadas</PlanFeature>
+										</Stack>
+
+										<Grid container spacing={1.5} sx={{ mt: 0.25 }}>
+											<Grid item xs={12} sm={4}>
+												<TextField
+													label="Asistentes"
+													type="number"
+													size="small"
+													fullWidth
+													inputProps={{ min: 0 }}
+													value={teamPlan.asistentes}
+													onChange={(e) => setTeamPlan(p => ({ ...p, asistentes: Number(e.target.value) }))
+													}
+												/>
+											</Grid>
+											<Grid item xs={12} sm={4}>
+												<TextField
+													label="Profesionales"
+													type="number"
+													size="small"
+													fullWidth
+													inputProps={{ min: 0 }}
+													value={teamPlan.profesionales}
+													onChange={(e) => setTeamPlan(p => ({ ...p, profesionales: Number(e.target.value) }))
+													}
+												/>
+											</Grid>
+											<Grid item xs={12} sm={4}>
+												<TextField
+													label="Administradores"
+													type="number"
+													size="small"
+													fullWidth
+													inputProps={{ min: 1 }}
+													value={teamPlan.administradores}
+													onChange={(e) => setTeamPlan(p => ({ ...p, administradores: Math.max(1, Number(e.target.value)) }))
+													}
+													helperText="Mínimo 1"
+												/>
+											</Grid>
+										</Grid>
+
+										<Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed rgba(37,150,190,0.35)', backgroundColor: 'rgba(37,150,190,0.06)' }}>
+											<Stack spacing={0.5}>
+												<Typography variant="body2" color="text.secondary">
+													Base: {formatCLP(teamPricing.base)} (incluye 1 administrador)
+												</Typography>
+												<Typography variant="body2" color="text.secondary">
+													+ Asistente: {formatCLP(teamPricing.porAsistente)} c/u
+												</Typography>
+												<Typography variant="body2" color="text.secondary">
+													+ Profesional: {formatCLP(teamPricing.porProfesional)} c/u
+												</Typography>
+												<Typography variant="body2" color="text.secondary">
+													+ Administrador adicional: {formatCLP(teamPricing.porAdministrador)} c/u
+												</Typography>
+												<Divider sx={{ my: 0.75 }} />
+												<Typography variant="body2" color="text.secondary">
+													Admins cobrados: {teamPricing.administradoresCobrados}
+												</Typography>
+												<Typography fontWeight={900}>
+													Total estimado: {formatCLP(teamPricing.total)} / mes
+												</Typography>
+											</Stack>
+										</Box>
+
+										<Box sx={{ flexGrow: 1 }} />
+										<Button component={RouterLink} to="/register" fullWidth variant="contained" sx={{ mt: 2, backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>
+											Comenzar
+										</Button>
+									</Stack>
+								</CardContent>
+							</Card>
+						</Grid>
+					</Grid>
+				</Container>
+			</Box>
+
 			<SiteFooter />
 
 			{/* Login modal */}

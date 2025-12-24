@@ -57,6 +57,19 @@ export default function RegisterProfesional({ open, onClose, sucursalId, onSucce
     if (!form.username) errors.username = "Nombre requerido";
     if (!form.email) errors.email = "Correo requerido";
     if (!form.password) errors.password = "Contraseña requerida";
+    // Validaciones de complejidad similares al backend
+    if (form.password && form.password.length < 6) {
+      errors.password = "La contraseña debe tener al menos 6 caracteres";
+    }
+    if (form.password && !/[A-Z]/.test(form.password)) {
+      errors.password = "La contraseña debe tener al menos una mayúscula";
+    }
+    if (form.password && !/[0-9]/.test(form.password)) {
+      errors.password = "La contraseña debe tener al menos un número";
+    }
+    if (form.password && !/[^A-Za-z0-9]/.test(form.password)) {
+      errors.password = "La contraseña debe tener al menos un símbolo";
+    }
     if (form.password !== form.confirmPassword) {
       errors.confirmPassword = "Las contraseñas no coinciden";
     }
@@ -78,14 +91,20 @@ export default function RegisterProfesional({ open, onClose, sucursalId, onSucce
             password: form.password,
             especialidad: form.especialidad
         };
-        const newUser = await registerUserOnly(user);
+        const res = await registerUserOnly(user);
+        const newUser = res?.data || res;
         if (newUser) {
-            await agregarProfesional(sucursalId, newUser.id);
-            onSuccess();
-            onClose();
+          await agregarProfesional(sucursalId, newUser.id || newUser._id);
+          onSuccess();
+          onClose();
         }
     } catch (err) {
-      setError("Error al registrar profesional. Intenta nuevamente.");
+      const backendMessage = err?.response?.data?.message;
+      if (backendMessage) {
+        setError(Array.isArray(backendMessage) ? backendMessage.join(" ") : backendMessage);
+      } else {
+        setError("Error al registrar profesional. Intenta nuevamente.");
+      }
     } finally {
       setLoading(false);
     }

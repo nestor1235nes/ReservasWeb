@@ -27,6 +27,8 @@ import SincronizacionCalendarios from '../components/Modales/SincronizacionCalen
 import ModalServicio from '../components/Modales/ModalServicio';
 import MensajesAutomaticos from "../components/MensajesAutomaticos";
 import { useAlert } from "../context/AlertContext";
+import { useSubscription } from "../context/subscriptionContext";
+import SubscriptionPlansModal from '../components/Modales/SubscriptionPlansModal';
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const intervals = [10, 15, 30, 60];
@@ -305,6 +307,19 @@ export function PerfilPage() {
   const [deletingServicioIndex, setDeletingServicioIndex] = useState(null);
   const fotoPerfilRef = useRef(null);
   const showAlert = useAlert();
+  const {
+    planName: activePlanName,
+    planLevel,
+    hasActiveSubscription,
+    canSyncCalendar,
+    canUseTelemedicina,
+    scope: subscriptionScope,
+    loading: loadingSubscription,
+  } = useSubscription();
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const noSubscription = !hasActiveSubscription;
+  const isSucursalScope = subscriptionScope === 'SUCURSAL';
+  const canSeePlanChip = !loadingSubscription && (!isSucursalScope || esAdminSucursal);
 
 
   const handleOpenPerfil = (profesional) => {
@@ -335,7 +350,15 @@ export function PerfilPage() {
   });
 
   // Handlers
-  const handleEditProfileClick = () => setEditProfileMode(true);
+  const handleEditProfileClick = () => {
+    if (noSubscription) {
+      if (typeof showAlert === 'function') {
+        showAlert('info', 'Debes contratar un plan para editar tu perfil.');
+      }
+      return;
+    }
+    setEditProfileMode(true);
+  };
   const handleSaveProfileClick = async () => {
     try {
       // Detecta si cambió el valor del switch
@@ -558,7 +581,29 @@ export function PerfilPage() {
         <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} color="white">
           {esAsistente ? "Mi Perfil Personal" : "Mi Perfil Profesional"}
         </Typography>
-  <Box display="flex" gap={1} flexWrap="wrap" sx={{ '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}>
+        <Box display="flex" gap={1} flexWrap="wrap" sx={{ '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}>
+          {canSeePlanChip && (
+            <Chip
+              label={
+                hasActiveSubscription
+                  ? `Plan activo: ${activePlanName}${planLevel === 'teams' ? ' (Equipo)' : ''}`
+                  : 'Sin suscripción activa'
+              }
+              color={hasActiveSubscription ? 'success' : 'default'}
+              variant="filled"
+              clickable
+              onClick={() => {
+                setSubscriptionModalOpen(true);
+              }}
+              sx={{
+                mr: 1,
+                backgroundColor: hasActiveSubscription ? '#2ecc71' : 'rgba(255,255,255,0.2)',
+                color: 'white',
+                cursor: 'pointer',
+                border: '1px solid white',
+              }}
+            />
+          )}
           {!esAsistente && (
             <Button startIcon={<PreviewIcon />} variant="contained" sx={{ background: 'white', color: '#2596be' }} onClick={() => setModalOpen(true)}>
               Vista previa
@@ -611,17 +656,20 @@ export function PerfilPage() {
       >
         <Tabs
           value={tab}
-          onChange={(_, v) => setTab(v)}
+          onChange={(_, v) => {
+            if (noSubscription) return;
+            setTab(v);
+          }}
           variant={isMobile ? "scrollable" : "standard"}
           scrollButtons={isMobile ? "auto" : false}
           aria-label="tabs"
           sx={{ width: '100%', maxWidth: '100%' }}
         >
-          <Tab label="Información Personal" />
-          {!esAsistente && <Tab label="Información Profesional" />}
-          {!esAsistente && <Tab label="Horarios" />}
-          {!esAsistente && <Tab label="Servicios" />}
-          <Tab label="Mensajes" />
+          <Tab label="Información Personal" disabled={noSubscription} />
+          {!esAsistente && <Tab label="Información Profesional" disabled={noSubscription} />}
+          {!esAsistente && <Tab label="Horarios" disabled={noSubscription} />}
+          {!esAsistente && <Tab label="Servicios" disabled={noSubscription} />}
+          <Tab label="Mensajes" disabled={noSubscription} />
         </Tabs>
       </Box>
 
@@ -641,11 +689,8 @@ export function PerfilPage() {
             <CardHeader title="Foto de Perfil" subheader={esAsistente ? "Tu imagen de perfil personal" : "Esta imagen será visible para tus pacientes"} />
             <CardContent sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <Box mb={2}>
-                <FotoPerfil ref={fotoPerfilRef} size={isMobile ? 120 : 160} />
+                <FotoPerfil ref={fotoPerfilRef} size={isMobile ? 200 : 240} />
               </Box>
-              <Button variant="outlined" fullWidth onClick={() => fotoPerfilRef.current?.openFileDialog?.()}>
-                Cambiar foto
-              </Button>
             </CardContent>
           </Card>
           <Card 
@@ -701,7 +746,7 @@ export function PerfilPage() {
       )}
 
       {/* Información Profesional */}
-      {!esAsistente && tab === 1 && (
+      {!esAsistente && !noSubscription && tab === 1 && (
   <Box display="flex" flexDirection={isMobile ? "column" : "row"} gap={2} flexWrap="wrap" mt={2}>
           <Card 
           sx={{ flex: 1,
@@ -821,7 +866,13 @@ export function PerfilPage() {
                   />
                 }
                 label={<><VideoCameraFrontIcon sx={{ mr: 1 }} />Telemedicina</>}
+                disabled={!editProfileMode || !canUseTelemedicina}
               />
+              {!canUseTelemedicina && (
+                <Typography variant="caption" color="textSecondary">
+                  La videoconsulta está disponible en el Plan Avanzado y Teams.
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Box>
@@ -829,7 +880,7 @@ export function PerfilPage() {
 
       {/* Horarios */}
       {/* Horarios */}
-      {!esAsistente && tab === 2 && (
+      {!esAsistente && !noSubscription && tab === 2 && (
         <Box mt={2}>
           <Card sx={{ mb: 3 }}>
             <CardHeader
@@ -943,8 +994,9 @@ export function PerfilPage() {
                     </Typography>
                   </Box>
                 </Box>
-                <Tooltip title="Sincroniza tu calendario con calendarios externos como Google Calendar o ICalendar" arrow>
+                <Tooltip title="Sincroniza tu calendario con Google Calendar o ICalendar (Plan Avanzado / Teams)" arrow>
                   <Box mt={3} display="flex" justifyContent="center" gap={2}>
+                    {canSyncCalendar ? (
                       <Button
                         variant="contained"
                         color="secondary"
@@ -953,6 +1005,11 @@ export function PerfilPage() {
                       >
                         Sincronizar con calendarios externos
                       </Button>
+                    ) : (
+                      <Typography variant="body2" color="rgba(255,255,255,0.9)">
+                        Sincronización de calendarios disponible en Plan Avanzado y Teams.
+                      </Typography>
+                    )}
                   </Box>
                 </Tooltip>
               </CardContent>
@@ -962,7 +1019,7 @@ export function PerfilPage() {
       )}
 
       {/* Servicios */}
-      {!esAsistente && tab === 3 && (
+      {!esAsistente && !noSubscription && tab === 3 && (
         <Box mt={2}>
           <Card sx={{ mb: 3 }}>
             <CardHeader
@@ -1158,6 +1215,11 @@ export function PerfilPage() {
           )}
         </Box>
       )}
+
+      <SubscriptionPlansModal
+        open={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+      />
 
       {!esAsistente && (
         <Modal

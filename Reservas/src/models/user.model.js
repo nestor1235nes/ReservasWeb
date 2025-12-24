@@ -147,6 +147,22 @@ const userSchema = new mongoose.Schema({
         type: [Date],
         default: [],
     },
-});
+
+    // Suscripción
+    suscriptionPlan: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'SuscriptionPlan',
+    },
+    suscriptionStartDate: {
+        type: Date,
+    },
+    suscriptionEndDate: {
+        type: Date,
+    },
+    externalCustomerId: {
+        type: String,
+    },
+
+}, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

@@ -92,6 +92,22 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
     }
   }, [open, datosPreseleccionados?.profesional?._id]);
 
+  // Capacidad de pagos online según plan del profesional (Basic / Standard / Teams)
+  const professionalPlanName =
+    datosPreseleccionados?.profesional?.suscriptionPlan?.name ||
+    datosPreseleccionados?.profesional?.sucursal?.suscriptionPlan?.name ||
+    null;
+
+  const canUsePayments = professionalPlanName === 'Standard' || professionalPlanName === 'Teams';
+
+  // Si el plan no permite Webpay y estaba seleccionado, forzar "presencial"
+  useEffect(() => {
+    if (!open) return;
+    if (!canUsePayments && paymentMethod === 'webpay') {
+      setPaymentMethod('presencial');
+    }
+  }, [open, canUsePayments, paymentMethod]);
+
   // Paso 1: Rutificador
   const handleRutValidated = async (rutIngresado) => {
     setRut(rutIngresado);
@@ -199,6 +215,13 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
     setLoading(true);
     setError('');
     try {
+      // Seguridad adicional: evitar flujo Webpay si el profesional no tiene plan avanzado/Teams
+      if (paymentMethod === 'webpay' && !canUsePayments) {
+        setError('Este profesional no tiene habilitados los pagos en línea. Selecciona pago presencial.');
+        setLoading(false);
+        return;
+      }
+
       // 1. Construir el objeto reserva
       const reserva = {
         profesional: datosPreseleccionados.profesional?._id,
@@ -496,10 +519,20 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   >
                     <FormControlLabel value="presencial" control={<Radio />} label="Pagar presencialmente (en consulta)" />
-                    <FormControlLabel value="webpay" control={<Radio />} label="Pagar ahora con Webpay" />
+                    <FormControlLabel
+                      value="webpay"
+                      control={<Radio />}
+                      label="Pagar ahora con Webpay"
+                      disabled={!canUsePayments}
+                    />
                   </RadioGroup>
-                  {paymentMethod === 'webpay' && (
+                  {paymentMethod === 'webpay' && canUsePayments && (
                     <Typography variant="caption" color="text.secondary">Serás redirigido a Webpay para completar el pago seguro.</Typography>
+                  )}
+                  {!canUsePayments && (
+                    <Typography variant="caption" color="text.secondary">
+                      Este profesional no tiene habilitados los pagos en línea. Solo está disponible el pago presencial.
+                    </Typography>
                   )}
                 </Paper>
               </Stack>

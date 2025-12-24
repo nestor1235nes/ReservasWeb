@@ -25,6 +25,7 @@ import { useAuth } from '../context/authContext';
 import { useAnalytics } from '../context/analyticsContext';
 import FullPageLoader from '../components/ui/FullPageLoader';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import { useSubscription } from '../context/subscriptionContext';
 
 // Util: construir lista de meses entre fechaInicio y hoy
 const buildMonthBuckets = (startDate) => {
@@ -53,6 +54,7 @@ export default function GraphicsPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useAuth();
   const { getEstadisticasPorPeriodo, getPagosMensuales } = useAnalytics();
+  const { canViewAdvancedReports } = useSubscription();
 
   const [periodStats, setPeriodStats] = useState(null); // respuesta de getEstadisticasPorPeriodo
   const [payments12m, setPayments12m] = useState([]); // últimos 12 meses
@@ -185,6 +187,14 @@ export default function GraphicsPage() {
     return (
       <Alert severity="error" sx={{ m: 2 }}>
         {error}
+      </Alert>
+    );
+  }
+
+  if (!canViewAdvancedReports) {
+    return (
+      <Alert severity="info" sx={{ m: 2 }}>
+        Los reportes y métricas avanzadas están disponibles en el Plan Avanzado y Teams.
       </Alert>
     );
   }

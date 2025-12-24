@@ -14,12 +14,14 @@ import {
 import PaymentIcon from '@mui/icons-material/Payment';
 import { createPaymentRequest } from '../api/payment';
 import { useAlert } from '../context/AlertContext'; 
+import { useSubscription } from '../context/subscriptionContext';
 
 const PaymentButton = ({ reserva, amount = 50000, onPaymentSuccess }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [customAmount, setCustomAmount] = useState(amount);
   const showAlert = useAlert();
+  const { canUsePayments } = useSubscription();
 
   const handlePayment = async () => {
     try {
@@ -59,7 +61,13 @@ const PaymentButton = ({ reserva, amount = 50000, onPaymentSuccess }) => {
       <Button
         variant="contained"
         startIcon={<PaymentIcon />}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (!canUsePayments) {
+            showAlert('info', 'Los pagos en línea están disponibles en el Plan Avanzado y Teams.');
+            return;
+          }
+          setOpen(true);
+        }}
         sx={{
           background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
           color: 'white'

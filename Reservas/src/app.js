@@ -21,6 +21,7 @@ import transbankRoutes from './routes/transbank.routes.js';
 import dailyRoutes from './routes/daily.routes.js';
 import confirmationRoutes from './routes/confirmation.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import subscriptionRoutes from './routes/subscription.routes.js'; 
 
 const app = express();
 
@@ -108,6 +109,7 @@ app.use('/api/transbank', transbankRoutes);
 app.use('/api/daily', dailyRoutes);
 app.use('/api/', confirmationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 
 // Archivos estáticos de uploads
 // Asegurar que existan las carpetas de subida

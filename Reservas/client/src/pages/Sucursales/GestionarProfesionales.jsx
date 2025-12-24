@@ -30,6 +30,7 @@ import LocalPhoneIcon from "@mui/icons-material/LocalPhone";
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
 import { useSucursal } from "../../context/sucursalContext";
 import { useAuth } from "../../context/authContext";
+import { useSubscription } from "../../context/subscriptionContext";
 import RegisterProfesional from "../../components/Surcursales/RegisterProfesional";
 import { useTheme } from "@mui/material/styles";
 import { ASSETS_BASE } from "../../config";
@@ -56,8 +57,19 @@ export default function GestionarProfesionales() {
     severity: "success"
   });
 
+  const { teamConfig, planLevel, scope } = useSubscription();
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const isTeamsSucursalPlan = planLevel === "teams" && scope === "SUCURSAL";
+  const contractedProfessionals = isTeamsSucursalPlan ? (teamConfig?.cantidadProfessionals || 0) : Infinity;
+  const canAddProfessional =
+    !isTeamsSucursalPlan || (contractedProfessionals > 0 && profesionales.length < contractedProfessionals);
+  const professionalsTooltipTitle =
+    !canAddProfessional && isTeamsSucursalPlan
+      ? `No puedes añadir más profesionales. Cupos contratados: ${profesionales.length}/${contractedProfessionals}`
+      : "";
 
   useEffect(() => {
     const fetchSucursal = async () => {
@@ -256,14 +268,22 @@ export default function GestionarProfesionales() {
         <Typography variant="h5" fontWeight={700} color="white">
           Lista de profesionales de la clínica {sucursal?.nombre || "desconocida"}
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          sx={{ background: "white", color: "#2596be", borderRadius: 2 }}
-          onClick={() => setOpenDialog(true)}
+        <Tooltip
+          title={professionalsTooltipTitle}
+          disableHoverListener={canAddProfessional || !isTeamsSucursalPlan}
         >
-          Agregar profesional
-        </Button>
+          <span>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              sx={{ background: "white", color: "#2596be", borderRadius: 2 }}
+              onClick={() => setOpenDialog(true)}
+              disabled={!canAddProfessional}
+            >
+              Agregar profesional
+            </Button>
+          </span>
+        </Tooltip>
       </Stack>
       <Box
         sx={{

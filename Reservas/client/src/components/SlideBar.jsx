@@ -30,6 +30,7 @@ import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
+import { useSubscription } from '../context/subscriptionContext';
 import Logo from '../assets/LOGO.png';
 
 const baseMenuItems = [
@@ -61,6 +62,7 @@ const assistantMenuItems = [
 const SlideBar = ({ selected, onSelect }) => {
   const navigate = useNavigate();
   const { logout, user, esAdminSucursal, esAsistente } = useAuth();
+  const { canUseTelemedicina, hasActiveSubscription } = useSubscription();
   const [empresaOpen, setEmpresaOpen] = useState(false);
 
   let menuItems;
@@ -78,7 +80,16 @@ const SlideBar = ({ selected, onSelect }) => {
     menuItems = baseMenuItems;
   }
 
+  const sidebarLocked = !hasActiveSubscription;
+
+  const isItemDisabled = (item) => {
+    if (sidebarLocked && !item.logout && item.label !== 'Perfil') return true;
+    if (item.path === '/telemedicina' && !canUseTelemedicina) return true;
+    return false;
+  };
+
   const handleClick = async (item) => {
+    if (isItemDisabled(item)) return;
     onSelect(item.label);
     if (item.isEmpresa) {
       setEmpresaOpen((prev) => !prev);
@@ -91,6 +102,7 @@ const SlideBar = ({ selected, onSelect }) => {
   };
 
   const handleSubItemClick = (subItem) => {
+    if (sidebarLocked) return;
     onSelect(subItem.label);
     navigate(subItem.path);
   };
@@ -129,15 +141,28 @@ const SlideBar = ({ selected, onSelect }) => {
           <React.Fragment key={item.label}>
             <ListItemButton
               selected={selected === item.label}
+              disabled={isItemDisabled(item)}
               onClick={() => handleClick(item)}
               sx={{
                 borderRadius: 2,
                 mb: 1,
-                color: selected === item.label ? '#2596be' : 'inherit',
+                color: isItemDisabled(item)
+                  ? 'text.disabled'
+                  : selected === item.label
+                  ? '#2596be'
+                  : 'inherit',
                 fontWeight: selected === item.label ? 'bold' : 'normal',
               }}
             >
-              <ListItemIcon sx={{ color: selected === item.label ? '#2596be' : 'inherit' }}>
+              <ListItemIcon
+                sx={{
+                  color: isItemDisabled(item)
+                    ? 'text.disabled'
+                    : selected === item.label
+                    ? '#2596be'
+                    : 'inherit',
+                }}
+              >
                 {item.icon}
               </ListItemIcon>
               <ListItemText primary={item.label} />
@@ -154,13 +179,26 @@ const SlideBar = ({ selected, onSelect }) => {
                         pl: 4,
                         borderRadius: 2,
                         mb: 1,
-                        color: selected === subItem.label ? '#2596be' : 'inherit',
+                        color: sidebarLocked
+                          ? 'text.disabled'
+                          : selected === subItem.label
+                          ? '#2596be'
+                          : 'inherit',
                         fontWeight: selected === subItem.label ? 'bold' : 'normal',
                       }}
+                      disabled={sidebarLocked}
                       selected={selected === subItem.label}
                       onClick={() => handleSubItemClick(subItem)}
                     >
-                      <ListItemIcon sx={{ color: selected === subItem.label ? '#2596be' : 'inherit' }}>
+                      <ListItemIcon
+                        sx={{
+                          color: sidebarLocked
+                            ? 'text.disabled'
+                            : selected === subItem.label
+                            ? '#2596be'
+                            : 'inherit',
+                        }}
+                      >
                         {subItem.icon}
                       </ListItemIcon>
                       <ListItemText primary={subItem.label} />

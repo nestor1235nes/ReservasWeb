@@ -21,6 +21,7 @@ import { obtenerHorasDisponiblesRequest, liberarHorasRequest } from "../api/func
 import { updateNotificationsRequest } from '../api/auth';
 import Cookies from "js-cookie";
 import { esAdminRequest, esAsistenteRequest } from "../api/sucursales"; 
+import { useSubscription } from "./subscriptionContext";
 
 const AuthContext = createContext();
 
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [esAdminSucursal, setEsAdminSucursal] = useState(false);
   const [esAsistente, setEsAsistente] = useState(false);
+  const { loadCurrent: loadSubscriptionCurrent, clearSubscription } = useSubscription();
 
 
   // clear errors after 5 seconds
@@ -73,6 +75,8 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('auth_token', res.data.token);
         api.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
       }
+      // cargar estado de suscripción para este usuario
+      try { await loadSubscriptionCurrent(); } catch {}
     } catch (error) {
       console.log(error);
       const status = error?.response?.status;
@@ -103,6 +107,7 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
       localStorage.removeItem('auth_token');
       delete api.defaults.headers.common['Authorization'];
+      clearSubscription();
     }
   };
 
@@ -281,6 +286,7 @@ export const AuthProvider = ({ children }) => {
           // si ya tenemos token local, reinstalar Authorization
           const t = localStorage.getItem('auth_token');
           if (t) api.defaults.headers.common['Authorization'] = `Bearer ${t}`;
+          try { await loadSubscriptionCurrent(); } catch {}
         } else {
           // Fallback: si hay token en localStorage, lo usamos para bootstrapping en móvil
           const t = localStorage.getItem('auth_token');
@@ -292,6 +298,7 @@ export const AuthProvider = ({ children }) => {
               if (res2?.data) {
                 setUser(res2.data);
                 setIsAuthenticated(true);
+                try { await loadSubscriptionCurrent(); } catch {}
               } else {
                 setIsAuthenticated(false);
               }
@@ -312,6 +319,7 @@ export const AuthProvider = ({ children }) => {
             if (res2?.data) {
               setUser(res2.data);
               setIsAuthenticated(true);
+              try { await loadSubscriptionCurrent(); } catch {}
             } else {
               setIsAuthenticated(false);
             }

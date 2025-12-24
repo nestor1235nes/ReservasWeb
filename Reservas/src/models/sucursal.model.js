@@ -78,7 +78,37 @@ const SucursalSchema = new mongoose.Schema({
         type: String,
         default: "Estimado {nombre}, le recordarmos que mañana {fecha} a las {hora} tiene una hora agendada. Por favor de no poder asistir contáctese con nosotros o bien reagende su cita en nuestro sitio web https://agendavitalink.vercel.app/"
     },
-});
+
+    // Suscripción
+    suscriptionPlan: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SuscriptionPlan",
+    },
+    suscriptionStartDate: {
+        type: Date,
+    },
+    suscriptionEndDate: {
+        type: Date,
+    },
+    teamConfig: {
+        cantidadAdmins: {
+            type: Number,
+            default: 1,
+        },
+        cantidadProfessionals: {
+            type: Number,
+            default: 0,
+        },
+        cantidadAssistants: {
+            type: Number,
+            default: 0,
+        },
+        maxUsers: {
+            type: Number,
+            default: 1,
+        },
+    },
+}, { timestamps: true });
 
 const Sucursal = mongoose.model("Sucursal", SucursalSchema);
 
