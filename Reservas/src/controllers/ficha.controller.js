@@ -395,6 +395,20 @@ export const createReserva = async (req, res) => {
             (value) => typeof value === 'string' && value.trim().length > 0
         ) || rawHistorial.length > 0;
 
+        const normalizeLegacySessions = (historialVal) => {
+            try {
+                if (!historialVal) return [];
+                if (Array.isArray(historialVal)) {
+                    // Puede venir como [[...]] o como [...]
+                    if (historialVal.length > 0 && Array.isArray(historialVal[0])) return historialVal.flat();
+                    return historialVal;
+                }
+                return [];
+            } catch {
+                return [];
+            }
+        };
+
         // Determinar diaPrimeraCita solo cuando existe información clínica registrada
         let diaPrimeraCitaValue = null;
         if (hasClinicalData) {
@@ -409,6 +423,14 @@ export const createReserva = async (req, res) => {
             diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         }
         const siguienteCitaNorm = normalizeDateField(req.body.siguienteCita);
+
+        // Pago: permitir indicar si la cita se cobra o es exenta.
+        // Si no viene, no tocar (mantener defaults del modelo o valores existentes).
+        const has = (key) => Object.prototype.hasOwnProperty.call(req.body, key);
+        const requiresPayment = has('requiresPayment') ? Boolean(req.body.requiresPayment) : undefined;
+        const paymentStatusFromRequires = (requiresPayment === undefined)
+            ? undefined
+            : (requiresPayment ? 'not_initiated' : 'waived');
 
         // Si ya existe una reserva para este paciente y profesional en la misma fecha y hora, actualizar en lugar de crear
         let reservaExistente = null;
@@ -430,6 +452,51 @@ export const createReserva = async (req, res) => {
             reservaExistente.eventId = req.body.eventId || reservaExistente.eventId;
             reservaExistente.modalidad = req.body.modalidad || reservaExistente.modalidad || 'Presencial';
             reservaExistente.servicio = req.body.servicio || reservaExistente.servicio || 'Consulta';
+            if (requiresPayment !== undefined) {
+                reservaExistente.requiresPayment = requiresPayment;
+                reservaExistente.paymentStatus = paymentStatusFromRequires;
+            }
+
+            // Si llega información clínica, registrar/actualizar en casos clínicos.
+            if (hasClinicalData) {
+                const startNewClinicalCase = req.body.startNewClinicalCase === true || req.body.startNewClinicalCase === 'true' || req.body.startNewClinicalCase === 1 || req.body.startNewClinicalCase === '1';
+                const legacySesiones = normalizeLegacySessions(req.body.historial);
+
+                const shouldCreateCase = startNewClinicalCase || !reservaExistente.activeClinicalCaseId || !Array.isArray(reservaExistente.clinicalCases) || reservaExistente.clinicalCases.length === 0;
+                if (shouldCreateCase) {
+                    reservaExistente.clinicalCases = Array.isArray(reservaExistente.clinicalCases) ? reservaExistente.clinicalCases : [];
+                    reservaExistente.clinicalCases.push({
+                        diagnostico: req.body.diagnostico || '',
+                        anamnesis: req.body.anamnesis || '',
+                        createdAt: diaPrimeraCitaValue || new Date(),
+                        sesiones: legacySesiones.map((s) => ({
+                            fecha: s?.fecha ? new Date(s.fecha) : undefined,
+                            notas: s?.notas || '',
+                            sucursal: reservaExistente.sucursal,
+                            profesional: reservaExistente.profesional,
+                        }))
+                    });
+                    const lastCase = reservaExistente.clinicalCases[reservaExistente.clinicalCases.length - 1];
+                    reservaExistente.activeClinicalCaseId = lastCase?._id;
+                } else {
+                    // Actualizar datos clínicos en caso activo
+                    const active = reservaExistente.clinicalCases.id(reservaExistente.activeClinicalCaseId);
+                    if (active) {
+                        if (typeof req.body.diagnostico === 'string') active.diagnostico = req.body.diagnostico;
+                        if (typeof req.body.anamnesis === 'string') active.anamnesis = req.body.anamnesis;
+                        // Si llega historial legacy, anexarlo como sesiones del caso activo
+                        const legacySesiones2 = normalizeLegacySessions(req.body.historial);
+                        legacySesiones2.forEach((s) => {
+                            active.sesiones.push({
+                                fecha: s?.fecha ? new Date(s.fecha) : undefined,
+                                notas: s?.notas || '',
+                                sucursal: reservaExistente.sucursal,
+                                profesional: reservaExistente.profesional,
+                            });
+                        });
+                    }
+                }
+            }
             // Actualizar diaPrimeraCita si se envía y no estaba
             if (diaPrimeraCitaValue && !reservaExistente.diaPrimeraCita) {
                 reservaExistente.diaPrimeraCita = diaPrimeraCitaValue;
@@ -450,12 +517,34 @@ export const createReserva = async (req, res) => {
                 modalidad: req.body.modalidad || 'Presencial', // Valor por defecto
                 servicio: req.body.servicio || 'Consulta', // Valor por defecto
             };
+            if (requiresPayment !== undefined) {
+                reservaPayload.requiresPayment = requiresPayment;
+                reservaPayload.paymentStatus = paymentStatusFromRequires;
+            }
             if (diaPrimeraCitaValue) {
                 reservaPayload.diaPrimeraCita = diaPrimeraCitaValue;
             }
             nuevaReserva = new Reserva(reservaPayload);
             if (sucursalId) {
                 nuevaReserva.sucursal = sucursalId;
+            }
+
+            // Si llega información clínica al crear la reserva, crear el primer caso clínico.
+            if (hasClinicalData) {
+                const legacySesiones = normalizeLegacySessions(req.body.historial);
+                nuevaReserva.clinicalCases = Array.isArray(nuevaReserva.clinicalCases) ? nuevaReserva.clinicalCases : [];
+                nuevaReserva.clinicalCases.push({
+                    diagnostico: req.body.diagnostico || '',
+                    anamnesis: req.body.anamnesis || '',
+                    createdAt: diaPrimeraCitaValue || new Date(),
+                    sesiones: legacySesiones.map((s) => ({
+                        fecha: s?.fecha ? new Date(s.fecha) : undefined,
+                        notas: s?.notas || '',
+                        sucursal: nuevaReserva.sucursal,
+                        profesional: nuevaReserva.profesional,
+                    }))
+                });
+                nuevaReserva.activeClinicalCaseId = nuevaReserva.clinicalCases[0]?._id;
             }
             await nuevaReserva.save();
         }
@@ -519,19 +608,122 @@ export const updateReserva = async (req, res) => {
             return val;
         };
 
-        const datosReserva = {
-            diaPrimeraCita: normalizeDateField(req.body.diaPrimeraCita),
-            siguienteCita: normalizeDateField(req.body.siguienteCita),
-            hora: req.body.hora,
-            mensajePaciente: req.body.mensajePaciente,
-            profesional: req.body.profesional,
-            diagnostico: req.body.diagnostico,
-            anamnesis: req.body.anamnesis,
-            historial: req.body.historial,
-            imagenes: req.body.imagenes,
-            eventId: req.body.eventId,
+        // Construir update de forma segura: solo actualizar campos presentes.
+        // Esto permite setear explícitamente null para limpiar valores (p.ej. cerrar ciclo).
+        const has = (key) => Object.prototype.hasOwnProperty.call(req.body, key);
+        const datosReserva = {};
+        if (has('diaPrimeraCita')) datosReserva.diaPrimeraCita = normalizeDateField(req.body.diaPrimeraCita);
+        if (has('siguienteCita')) datosReserva.siguienteCita = normalizeDateField(req.body.siguienteCita);
+        if (has('hora')) datosReserva.hora = req.body.hora;
+        if (has('mensajePaciente')) datosReserva.mensajePaciente = req.body.mensajePaciente;
+        if (has('profesional')) datosReserva.profesional = req.body.profesional;
+        // Campos legacy (se mantienen por compatibilidad), pero la fuente de verdad pasa a ser clinicalCases.
+        if (has('diagnostico')) datosReserva.diagnostico = req.body.diagnostico;
+        if (has('anamnesis')) datosReserva.anamnesis = req.body.anamnesis;
+        if (has('historial')) datosReserva.historial = req.body.historial;
+        if (has('imagenes')) datosReserva.imagenes = req.body.imagenes;
+        if (has('eventId')) datosReserva.eventId = req.body.eventId;
+
+        // --- Casos clínicos ---
+        const startNewClinicalCaseRaw = req.body.startNewClinicalCase;
+        const startNewClinicalCase = startNewClinicalCaseRaw === true || startNewClinicalCaseRaw === 'true' || startNewClinicalCaseRaw === 1 || startNewClinicalCaseRaw === '1';
+        const hasClinicalUpdate = has('diagnostico') || has('anamnesis');
+
+        const ensureActiveCase = () => {
+            reserva.clinicalCases = Array.isArray(reserva.clinicalCases) ? reserva.clinicalCases : [];
+            if (!reserva.activeClinicalCaseId || reserva.clinicalCases.length === 0) {
+                // Migración suave: si hay datos legacy, crear caso a partir de ellos.
+                const legacyDiagnostico = typeof reserva.diagnostico === 'string' ? reserva.diagnostico : '';
+                const legacyAnamnesis = typeof reserva.anamnesis === 'string' ? reserva.anamnesis : '';
+                reserva.clinicalCases.push({
+                    diagnostico: legacyDiagnostico,
+                    anamnesis: legacyAnamnesis,
+                    createdAt: reserva.diaPrimeraCita || reserva.createdAt || new Date(),
+                    sesiones: []
+                });
+                reserva.activeClinicalCaseId = reserva.clinicalCases[0]._id;
+            }
+            let active = reserva.clinicalCases.id(reserva.activeClinicalCaseId);
+            if (!active) {
+                // Si el id no existe, activar el último caso
+                active = reserva.clinicalCases[reserva.clinicalCases.length - 1];
+                reserva.activeClinicalCaseId = active?._id;
+            }
+            return active;
+        };
+
+        // Permitir iniciar un nuevo caso clínico aunque NO vengan diagnostico/anamnesis.
+        // Esto se usa para "Iniciar nuevo diagnóstico" desde el frontend.
+        if (startNewClinicalCase) {
+            const activePrev = ensureActiveCase();
+            if (activePrev && !activePrev.closedAt) {
+                activePrev.closedAt = new Date();
+            }
+            reserva.clinicalCases = Array.isArray(reserva.clinicalCases) ? reserva.clinicalCases : [];
+            reserva.clinicalCases.push({
+                diagnostico: (typeof req.body.diagnostico === 'string') ? req.body.diagnostico : '',
+                anamnesis: (typeof req.body.anamnesis === 'string') ? req.body.anamnesis : '',
+                createdAt: new Date(),
+                sesiones: []
+            });
+            const lastCase = reserva.clinicalCases[reserva.clinicalCases.length - 1];
+            reserva.activeClinicalCaseId = lastCase?._id;
+        } else if (hasClinicalUpdate) {
+            const active = ensureActiveCase();
+            if (active) {
+                if (has('diagnostico') && typeof req.body.diagnostico === 'string') active.diagnostico = req.body.diagnostico;
+                if (has('anamnesis') && typeof req.body.anamnesis === 'string') active.anamnesis = req.body.anamnesis;
+            }
         }
-        await Reserva.findByIdAndUpdate(reserva._id, datosReserva, { new: true });
+
+        // Cerrar caso cuando se limpia explícitamente la próxima cita (cierre de ciclo)
+        const isClosingCycle = has('siguienteCita') && req.body.siguienteCita === null && has('hora') && req.body.hora === null;
+        if (isClosingCycle) {
+            const active = ensureActiveCase();
+            if (active && !active.closedAt) {
+                active.closedAt = new Date();
+            }
+        }
+
+        // --- Lógica de pagos para "nueva cita" ---
+        // Cuando el profesional registra una sesión y agenda una NUEVA cita (cita aparte),
+        // el pago debe resetearse (o marcarse como exento si así lo decide).
+        const resetFlagRaw = req.body.resetPaymentForNextAppointment;
+        const resetPaymentForNextAppointment = resetFlagRaw === true || resetFlagRaw === 'true' || resetFlagRaw === 1 || resetFlagRaw === '1';
+
+        // Resolver el "próximo estado" de fecha/hora tras aplicar el update.
+        const nextSiguienteCita = has('siguienteCita') ? normalizeDateField(req.body.siguienteCita) : reserva.siguienteCita;
+        const nextHora = has('hora') ? req.body.hora : reserva.hora;
+        const isSchedulingNextAppointment = Boolean(nextSiguienteCita) && Boolean(nextHora);
+
+        // Permitir que frontend indique si se cobrará la nueva cita.
+        // Por defecto (si no viene) asumimos que SÍ se cobra.
+        const wantsCharge = has('requiresPayment') ? Boolean(req.body.requiresPayment) : true;
+
+        const unset = {};
+        if (resetPaymentForNextAppointment && isSchedulingNextAppointment) {
+            datosReserva.requiresPayment = wantsCharge;
+            datosReserva.paymentStatus = wantsCharge ? 'not_initiated' : 'waived';
+            // Limpiar token/datos de pago anteriores para evitar reuso
+            unset.paymentToken = 1;
+            unset.buyOrder = 1;
+            unset.paymentAmount = 1;
+            unset.paymentDueDate = 1;
+            unset.paymentData = 1;
+        }
+
+        const updateOp = {};
+        if (Object.keys(datosReserva).length > 0) updateOp.$set = datosReserva;
+        if (Object.keys(unset).length > 0) updateOp.$unset = unset;
+
+        if (Object.keys(updateOp).length > 0) {
+            await Reserva.findByIdAndUpdate(reserva._id, updateOp, { new: true });
+        }
+
+        // Persistir cambios de casos clínicos si hubo modificaciones
+        if (hasClinicalUpdate || startNewClinicalCase || isClosingCycle) {
+            await reserva.save();
+        }
         // Mantener relación multi-profesional al actualizar (si se cambia profesional)
         if (req.body.profesional) {
             await Paciente.updateOne({ _id: paciente._id }, { $addToSet: { profesionales: req.body.profesional } });
@@ -553,18 +745,55 @@ export const getHistorial = async (req, res) => {
         if (!paciente) {
             return res.status(404).json({ message: "Paciente not found" });
         }
-        const reserva = await Reserva.findOne({ paciente: paciente._id });
+        // Por defecto devolver historial para el profesional autenticado.
+        // Para asistentes se puede consultar por profesional usando ?profesional=<id>
+        const profesionalFiltro = req.query?.profesional || req.user.id;
+        const reserva = await Reserva.findOne({ paciente: paciente._id, profesional: profesionalFiltro }).sort({ createdAt: -1 });
         if (!reserva) {
             return res.status(404).json({ message: "Reserva not found" });
         }
-        
-        reserva.historial.forEach(historialArray => {
-            historialArray.forEach(historial => {
-                historial.fecha = new Date(historial.fecha).toISOString().split('T')[0].replace(/-/g, '/');
-            });
-        });
 
-        res.json(reserva.historial);
+        // Migración suave: si aún no hay clinicalCases, construir uno desde legacy.
+        const normalizeLegacySessions = (historialVal) => {
+            try {
+                if (!historialVal) return [];
+                if (Array.isArray(historialVal)) {
+                    if (historialVal.length > 0 && Array.isArray(historialVal[0])) return historialVal.flat();
+                    return historialVal;
+                }
+                return [];
+            } catch {
+                return [];
+            }
+        };
+
+        let clinicalCases = Array.isArray(reserva.clinicalCases) ? reserva.clinicalCases : [];
+        if (clinicalCases.length === 0) {
+            const legacySesiones = normalizeLegacySessions(reserva.historial);
+            clinicalCases = [
+                {
+                    _id: reserva._id,
+                    diagnostico: reserva.diagnostico || '',
+                    anamnesis: reserva.anamnesis || '',
+                    createdAt: reserva.diaPrimeraCita || reserva.createdAt,
+                    closedAt: null,
+                    sesiones: legacySesiones
+                }
+            ];
+        }
+
+        // Responder solo lo necesario para el frontend
+        res.json({
+            activeClinicalCaseId: reserva.activeClinicalCaseId,
+            clinicalCases: clinicalCases.map((c) => ({
+                _id: c._id,
+                diagnostico: c.diagnostico || '',
+                anamnesis: c.anamnesis || '',
+                createdAt: c.createdAt,
+                closedAt: c.closedAt,
+                sesiones: Array.isArray(c.sesiones) ? c.sesiones : []
+            }))
+        });
     } catch (error) {
         res.status(404).json({ message: error.message });
     }
@@ -609,7 +838,27 @@ export const addHistorial = async (req, res) => {
             profesional: reserva.profesional,
         };
 
-        reserva.historial.push(newHistorialEntry);
+        // --- Guardar sesión en el caso clínico activo ---
+        reserva.clinicalCases = Array.isArray(reserva.clinicalCases) ? reserva.clinicalCases : [];
+        if (!reserva.activeClinicalCaseId || reserva.clinicalCases.length === 0) {
+            // Crear caso por defecto si no existe
+            reserva.clinicalCases.push({
+                diagnostico: typeof reserva.diagnostico === 'string' ? reserva.diagnostico : '',
+                anamnesis: typeof reserva.anamnesis === 'string' ? reserva.anamnesis : '',
+                createdAt: reserva.diaPrimeraCita || reserva.createdAt || new Date(),
+                sesiones: []
+            });
+            reserva.activeClinicalCaseId = reserva.clinicalCases[0]._id;
+        }
+        let activeCase = reserva.clinicalCases.id(reserva.activeClinicalCaseId);
+        if (!activeCase) {
+            activeCase = reserva.clinicalCases[reserva.clinicalCases.length - 1];
+            reserva.activeClinicalCaseId = activeCase?._id;
+        }
+        if (activeCase) {
+            activeCase.sesiones = Array.isArray(activeCase.sesiones) ? activeCase.sesiones : [];
+            activeCase.sesiones.push(newHistorialEntry);
+        }
 
         if (!reserva.diaPrimeraCita) {
             reserva.diaPrimeraCita = fechaSesion;

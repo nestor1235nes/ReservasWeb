@@ -65,10 +65,38 @@ const ReservasSchema = new mongoose.Schema({
         default: [],
     },
 
+    // --- Historial clínico por casos (diagnósticos) ---
+    // Cada caso representa una "consulta"/"lesión" distinta y agrupa sus sesiones.
+    clinicalCases: {
+        type: [
+            {
+                diagnostico: { type: String, default: '' },
+                anamnesis: { type: String, default: '' },
+                createdAt: { type: Date, default: Date.now },
+                closedAt: { type: Date },
+                sesiones: {
+                    type: [
+                        {
+                            fecha: { type: Date },
+                            notas: { type: String },
+                            sucursal: { type: mongoose.Schema.Types.ObjectId, ref: 'Sucursal' },
+                            profesional: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                        }
+                    ],
+                    default: []
+                }
+            }
+        ],
+        default: []
+    },
+    activeClinicalCaseId: {
+        type: mongoose.Schema.Types.ObjectId
+    },
+
     // Campos de pago con Webpay
     paymentStatus: {
         type: String,
-        enum: ['not_initiated', 'pending', 'completed', 'failed', 'refunded'],
+        enum: ['not_initiated', 'pending', 'completed', 'failed', 'refunded', 'waived'],
         default: 'not_initiated'
     },
     paymentToken: {
@@ -217,7 +245,8 @@ ReservasSchema.methods.getPaymentStatusText = function() {
         'pending': 'Pendiente',
         'completed': 'Pagado',
         'failed': 'Fallido',
-        'refunded': 'Reembolsado'
+        'refunded': 'Reembolsado',
+        'waived': 'Exenta'
     };
     return statusMap[this.paymentStatus] || 'Desconocido';
 };

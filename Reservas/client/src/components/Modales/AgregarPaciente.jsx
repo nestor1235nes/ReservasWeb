@@ -68,6 +68,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
   const [pacienteExistente, setPacienteExistente] = useState(false);
   const [files, setFiles] = useState([]);
   const [agendarNuevaCita, setAgendarNuevaCita] = useState(false); // Switch para nueva cita
+  const [cobrarNuevaCita, setCobrarNuevaCita] = useState(true); // Si se agenda, decidir si se cobrará
   // Control independiente para "Primer día de consulta"
   const [cambiarDiaPrimera, setCambiarDiaPrimera] = useState(false);
   const [diaPrimeraCitaOverride, setDiaPrimeraCitaOverride] = useState(dayjs().format('YYYY-MM-DD'));
@@ -156,7 +157,12 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         diaPrimeraCita: dayjs().format('YYYY-MM-DD'),
         hora: ''
       });
+      setCobrarNuevaCita(true);
     }
+  };
+
+  const handleToggleCobrarNuevaCita = (event) => {
+    setCobrarNuevaCita(event.target.checked);
   };
 
   const handleToggleCambiarDiaPrimera = (event) => {
@@ -204,6 +210,10 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         if (agendarNuevaCita && patientData.diaPrimeraCita && patientData.hora) {
           updatePayload.siguienteCita = patientData.diaPrimeraCita;
           updatePayload.hora = patientData.hora;
+
+          // NUEVO: al agendar una nueva cita (cita aparte), resetear pago y decidir si se cobra
+          updatePayload.resetPaymentForNextAppointment = true;
+          updatePayload.requiresPayment = Boolean(cobrarNuevaCita);
         }
 
         // Evitar enviar payload vacío
@@ -270,7 +280,10 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
             ...dataToSave,
             diaPrimeraCita: diaPrimeraCitaValue,
             siguienteCita: agendarNuevaCita ? (patientData.diaPrimeraCita || '') : '',
-            hora: agendarNuevaCita ? patientData.hora : null
+            hora: agendarNuevaCita ? patientData.hora : null,
+
+            // NUEVO: si se agenda cita desde aquí, decidir si se cobra.
+            ...(agendarNuevaCita ? { requiresPayment: Boolean(cobrarNuevaCita) } : {})
           };
           console.log('Creando/actualizando reserva con datos:', reservaData);
           await createReserva(patientData.rut, reservaData);
@@ -396,6 +409,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
       });
       setFiles([]); // Limpiar las imágenes seleccionadas
       setAgendarNuevaCita(false); // Resetear el switch
+      setCobrarNuevaCita(true);
       setActiveStep(0);
       fetchReservas();
       onClose();
@@ -705,6 +719,31 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
                         <Typography variant="subtitle1" color="#21cbe6" fontWeight="bold" mb={2}>
                           Seleccionar Fecha y Hora
                         </Typography>
+
+                        {/* NUEVO: decidir si se cobrará esta cita */}
+                        <Box sx={{ mb: 2 }}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={cobrarNuevaCita}
+                                onChange={handleToggleCobrarNuevaCita}
+                                sx={{
+                                  '& .MuiSwitch-switchBase.Mui-checked': {
+                                    color: '#2596be',
+                                  },
+                                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                    backgroundColor: '#2596be',
+                                  },
+                                }}
+                              />
+                            }
+                            label="Cobrar esta cita"
+                          />
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Si desactivas esta opción, la cita quedará exenta (sin pago).
+                          </Typography>
+                        </Box>
+
                         <ProfesionalBusquedaHoras
                           formData={patientData}
                           setFormData={setPatientData}

@@ -67,9 +67,9 @@ export const ReservaProvider = ({ children }) => {
     }
   }
 
-  const getHistorial = async (rut) => {
+  const getHistorial = async (rut, profesionalId) => {
     try {
-      const response = await getHistorialRequest(rut);
+      const response = await getHistorialRequest(rut, profesionalId);
       return response.data;
     } catch (error) {
       console.error(error);

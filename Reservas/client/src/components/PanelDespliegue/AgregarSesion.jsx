@@ -75,6 +75,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
   const [closing, setClosing] = useState(false);
   const [horasDisponibles, setHorasDisponibles] = useState([]);
   const [agendarNuevaCita, setAgendarNuevaCita] = useState(false); // Toggle para nueva cita
+  const [cobrarNuevaCita, setCobrarNuevaCita] = useState(true); // Si se agenda nueva cita, decidir si se cobrará
   const { addHistorial, getFeriados, updateReserva } = useReserva();
   const showAlert = useAlert();
   const { user, obtenerHorasDisponibles } = useAuth();
@@ -89,6 +90,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
       setHora('');
       setUltimaFecha(dayjs().format('YYYY-MM-DD'));
       setAgendarNuevaCita(false);
+      setCobrarNuevaCita(true);
       setActiveStep(0);
     }
   }, [open]);
@@ -139,7 +141,12 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
     if (!event.target.checked) {
       setFecha('');
       setHora('');
+      setCobrarNuevaCita(true);
     }
+  };
+
+  const handleToggleCobrarNuevaCita = (event) => {
+    setCobrarNuevaCita(event.target.checked);
   };
 
   const handleSave = async () => {
@@ -176,7 +183,11 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
           siguienteCita: new Date(fecha),
           hora,
           profesional: user.id || user._id,
-          profesionalOriginal: user.id || user._id
+          profesionalOriginal: user.id || user._id,
+
+          // NUEVO: por tratarse de una cita aparte, resetea el pago de la próxima cita.
+          resetPaymentForNextAppointment: true,
+          requiresPayment: Boolean(cobrarNuevaCita)
         });
 
         // Crear evento en Google Calendar para la nueva cita
@@ -228,6 +239,19 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
           showAlert('success', 'Sesión agregada y nueva cita creada correctamente');
         }
       } else {
+        // NUEVO: si no se agenda nueva cita, cerrar el ciclo limpiando próxima cita/hora
+        // (evita que quede una "siguienteCita" vieja como si siguiera activa).
+        try {
+          await updateReserva(paciente.rut, {
+            siguienteCita: null,
+            hora: null,
+            profesional: user.id || user._id,
+            profesionalOriginal: user.id || user._id
+          });
+        } catch (e) {
+          // si falla, no bloquear el guardado de sesión
+          console.warn('No se pudo cerrar el ciclo (limpiar siguienteCita/hora):', e);
+        }
         showAlert('success', 'Sesión agregada correctamente');
       }
 
@@ -272,6 +296,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
     setHora('');
     setUltimaFecha(dayjs().format('YYYY-MM-DD'));
     setAgendarNuevaCita(false);
+    setCobrarNuevaCita(true);
     setActiveStep(0);
     handleClose();
     close();
@@ -581,6 +606,30 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
                           Se agendará una nueva cita además de guardar la sesión.
                         </Typography>
                       </Alert>
+
+                      {/* NUEVO: decidir si se cobrará la nueva cita */}
+                      <Box sx={{ mb: 2 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={cobrarNuevaCita}
+                              onChange={handleToggleCobrarNuevaCita}
+                              sx={{
+                                '& .MuiSwitch-switchBase.Mui-checked': {
+                                  color: '#2596be',
+                                },
+                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                  backgroundColor: '#2596be',
+                                },
+                              }}
+                            />
+                          }
+                          label="Cobrar esta nueva cita"
+                        />
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Si desactivas esta opción, la próxima cita quedará exenta (sin pago).
+                        </Typography>
+                      </Box>
                       
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>

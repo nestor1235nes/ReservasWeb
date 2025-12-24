@@ -116,12 +116,75 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const [openDialog, setOpenDialog] = useState(false);
   const [mensajePaciente, setMensajePaciente] = useState('');
   const [feriados, setFeriados] = useState([]);
+  const [openNewDiagnosisDialog, setOpenNewDiagnosisDialog] = useState(false);
+  const [isStartingNewDiagnosis, setIsStartingNewDiagnosis] = useState(false);
+  const [openRefreshDialog, setOpenRefreshDialog] = useState(false);
   
   // Estados para profesionales de la sucursal (para asistentes)
   const [profesionalesSucursal, setProfesionalesSucursal] = useState([]);
   const [profesionalSeleccionado, setProfesionalSeleccionado] = useState(null);
   
   const profesionalActual = esAsistente ? (profesionalSeleccionado || event?.profesional) : user;
+
+  const totalSesiones = (() => {
+    const cases = Array.isArray(event?.clinicalCases) ? event.clinicalCases : [];
+    if (cases.length > 0) {
+      return cases.reduce((sum, c) => sum + (Array.isArray(c?.sesiones) ? c.sesiones.length : 0), 0);
+    }
+    return Array.isArray(event?.historial) ? event.historial.length : 0;
+  })();
+
+  const activeClinicalCase = (() => {
+    const cases = Array.isArray(event?.clinicalCases) ? event.clinicalCases : [];
+    const activeId = event?.activeClinicalCaseId;
+    if (!activeId || cases.length === 0) return null;
+    return cases.find((c) => String(c?._id) === String(activeId)) || null;
+  })();
+
+  const shouldShowPrimeraConsulta = (() => {
+    // Nuevo modelo (clinicalCases): "primera consulta" = caso activo sin info inicial y sin sesiones
+    if (activeClinicalCase) {
+      const hasInitialInfo = Boolean(activeClinicalCase?.diagnostico || activeClinicalCase?.anamnesis);
+      const activeSesionesCount = Array.isArray(activeClinicalCase?.sesiones) ? activeClinicalCase.sesiones.length : 0;
+      return !hasInitialInfo && activeSesionesCount === 0;
+    }
+
+    // Fallback legacy
+    const legacyHasInitialInfo = Boolean(event?.diagnostico || event?.anamnesis);
+    const legacySesionesCount = Array.isArray(event?.historial) ? event.historial.length : 0;
+    return !legacyHasInitialInfo && legacySesionesCount === 0;
+  })();
+
+  const handleOpenNewDiagnosisDialog = () => setOpenNewDiagnosisDialog(true);
+  const handleCloseNewDiagnosisDialog = () => {
+    if (!isStartingNewDiagnosis) setOpenNewDiagnosisDialog(false);
+  };
+
+  const handleConfirmNewDiagnosis = async () => {
+    try {
+      if (!event?.paciente?.rut) {
+        showAlert('error', 'No se pudo iniciar un nuevo diagnóstico (RUT no disponible).');
+        return;
+      }
+      setIsStartingNewDiagnosis(true);
+      await updateReserva(event.paciente.rut, { startNewClinicalCase: true });
+      setOpenNewDiagnosisDialog(false);
+      // Cerrar cualquier modal abierto relacionado
+      setOpenHistorialModal(false);
+      setOpenSesionModal(false);
+      setOpenModal(false);
+      if (typeof fetchReservas === 'function') {
+        await fetchReservas();
+      }
+      // Mostrar modal no cerrable indicando que se actualizará la página
+      setOpenRefreshDialog(true);
+    } catch (error) {
+      console.error('Error iniciando nuevo diagnóstico:', error);
+      showAlert('error', 'No se pudo iniciar el nuevo diagnóstico.');
+    } finally {
+      setIsStartingNewDiagnosis(false);
+    }
+  };
 
   // Nuevos estados para imágenes
   const [imagenes, setImagenes] = useState(event?.imagenes || []);
@@ -545,7 +608,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           width={window.innerWidth < 600 ? '100%' : 520}
           sx={{
             background: '#e9f3f4',
-            borderRadius: { xs: '16px 16px 0 0', md: 3 },
+            borderRadius: { xs: '9px 9px 0 0', md: 3 },
             boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
             position: { xs: 'fixed', md: 'relative' },
             left: { xs: 0, md: 'auto' },
@@ -570,7 +633,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             sx={{
               flex: 1,
               overflowY: 'auto',
-              p: 3,
+              px: 3,
+              pt: 0,
               pb: { xs: '96px', md: 1 }, // espacio para el footer sticky en mobile
             }}
             ref={scrollRef}
@@ -581,8 +645,11 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             sx={{
               background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
               color: 'white',
-              borderRadius: 2,
-              p: 2.5,
+              // Edge-to-edge dentro del contenedor con padding
+              mx: -3,
+              borderRadius: { xs: '16px 16px 0 0', md: '12px 12px 0 0' },
+              px: 3,
+              py: 3,
               mb: 3,
               position: 'relative',
               overflow: 'hidden',
@@ -1287,63 +1354,12 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
               <Stack direction="row" spacing={2} alignItems="center">
                 <Chip 
                   icon={<HistoryEduIcon />} 
-                  label={`${event.historial?.length || 0} Sesiones`} 
+                  label={`${totalSesiones || 0} Sesiones`} 
                   color="primary" 
                   variant="outlined"
                   sx={{ fontWeight: 600 }}
                 />
-                <Chip 
-                  label={event.diagnostico || "Primera consulta"} 
-                  color={event.diagnostico ? "success" : "warning"} 
-                  variant="outlined"
-                  sx={{ fontWeight: 600 }}
-                />
               </Stack>
-            </CardContent>
-          </Card>
-
-          {/* Anamnesis - Diseño mejorado */}
-          <Card 
-            className="info-card"
-            sx={{ 
-              mb: 3, 
-              borderRadius: 3,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              border: '1px solid #e2e8f0',
-              overflow: 'hidden'
-            }}
-          >
-            <CardHeader
-              avatar={
-                <Avatar sx={{ bgcolor: '#f59e0b', width: 40, height: 40 }}>
-                  <ListAltIcon />
-                </Avatar>
-              }
-              title={
-                <Typography variant="h6" fontWeight={600} color="text.primary">
-                  Anamnesis
-                </Typography>
-              }
-              sx={{ pb: 1 }}
-            />
-            <CardContent sx={{ pt: 0 }}>
-              <Paper
-                elevation={0}
-                sx={{
-                  background: '#f8fafc',
-                  borderRadius: 2,
-                  minHeight: 120,
-                  border: '1px solid #e2e8f0',
-                  p: 2
-                }}
-              >
-                <ReactQuill 
-                  value={event.anamnesis || 'Sin información registrada'} 
-                  readOnly 
-                  theme="bubble"
-                  style={{ minHeight: '80px' }}
-                />
-              </Paper>
             </CardContent>
           </Card>
           <Card 
@@ -1376,18 +1392,23 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           label={
             paymentStatus === 'completed' ? 'Pagado' :
             paymentStatus === 'pending' ? 'Pendiente' :
-            paymentStatus === 'failed' ? 'Fallido' : 'Sin iniciar'
+            paymentStatus === 'failed' ? 'Fallido' :
+            paymentStatus === 'refunded' ? 'Reembolsado' :
+            paymentStatus === 'waived' ? 'Exenta' :
+            'Sin iniciar'
           }
           color={
             paymentStatus === 'completed' ? 'success' :
             paymentStatus === 'pending' ? 'warning' :
-            paymentStatus === 'failed' ? 'error' : 'default'
+            paymentStatus === 'failed' ? 'error' :
+            paymentStatus === 'waived' ? 'info' :
+            'default'
           }
           size="small"
         />
       </Box>
 
-      {paymentStatus !== 'completed' && !esAsistente && (
+      {paymentStatus !== 'completed' && paymentStatus !== 'waived' && !esAsistente && (
         <PaymentButton 
           reserva={event}
           onPaymentSuccess={() => setPaymentStatus('completed')}
@@ -1447,7 +1468,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
               </Stack>
             ) : (
               // Mostrar botones normales para profesionales
-              ((!event.historial || event.historial.length === 0) && !event.diagnostico && !event.anamnesis) ? (
+              (shouldShowPrimeraConsulta) ? (
                 <Stack spacing={1.5} alignItems="center">
                   <Box textAlign="center">
                     <Typography variant="subtitle1" color="text.primary" sx={{ mb: 0.5, fontWeight: 600 }}>
@@ -1523,10 +1544,155 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   >
                     Ver Historial
                   </Button>
+
+                  <Tooltip
+                    title="Cierra el diagnóstico/caso clínico actual y crea uno nuevo para empezar un historial separado. El historial anterior se conserva."
+                    arrow
+                  >
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      size="medium"
+                      startIcon={<AddCircleOutlineIcon />}
+                      onClick={handleOpenNewDiagnosisDialog}
+                      sx={{
+                        fontWeight: 600,
+                        py: 1,
+                        borderColor: '#f59e0b',
+                        color: '#f59e0b',
+                        '&:hover': {
+                          borderColor: '#d97706',
+                          backgroundColor: '#fffbeb',
+                          transform: 'translateY(-1px)'
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      Iniciar nuevo diagnóstico
+                    </Button>
+                  </Tooltip>
                 </Stack>
               )
             )}
           </Box>
+
+          <Dialog
+            open={openNewDiagnosisDialog}
+            onClose={handleCloseNewDiagnosisDialog}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{
+              sx: {
+                borderRadius: 3,
+                overflow: 'hidden',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.12)'
+              }
+            }}
+          >
+            <Box
+              sx={{
+                background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                color: 'white',
+                px: 3,
+                py: 2.25,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 2
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={1.25} minWidth={0}>
+                <AddCircleOutlineIcon />
+                <Box minWidth={0}>
+                  <Typography variant="h6" fontWeight={800} noWrap>
+                    Iniciar nuevo diagnóstico
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }} noWrap>
+                    Se cerrará el caso clínico actual
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton
+                onClick={handleCloseNewDiagnosisDialog}
+                disabled={isStartingNewDiagnosis}
+                sx={{
+                  color: 'white',
+                  bgcolor: 'rgba(255,255,255,0.16)',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' }
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
+
+            <DialogContent sx={{ p: 3, backgroundColor: '#f8fafc' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Esta acción cerrará el caso clínico/diagnóstico actual y creará uno nuevo para el paciente.
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                El historial anterior no se elimina: quedará guardado en la lista de diagnósticos dentro de “Ver Historial”.
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                ¿Deseas continuar?
+              </Typography>
+            </DialogContent>
+
+            <DialogActions
+              sx={{
+                p: 3,
+                gap: 1,
+                backgroundColor: 'white',
+                borderTop: '1px solid #e2e8f0'
+              }}
+            >
+              <Button
+                onClick={handleCloseNewDiagnosisDialog}
+                disabled={isStartingNewDiagnosis}
+                sx={{ borderRadius: 2, textTransform: 'none', color: "#656565ff" }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleConfirmNewDiagnosis}
+                disabled={isStartingNewDiagnosis}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)'
+                  }
+                }}
+              >
+                {isStartingNewDiagnosis ? 'Procesando…' : 'Sí, iniciar'}
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Modal no cerrable: aviso de actualización */}
+          <Dialog
+            open={openRefreshDialog}
+            onClose={() => { /* no-op: modal no cerrable */ }}
+            disableEscapeKeyDown
+            maxWidth="xs"
+            fullWidth
+          >
+            <DialogTitle>Actualización requerida</DialogTitle>
+            <DialogContent dividers>
+              <Typography variant="body2" color="text.secondary">
+                La página será actualizada para aplicar los cambios.
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                variant="contained"
+                onClick={() => window.location.reload()}
+              >
+                Aceptar
+              </Button>
+            </DialogActions>
+          </Dialog>
 
           {/* Modal para subir imágenes */}
           <Modal
@@ -1713,7 +1879,12 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           {/* Modales */}
           <AgregarPaciente open={openModal} onClose={handleCloseModal} data={event.paciente} fetchReservas={fetchReservas} gapi={gapi} />
           <AgregarSesion open={openSesionModal} close={onClose} onClose={handleCloseSesionModal} paciente={event.paciente} fetchReservas={fetchReservas} gapi={gapi} eventId={event.eventId} />
-          <VerHistorial open={openHistorialModal} onClose={handleCloseHistorialModal} paciente={event.paciente} />
+          <VerHistorial
+            open={openHistorialModal}
+            onClose={handleCloseHistorialModal}
+            paciente={event.paciente}
+            profesionalId={esAsistente ? (profesionalActual?._id || profesionalActual?.id) : undefined}
+          />
 
           <Dialog open={showPlaceholdersHelp} onClose={() => setShowPlaceholdersHelp(false)} maxWidth="sm" fullWidth>
             <DialogTitle>Placeholders disponibles</DialogTitle>

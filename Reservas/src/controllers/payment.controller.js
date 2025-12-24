@@ -23,6 +23,14 @@ export const createTransaction = async (req, res) => {
       return res.status(404).json({ message: 'Reserva no encontrada' });
     }
 
+    // Si la cita está exenta o ya pagada, no iniciar un nuevo cobro
+    if (reserva.paymentStatus === 'waived') {
+      return res.status(400).json({ message: 'Esta cita está marcada como exenta (no requiere pago).' });
+    }
+    if (reserva.paymentStatus === 'completed') {
+      return res.status(400).json({ message: 'Esta cita ya está pagada.' });
+    }
+
     const shortReservaId = String(reservaId).slice(-10); // últimos 10 caracteres
     const shortTimestamp = String(Date.now()).slice(-8); // últimos 8 dígitos
     const buyOrder = `R${shortReservaId}${shortTimestamp}`.slice(0, 26);
@@ -55,7 +63,8 @@ export const createTransaction = async (req, res) => {
         paymentStatus: 'pending',
         paymentToken: response.token,
         paymentAmount: amount,
-        buyOrder: buyOrder
+        buyOrder: buyOrder,
+        requiresPayment: true
       }
     });
 
@@ -308,7 +317,8 @@ export const getPaymentStatus = async (req, res) => {
 
     res.json({
       paymentStatus: reserva.paymentStatus || 'not_initiated',
-      paymentData: reserva.paymentData
+      paymentData: reserva.paymentData,
+      requiresPayment: reserva.requiresPayment
     });
 
   } catch (error) {

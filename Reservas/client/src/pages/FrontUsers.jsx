@@ -541,7 +541,7 @@ export default function FrontUsers() {
 											<PlanFeature>Descarga de informes en PDF</PlanFeature>
 											<PlanFeature>Reportes y métricas de mi negocio (Básicas)</PlanFeature>
 											<PlanFeature>Historial clínico</PlanFeature>
-											<PlanFeature>Bloqueo de horarios</PlanFeature>
+											
 										</Stack>
 										<Box sx={{ flexGrow: 1 }} />
 										<Button component={RouterLink} to="/register" fullWidth variant="contained" sx={{ mt: 2, backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>
@@ -604,6 +604,7 @@ export default function FrontUsers() {
 											<PlanFeature>Modalidades de atención: presencial y videoconsulta</PlanFeature>
 											<PlanFeature>Pagos en línea</PlanFeature>
 											<PlanFeature>Reportes y métricas de mi negocio (Avanzadas)</PlanFeature>
+											<PlanFeature>Bloqueo de horarios</PlanFeature>
 										</Stack>
 										<Box sx={{ flexGrow: 1 }} />
 										<Button component={RouterLink} to="/register" fullWidth variant="contained" sx={{ mt: 2, backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>
