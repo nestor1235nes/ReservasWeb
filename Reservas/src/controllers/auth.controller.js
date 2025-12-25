@@ -8,6 +8,74 @@ import { OAuth2Client } from 'google-auth-library';
 
 const client = new OAuth2Client(CLIENT_ID);
 
+const timeToMinutes = (hhmm) => {
+  if (!hhmm || typeof hhmm !== 'string') return null;
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const minutesToTime = (minutes) => {
+  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+  const m = Math.floor(minutes % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+};
+
+const getWorkingSegments = (schedule) => {
+  const from = timeToMinutes(schedule?.fromTime);
+  const to = timeToMinutes(schedule?.toTime);
+  if (from === null || to === null || from >= to) return [];
+
+  const breakFrom = timeToMinutes(schedule?.breakFrom);
+  const breakTo = timeToMinutes(schedule?.breakTo);
+
+  const hasValidBreak =
+    breakFrom !== null &&
+    breakTo !== null &&
+    breakFrom < breakTo &&
+    from < breakTo &&
+    breakFrom < to;
+
+  if (!hasValidBreak) return [[from, to]];
+
+  const leftEnd = Math.max(from, Math.min(breakFrom, to));
+  const rightStart = Math.min(to, Math.max(breakTo, from));
+
+  const segments = [];
+  if (from < leftEnd) segments.push([from, leftEnd]);
+  if (rightStart < to) segments.push([rightStart, to]);
+  return segments;
+};
+
+const findTimetableOverlaps = (timetable) => {
+  const overlaps = [];
+  const byDay = new Map();
+
+  (timetable || []).forEach((schedule, index) => {
+    const days = Array.isArray(schedule?.days) ? schedule.days : [];
+    const segments = getWorkingSegments(schedule);
+    if (days.length === 0 || segments.length === 0) return;
+
+    days.forEach((day) => {
+      if (!byDay.has(day)) byDay.set(day, []);
+      const existing = byDay.get(day);
+
+      segments.forEach(([start, end]) => {
+        existing.forEach((prev) => {
+          const overlapStart = Math.max(start, prev.start);
+          const overlapEnd = Math.min(end, prev.end);
+          if (overlapStart < overlapEnd) {
+            overlaps.push({ day, aIndex: prev.index, bIndex: index, start: overlapStart, end: overlapEnd });
+          }
+        });
+        existing.push({ index, start, end });
+      });
+    });
+  });
+
+  return overlaps;
+};
+
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
   if (!telefono) return '';
@@ -106,6 +174,18 @@ export const register = async (req, res) => {
       pacientes,
       adminAtiendePersonas,
     } = req.body;
+
+    if (timetable) {
+      const overlaps = findTimetableOverlaps(timetable);
+      if (overlaps.length > 0) {
+        const first = overlaps[0];
+        return res.status(400).json({
+          message: [
+            `Hay solapamiento de horarios en ${first.day} entre Bloque ${first.aIndex + 1} y Bloque ${first.bIndex + 1} (${minutesToTime(first.start)}–${minutesToTime(first.end)}). Ajusta las horas para que no se crucen.`,
+          ],
+        });
+      }
+    }
 
     const userFound = await User.findOne({ email });
 
@@ -347,6 +427,18 @@ export const logout = async (req, res) => {
 
 export const updatePerfil = async (req, res) => {
   try {
+    if (req.body.timetable) {
+      const overlaps = findTimetableOverlaps(req.body.timetable);
+      if (overlaps.length > 0) {
+        const first = overlaps[0];
+        return res.status(400).json({
+          message: [
+            `Hay solapamiento de horarios en ${first.day} entre Bloque ${first.aIndex + 1} y Bloque ${first.bIndex + 1} (${minutesToTime(first.start)}–${minutesToTime(first.end)}). Ajusta las horas para que no se crucen.`,
+          ],
+        });
+      }
+    }
+
     // Normalizar teléfono si se proporciona
     if (req.body.celular) {
       req.body.celular = normalizarTelefono(req.body.celular);

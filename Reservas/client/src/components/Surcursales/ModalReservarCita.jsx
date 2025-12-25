@@ -73,11 +73,70 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [proximaCita, setProximaCita] = useState(null); // Estado para la próxima cita
   const [selectedService, setSelectedService] = useState(null);
   const [selectedServiceIndex, setSelectedServiceIndex] = useState(null);
+  const [modalidad, setModalidad] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('presencial'); // 'presencial' | 'webpay'
   const [messageChannel, setMessageChannel] = useState('whatsapp'); // WhatsApp-only
   const [contactAttempted, setContactAttempted] = useState(false);
   // Feedback local (similar a HomePageNew)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [pendingModalidadNotice, setPendingModalidadNotice] = useState(null);
+
+  const getServiceAllowedModalidades = (service) => {
+    const raw = service?.modalidad;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.filter(Boolean);
+    if (typeof raw === 'string') {
+      const allowed = [];
+      if (raw.includes('Presencial')) allowed.push('Presencial');
+      if (raw.includes('Telemedicina')) allowed.push('Telemedicina');
+      return allowed;
+    }
+    return [];
+  };
+
+  const ensureModalidadCompatibleWithService = (service, desiredModalidad = null, opts = { showNotice: true }) => {
+    const allowed = getServiceAllowedModalidades(service);
+    if (allowed.length === 0) return;
+
+    const currentModalidad = desiredModalidad ?? modalidad;
+
+    // Si el servicio solo tiene una modalidad, se fuerza a esa.
+    if (allowed.length === 1) {
+      const only = allowed[0];
+      if (currentModalidad && currentModalidad !== only) {
+        const noticeMessage = `El servicio seleccionado solo permite modalidad ${only}. Cambiaremos automáticamente la modalidad de atención.`;
+        if (opts.showNotice) {
+          setSnackbar({ open: true, severity: 'info', message: noticeMessage });
+        } else {
+          setPendingModalidadNotice(noticeMessage);
+        }
+        setModalidad(only);
+      } else if (!currentModalidad) {
+        setModalidad(only);
+      }
+      return;
+    }
+
+    // Si el servicio permite ambas y no hay modalidad aún, mantener la preseleccionada si existe.
+    if (!currentModalidad && allowed.length > 0) {
+      setModalidad(allowed[0]);
+    }
+  };
+
+  // Guardar modalidad preseleccionada (del paso anterior) en estado local
+  useEffect(() => {
+    if (!open) return;
+    setModalidad(datosPreseleccionados?.modalidad || '');
+  }, [open, datosPreseleccionados?.modalidad]);
+
+  // Mostrar avisos pendientes recién al llegar al paso de Servicios & Pago
+  useEffect(() => {
+    if (!open) return;
+    if (activeStep !== 2) return;
+    if (!pendingModalidadNotice) return;
+    setSnackbar({ open: true, severity: 'info', message: pendingModalidadNotice });
+    setPendingModalidadNotice(null);
+  }, [open, activeStep, pendingModalidadNotice]);
 
   // Si el profesional tiene un único servicio, seleccionarlo automáticamente
   useEffect(() => {
@@ -86,11 +145,14 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
     if (Array.isArray(servicios) && servicios.length === 1) {
       setSelectedService(servicios[0]);
       setSelectedServiceIndex(0);
+      // Validar modalidad automáticamente si el servicio tiene una sola modalidad
+      // En apertura del modal, NO mostrar aviso; se mostrará al llegar al paso 2
+      ensureModalidadCompatibleWithService(servicios[0], datosPreseleccionados?.modalidad || null, { showNotice: false });
     } else {
       setSelectedService(null);
       setSelectedServiceIndex(null);
     }
-  }, [open, datosPreseleccionados?.profesional?._id]);
+  }, [open, datosPreseleccionados?.profesional?._id, datosPreseleccionados?.modalidad]);
 
   // Capacidad de pagos online según plan del profesional (Basic / Standard / Teams)
   const professionalPlanName =
@@ -233,7 +295,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
               : datosPreseleccionados.fecha.toString())
           : '',
         hora: datosPreseleccionados.hora,
-        modalidad: datosPreseleccionados.modalidad,
+        modalidad,
         servicio: selectedService ? (selectedService._id || selectedService.id || selectedService.tipo || selectedService.nombre) : '',
         // Puedes agregar más campos si tu backend lo requiere
       };
@@ -282,6 +344,8 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           setRutValido(false);
           setSelectedService(null);
           setSelectedServiceIndex(null);
+          setModalidad('');
+          setPendingModalidadNotice(null);
           setSnackbar(prev => ({ ...prev, open: false }));
           onClose();
         }, 2200);
@@ -494,7 +558,12 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                       <ListItem key={s._id || idx} sx={{ borderRadius: 1, p: 0 }}>
                         <ListItemButton
                           selected={selectedServiceIndex === idx}
-                          onClick={() => { setSelectedService(s); setSelectedServiceIndex(idx); setError(''); }}
+                          onClick={() => {
+                            setSelectedService(s);
+                            setSelectedServiceIndex(idx);
+                            setError('');
+                            ensureModalidadCompatibleWithService(s, null, { showNotice: true });
+                          }}
                           sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2 }}
                         >
                           <ListItemText
@@ -512,6 +581,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                     {error}
                   </Alert>
                 )}
+
+                
+
                 <Paper elevation={1} sx={{ p: 2, borderRadius: 2, background: '#f7fbfc' }}>
                   <Typography fontWeight={600} mb={1}>Método de pago</Typography>
                   <RadioGroup
@@ -592,11 +664,11 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                         </Typography>
                       </Stack>
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        {datosPreseleccionados.modalidad === 'Telemedicina'
+                        {modalidad === 'Telemedicina'
                           ? <VideoCallIcon sx={{ color: '#21cbe6' }} />
                           : <PersonPinCircleIcon sx={{ color: '#2596be' }} />}
                         <Typography variant="body2">
-                          Modalidad: {datosPreseleccionados.modalidad || 'No seleccionada'}
+                          Modalidad: {modalidad || 'No seleccionada'}
                         </Typography>
                       </Stack>
                       <Stack direction="row" alignItems="center" spacing={1}>

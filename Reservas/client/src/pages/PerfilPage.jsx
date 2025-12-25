@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Modal, Box, Card, CardContent, CardHeader, Typography, Tabs, Tab, Button, Stack, TextField, Select, MenuItem, InputLabel, FormControl, Checkbox, FormControlLabel, Paper, Divider, Chip, Switch as MuiSwitch, IconButton
 } from "@mui/material";
@@ -36,6 +36,96 @@ const especialidades = [
   "Medicina General", "Cardiología", "Dermatología", "Neurología", "Pediatría"
 ];
 
+const timeToMinutes = (hhmm) => {
+  if (!hhmm || typeof hhmm !== 'string') return null;
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const minutesToTime = (minutes) => {
+  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+  const m = Math.floor(minutes % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+};
+
+const normalizeHHMM = (hhmm) => {
+  const mins = timeToMinutes(hhmm);
+  return mins === null ? null : minutesToTime(mins);
+};
+
+// Retorna tramos efectivos de atención para comparar solapamientos.
+// Si hay descanso válido dentro del rango, divide en 2 segmentos.
+const getWorkingSegments = (schedule) => {
+  const from = timeToMinutes(schedule?.fromTime);
+  const to = timeToMinutes(schedule?.toTime);
+  if (from === null || to === null || from >= to) return [];
+
+  const breakFrom = timeToMinutes(schedule?.breakFrom);
+  const breakTo = timeToMinutes(schedule?.breakTo);
+
+  const hasValidBreak =
+    breakFrom !== null &&
+    breakTo !== null &&
+    breakFrom < breakTo &&
+    from < breakTo &&
+    breakFrom < to;
+
+  if (!hasValidBreak) return [[from, to]];
+
+  const leftEnd = Math.max(from, Math.min(breakFrom, to));
+  const rightStart = Math.min(to, Math.max(breakTo, from));
+
+  const segments = [];
+  if (from < leftEnd) segments.push([from, leftEnd]);
+  if (rightStart < to) segments.push([rightStart, to]);
+  return segments;
+};
+
+const findTimetableOverlaps = (timetable) => {
+  const overlaps = [];
+  const byDay = new Map(); // day -> array of { index, start, end }
+
+  (timetable || []).forEach((schedule, index) => {
+    const days = Array.isArray(schedule?.days) ? schedule.days : [];
+    const segments = getWorkingSegments(schedule);
+    if (days.length === 0 || segments.length === 0) return;
+
+    days.forEach((day) => {
+      if (!byDay.has(day)) byDay.set(day, []);
+      const existing = byDay.get(day);
+
+      segments.forEach(([start, end]) => {
+        existing.forEach((prev) => {
+          const overlapStart = Math.max(start, prev.start);
+          const overlapEnd = Math.min(end, prev.end);
+          if (overlapStart < overlapEnd) {
+            overlaps.push({
+              day,
+              aIndex: prev.index,
+              bIndex: index,
+              start: overlapStart,
+              end: overlapEnd,
+            });
+          }
+        });
+        existing.push({ index, start, end });
+      });
+    });
+  });
+
+  // Deduplicar (por si un bloque tiene 2 segmentos y genera múltiples cruces)
+  const seen = new Set();
+  return overlaps.filter((o) => {
+    const a = Math.min(o.aIndex, o.bIndex);
+    const b = Math.max(o.aIndex, o.bIndex);
+    const key = `${o.day}|${a}|${b}|${o.start}|${o.end}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 // Normaliza los bloques de horario para asegurar que todos los campos existen
 const normalizeTimetable = (timetable) =>
   (timetable || []).map(t => ({
@@ -44,12 +134,33 @@ const normalizeTimetable = (timetable) =>
     fromTime: t.fromTime || "",
     toTime: t.toTime || "",
     interval: t.interval || 30,
+    slotCapacity: typeof t.slotCapacity === 'number' && t.slotCapacity > 0 ? t.slotCapacity : 1,
+    slotCapacityOverrides: (t && typeof t.slotCapacityOverrides === 'object' && !Array.isArray(t.slotCapacityOverrides) && t.slotCapacityOverrides)
+      ? t.slotCapacityOverrides
+      : {},
     breakFrom: t.breakFrom || "",
     breakTo: t.breakTo || ""
   }));
 
+const computeTotalSlotsForSchedule = (schedule) => {
+  const baseCapRaw = Number(schedule?.slotCapacity);
+  const baseCap = Number.isFinite(baseCapRaw) && baseCapRaw >= 1 ? Math.floor(baseCapRaw) : 1;
+  const overrides = (schedule && typeof schedule.slotCapacityOverrides === 'object' && !Array.isArray(schedule.slotCapacityOverrides))
+    ? schedule.slotCapacityOverrides
+    : {};
+  const times = Array.isArray(schedule?.times) ? schedule.times : [];
+  if (times.length === 0) return 0;
+
+  return times.reduce((acc, t) => {
+    const norm = normalizeHHMM(t) || t;
+    const oNum = Number(overrides?.[norm]);
+    const cap = Number.isFinite(oNum) && oNum >= 1 ? Math.floor(oNum) : baseCap;
+    return acc + cap;
+  }, 0);
+};
+
 // Componente visual para cada bloque de horario
-const ScheduleBlock = ({ schedule, index, isEditing, onEdit, onDelete }) => {
+const ScheduleBlock = ({ schedule, index, isEditing, onEdit, onDelete, overlaps = [], shouldFlash = false }) => {
   const formatDays = (days) => {
     if (!days || days.length === 0) return "Sin días configurados";
     return days.join(", ");
@@ -61,6 +172,14 @@ const ScheduleBlock = ({ schedule, index, isEditing, onEdit, onDelete }) => {
     }
     return timeStr;
   };
+  const overrides = (schedule && typeof schedule.slotCapacityOverrides === 'object' && !Array.isArray(schedule.slotCapacityOverrides))
+    ? schedule.slotCapacityOverrides
+    : {};
+  const overrideEntries = Object.entries(overrides)
+    .map(([k, v]) => [normalizeHHMM(k) || k, v])
+    .filter(([k, v]) => !!k && Number.isFinite(Number(v)) && Number(v) >= 1)
+    .sort((a, b) => (timeToMinutes(a[0]) ?? 0) - (timeToMinutes(b[0]) ?? 0));
+  const hasOverlap = overlaps.length > 0;
   return (
     <Card
       variant="outlined"
@@ -72,9 +191,38 @@ const ScheduleBlock = ({ schedule, index, isEditing, onEdit, onDelete }) => {
           borderColor: "#2596be",
         },
         transition: "all 0.3s ease",
+        ...(shouldFlash
+          ? {
+              animation: 'overlapFlash 1.2s ease-in-out 1',
+              '@keyframes overlapFlash': {
+                '0%': { boxShadow: 'none' },
+                '15%': { boxShadow: '0 0 0 4px rgba(211, 47, 47, 0.35)' },
+                '30%': { boxShadow: 'none' },
+                '45%': { boxShadow: '0 0 0 4px rgba(211, 47, 47, 0.35)' },
+                '60%': { boxShadow: 'none' },
+                '100%': { boxShadow: 'none' },
+              },
+            }
+          : null),
       }}
     >
       <CardContent sx={{ pb: 2 }}>
+        {hasOverlap && (
+          <Box mb={2}>
+            <Typography variant="body2" color="error" fontWeight={700}>
+              Solapamiento detectado
+            </Typography>
+            <Typography variant="caption" color="error">
+              {overlaps
+                .slice(0, 3)
+                .map((o) => {
+                  const other = o.aIndex === index ? o.bIndex : o.aIndex;
+                  return `${o.day}: se cruza con Bloque ${other + 1} (${minutesToTime(o.start)}–${minutesToTime(o.end)})`;
+                })
+                .join(' | ')}
+            </Typography>
+          </Box>
+        )}
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
           <Box display="flex" alignItems="center" gap={1}>
             <ScheduleIcon sx={{color:'#2596be'}} />
@@ -128,17 +276,46 @@ const ScheduleBlock = ({ schedule, index, isEditing, onEdit, onDelete }) => {
           <Box>
             <Box display="flex" alignItems="center" gap={1} mb={1}>
               <Typography variant="body2" color="textSecondary">
+                Cupos por hora:
+              </Typography>
+            </Box>
+            <Box display="flex" gap={1} flexWrap="wrap">
+              <Chip label={`Base: ${schedule.slotCapacity || 1}`} size="small" color="info" variant="outlined" />
+              {overrideEntries.length > 0 && (
+                <Chip label={`Overrides: ${overrideEntries.length}`} size="small" color="info" variant="outlined" />
+              )}
+            </Box>
+          </Box>
+          <Box>
+            <Box display="flex" alignItems="center" gap={1} mb={1}>
+              <Typography variant="body2" color="textSecondary">
                 Citas disponibles:
               </Typography>
             </Box>
             <Chip
-              label={`${schedule.times ? schedule.times.length : 0} horarios`}
+              label={`${computeTotalSlotsForSchedule(schedule)} cupos`}
               size="small"
               color="success"
               variant="outlined"
             />
           </Box>
         </Box>
+
+        {overrideEntries.length > 0 && (
+          <Box mt={2}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Sobrecupo por hora específica:
+            </Typography>
+            <Box display="flex" flexWrap="wrap" gap={1}>
+              {overrideEntries.slice(0, 12).map(([hhmm, cap]) => (
+                <Chip key={hhmm} label={`${hhmm} → ${Math.floor(Number(cap))}`} size="small" variant="outlined" color="info" />
+              ))}
+              {overrideEntries.length > 12 && (
+                <Chip label={`+${overrideEntries.length - 12} más`} size="small" color="primary" />
+              )}
+            </Box>
+          </Box>
+        )}
         {schedule.times && schedule.times.length > 0 && (
           <Box mt={2}>
             <Typography variant="body2" sx={{ mb: 1 }}>
@@ -160,15 +337,144 @@ const ScheduleBlock = ({ schedule, index, isEditing, onEdit, onDelete }) => {
 };
 
 // Editor visual para cada bloque de horario
-const ScheduleEditor = ({ schedule, index, onChange, onSave, onCancel }) => {
+const ScheduleEditor = ({ schedule, index, onChange, onSave, onCancel, overlaps = [], shouldFlash = false, canUseOverbooking = false }) => {
   const handleChange = (field, value) => {
     onChange(index, field, value);
   };
+
+  const getPreviewTimes = () => {
+    const existing = Array.isArray(schedule?.times) ? schedule.times : [];
+    if (existing.length > 0) return existing;
+
+    const fromTime = schedule?.fromTime || '';
+    const toTime = schedule?.toTime || '';
+    const interval = Number(schedule?.interval || 30);
+    if (!fromTime || !toTime || !interval || fromTime === toTime) return [];
+
+    const breakFrom = schedule?.breakFrom || '';
+    const breakTo = schedule?.breakTo || '';
+
+    const addMinutes = (time, minutes) => {
+      const [hours, mins] = time.split(":").map(Number);
+      const totalMinutes = hours * 60 + mins + minutes;
+      const newHours = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
+      const newMinutes = (totalMinutes % 60).toString().padStart(2, "0");
+      return `${newHours}:${newMinutes}`;
+    };
+
+    const times = [];
+    let currentTime = fromTime;
+    while (currentTime < toTime) {
+      if (breakFrom && breakTo && currentTime >= breakFrom && currentTime < breakTo) {
+        currentTime = breakTo;
+      } else {
+        times.push(currentTime);
+        currentTime = addMinutes(currentTime, interval);
+      }
+    }
+    return times;
+  };
+
+  const previewTimes = getPreviewTimes();
+  const overrides = (schedule && typeof schedule.slotCapacityOverrides === 'object' && !Array.isArray(schedule.slotCapacityOverrides))
+    ? schedule.slotCapacityOverrides
+    : {};
+
+  const baseCapRaw = Number(schedule?.slotCapacity);
+  const baseCap = Number.isFinite(baseCapRaw) && baseCapRaw >= 1 ? Math.floor(baseCapRaw) : 1;
+  const hasOverrides = Object.keys(overrides || {}).length > 0;
+  const [overbookingEnabled, setOverbookingEnabled] = useState(baseCap > 1 || hasOverrides);
+  const [overbookingMode, setOverbookingMode] = useState(hasOverrides ? 'specific' : 'all');
+
+  const [allCapInput, setAllCapInput] = useState(Math.max(2, baseCap || 2));
+  const [specificCapInput, setSpecificCapInput] = useState(2);
+  const [selectedSpecificTimes, setSelectedSpecificTimes] = useState([]);
+
+  useEffect(() => {
+    // Si viene algo persistido, sincronizar switch y modo inicial.
+    if (baseCap > 1 || hasOverrides) {
+      setOverbookingEnabled(true);
+      setOverbookingMode(hasOverrides ? 'specific' : 'all');
+      if (!hasOverrides) setAllCapInput(Math.max(2, baseCap || 2));
+    }
+  }, [baseCap, hasOverrides]);
+
+  const handleToggleOverbooking = (enabled) => {
+    setOverbookingEnabled(enabled);
+    setSelectedSpecificTimes([]);
+
+    if (!enabled) {
+      handleChange('slotCapacityOverrides', {});
+      handleChange('slotCapacity', 1);
+      return;
+    }
+
+    const nextMode = overbookingMode || 'all';
+    setOverbookingMode(nextMode);
+    if (nextMode === 'all') {
+      const cap = Math.max(2, Math.floor(Number(allCapInput) || 2));
+      handleChange('slotCapacityOverrides', {});
+      handleChange('slotCapacity', cap);
+    } else {
+      handleChange('slotCapacity', 1);
+      handleChange('slotCapacityOverrides', overrides || {});
+    }
+  };
+
+  const handleSelectMode = (mode) => {
+    setOverbookingMode(mode);
+    setSelectedSpecificTimes([]);
+
+    if (mode === 'all') {
+      const cap = Math.max(2, Math.floor(Number(allCapInput) || 2));
+      handleChange('slotCapacityOverrides', {});
+      handleChange('slotCapacity', cap);
+    } else {
+      handleChange('slotCapacity', 1);
+      handleChange('slotCapacityOverrides', overrides || {});
+    }
+  };
+
+  const toggleSpecificTime = (hhmm) => {
+    const norm = normalizeHHMM(hhmm) || hhmm;
+    setSelectedSpecificTimes((prev) => {
+      const set = new Set(prev);
+      if (set.has(norm)) set.delete(norm);
+      else set.add(norm);
+      return [...set];
+    });
+  };
+
+  const applySpecificOverrides = () => {
+    const capNum = Number(specificCapInput);
+    const cap = Number.isFinite(capNum) && capNum >= 1 ? Math.floor(capNum) : null;
+    if (!cap) return;
+    if (!selectedSpecificTimes || selectedSpecificTimes.length === 0) return;
+
+    const next = { ...(overrides || {}) };
+    selectedSpecificTimes.forEach((t) => {
+      next[t] = cap;
+    });
+    handleChange('slotCapacityOverrides', next);
+    // asegurar modo específico
+    handleChange('slotCapacity', 1);
+    setSelectedSpecificTimes([]);
+  };
+
+  const removeSpecificOverride = (hhmm) => {
+    const norm = normalizeHHMM(hhmm) || hhmm;
+    const next = { ...(overrides || {}) };
+    delete next[norm];
+    handleChange('slotCapacityOverrides', next);
+    setSelectedSpecificTimes((prev) => prev.filter((t) => t !== norm));
+  };
+
   const handleDayToggle = (day) => {
     const currentDays = schedule.days || [];
     const newDays = currentDays.includes(day) ? currentDays.filter((d) => d !== day) : [...currentDays, day];
     handleChange("days", newDays);
   };
+  const hasOverlap = overlaps.length > 0;
   return (
     <Card
       variant="outlined"
@@ -176,30 +482,59 @@ const ScheduleEditor = ({ schedule, index, onChange, onSave, onCancel }) => {
         mb: 2,
         border: "2px solid #4caf50",
         backgroundColor: "#f8fff8",
+        ...(shouldFlash
+          ? {
+              animation: 'overlapFlash 1.2s ease-in-out 1',
+              '@keyframes overlapFlash': {
+                '0%': { boxShadow: 'none' },
+                '15%': { boxShadow: '0 0 0 4px rgba(211, 47, 47, 0.35)' },
+                '30%': { boxShadow: 'none' },
+                '45%': { boxShadow: '0 0 0 4px rgba(211, 47, 47, 0.35)' },
+                '60%': { boxShadow: 'none' },
+                '100%': { boxShadow: 'none' },
+              },
+            }
+          : null),
       }}
     >
       <CardHeader
         title={
           <Box display="flex" alignItems="center" gap={1}>
-            <EditIcon color="primary" />
+            <EditIcon sx={{ color: "#2596d3" }} />
             <Typography variant="h6">Editando Bloque {index + 1}</Typography>
           </Box>
         }
         action={
           <Box display="flex" gap={1}>
-            <Button variant="contained" color="primary" size="small" startIcon={<SaveIcon />} onClick={onSave}>
+            <Button variant="contained" sx={{ color: "#ffffffff", backgroundColor: "#2596d3" }} size="small" startIcon={<SaveIcon />} onClick={onSave}>
               Guardar
             </Button>
-            <Button variant="outlined" color="secondary" size="small" startIcon={<CancelIcon />} onClick={onCancel}>
+            <Button variant="outlined" sx={{ color: "#2596d3" }} size="small" startIcon={<CancelIcon />} onClick={onCancel}>
               Cancelar
             </Button>
           </Box>
         }
       />
       <CardContent>
+        {hasOverlap && (
+          <Box mb={2}>
+            <Typography variant="body2" color="error" fontWeight={700}>
+              Solapamiento detectado
+            </Typography>
+            <Typography variant="caption" color="error">
+              {overlaps
+                .slice(0, 3)
+                .map((o) => {
+                  const other = o.aIndex === index ? o.bIndex : o.aIndex;
+                  return `${o.day}: se cruza con Bloque ${other + 1} (${minutesToTime(o.start)}–${minutesToTime(o.end)})`;
+                })
+                .join(' | ')}
+            </Typography>
+          </Box>
+        )}
         <Stack direction="row" spacing={3} flexWrap="wrap">
           <Box minWidth={220} flex={1}>
-            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+            <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ color: "#2596d3" }}>
               Horarios de Atención
             </Typography>
             <Stack spacing={2}>
@@ -231,11 +566,148 @@ const ScheduleEditor = ({ schedule, index, onChange, onSave, onCancel }) => {
                   ))}
                 </Select>
               </FormControl>
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom fontWeight={600} sx={{ color: "#2596d3" }}>
+                  Sobrecupo
+                </Typography>
+
+                {canUseOverbooking ? (
+                  <>
+                    <FormControlLabel
+                      control={
+                        <MuiSwitch
+                          checked={overbookingEnabled}
+                          onChange={(e) => handleToggleOverbooking(e.target.checked)}
+                          sx={{
+                            '& .MuiSwitch-switchBase.Mui-checked': {
+                              color: '#2596d3',
+                            },
+                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                              backgroundColor: '#2596d3',
+                              opacity: 1,
+                            },
+                          }}
+                        />
+                      }
+                      label="Permitir sobrecupo"
+                    />
+
+                    {overbookingEnabled && (
+                      <Box mt={1}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={overbookingMode === 'all'}
+                              onChange={() => handleSelectMode('all')}
+                              sx={{ '&.Mui-checked': { color: '#2596d3' } }}
+                            />
+                          }
+                          label="Todas las horas del horario con sobrecupo"
+                        />
+
+                        {overbookingMode === 'all' && (
+                          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap" sx={{ ml: 4, mt: 1 }}>
+                            <TextField
+                              label="Cupos por hora"
+                              type="number"
+                              value={allCapInput}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                const parsed = raw === '' ? '' : Number(raw);
+                                if (raw === '') return setAllCapInput('');
+                                if (!Number.isFinite(parsed)) return;
+                                const nextCap = Math.max(2, Math.floor(parsed));
+                                setAllCapInput(nextCap);
+                                handleChange('slotCapacity', nextCap);
+                              }}
+                              inputProps={{ min: 2, step: 1 }}
+                              sx={{ width: 180 }}
+                              helperText="2 = dos reservas en la misma hora."
+                            />
+                          </Box>
+                        )}
+
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={overbookingMode === 'specific'}
+                              onChange={() => handleSelectMode('specific')}
+                              sx={{ '&.Mui-checked': { color: '#2596d3' } }}
+                            />
+                          }
+                          label="Sobrecupo a horas específicas"
+                        />
+
+                        {overbookingMode === 'specific' && (
+                          <Box sx={{ ml: 4, mt: 1 }}>
+                            <Box display="flex" alignItems="center" gap={2} flexWrap="wrap" sx={{ mb: 1 }}>
+                              <TextField
+                                label="Cupos para hora seleccionada"
+                                type="number"
+                                value={specificCapInput}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const parsed = raw === '' ? '' : Number(raw);
+                                  if (raw === '') return setSpecificCapInput('');
+                                  if (!Number.isFinite(parsed)) return;
+                                  setSpecificCapInput(Math.max(2, Math.floor(parsed)));
+                                }}
+                                inputProps={{ min: 2, step: 1 }}
+                                sx={{ width: 240 }}
+                              />
+                              <Button
+                                variant="outlined"
+                                sx={{ color: "#2596d3" }}
+                                onClick={applySpecificOverrides}
+                                disabled={!selectedSpecificTimes || selectedSpecificTimes.length === 0}
+                              >
+                                Aplicar a seleccionadas
+                              </Button>
+                            </Box>
+
+                            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                              Selecciona horas y asigna el cupo para esas horas.
+                            </Typography>
+
+                            <Box display="flex" flexWrap="wrap" gap={1}>
+                              {(previewTimes || []).map((t) => {
+                                const norm = normalizeHHMM(t) || t;
+                                const selected = (selectedSpecificTimes || []).includes(norm);
+                                const cap = overrides?.[norm];
+                                const label = cap ? `${norm} (${Math.floor(Number(cap))})` : norm;
+                                return (
+                                  <Chip
+                                    key={norm}
+                                    label={label}
+                                    size="small"
+                                    color={selected ? 'primary' : 'default'}
+                                    variant={selected ? 'filled' : 'outlined'}
+                                    onClick={() => toggleSpecificTime(norm)}
+                                    onDelete={cap ? () => removeSpecificOverride(norm) : undefined}
+                                  />
+                                );
+                              })}
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  <Typography variant="body2" color="textSecondary">
+                    Disponible solo en Plan Avanzado.
+                  </Typography>
+                )}
+              </Box>
             </Stack>
           </Box>
           <Box minWidth={220} flex={1}>
-            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-              Horario de Descanso (Opcional)
+            <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ color: "#2596d3" }}>
+              Horario de Almuerzo/Descanso
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+              (Opcional)
             </Typography>
             <Stack spacing={2}>
               <TextField
@@ -259,7 +731,7 @@ const ScheduleEditor = ({ schedule, index, onChange, onSave, onCancel }) => {
             </Stack>
           </Box>
           <Box minWidth={220} flex={2}>
-            <Typography variant="subtitle1" gutterBottom fontWeight={600}>
+            <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ color: "#2596d3" }}>
               Días de Atención
             </Typography>
             <Box display="flex" flexWrap="wrap" gap={1}>
@@ -270,7 +742,11 @@ const ScheduleEditor = ({ schedule, index, onChange, onSave, onCancel }) => {
                     <Checkbox
                       checked={(schedule.days || []).includes(day)}
                       onChange={() => handleDayToggle(day)}
-                      color="primary"
+                      sx={{
+                        '&.Mui-checked': {
+                          color: '#2596d3',
+                        },
+                      }}
                     />
                   }
                   label={day}
@@ -298,6 +774,8 @@ export function PerfilPage() {
   const [tab, setTab] = useState(0);
   const [editProfileMode, setEditProfileMode] = useState(false);
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
+  const scheduleRefs = useRef({});
+  const [pendingScrollScheduleIndex, setPendingScrollScheduleIndex] = useState(null);
   const { agregarProfesional, quitarProfesional } = useSucursal();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSyncOpen, setModalSyncOpen] = useState(false);
@@ -320,6 +798,7 @@ export function PerfilPage() {
   const noSubscription = !hasActiveSubscription;
   const isSucursalScope = subscriptionScope === 'SUCURSAL';
   const canSeePlanChip = !loadingSubscription && (!isSucursalScope || esAdminSucursal);
+  const canUseOverbooking = planLevel === 'advanced' || planLevel === 'teams';
 
 
   const handleOpenPerfil = (profesional) => {
@@ -332,6 +811,7 @@ export function PerfilPage() {
   const [formData, setFormData] = useState({
     username: user.username || "",
     celular: user.celular || "",
+    direccion: user.direccion || user.sucursal?.direccion || "",
     descripcion: user.descripcion || "",
     especialidad: user.especialidad || "",
     especialidad_principal: user.especialidad_principal || "",
@@ -349,6 +829,73 @@ export function PerfilPage() {
     reminderMessage: user.reminderMessage || ""
   });
 
+  const timetableOverlaps = findTimetableOverlaps(formData.timetable);
+  const overlapsByIndex = timetableOverlaps.reduce((acc, o) => {
+    if (!acc[o.aIndex]) acc[o.aIndex] = [];
+    if (!acc[o.bIndex]) acc[o.bIndex] = [];
+    acc[o.aIndex].push(o);
+    acc[o.bIndex].push(o);
+    return acc;
+  }, {});
+
+  const [flashScheduleIndices, setFlashScheduleIndices] = useState({});
+  const prevOverlappedRef = useRef(new Set());
+  const overlapKey = timetableOverlaps
+    .map((o) => `${o.day}|${o.aIndex}|${o.bIndex}|${o.start}|${o.end}`)
+    .join('~');
+
+  useEffect(() => {
+    const current = new Set(
+      Object.keys(overlapsByIndex)
+        .map(Number)
+        .filter((i) => (overlapsByIndex[i] || []).length > 0),
+    );
+    const prev = prevOverlappedRef.current;
+    const newly = [...current].filter((i) => !prev.has(i));
+
+    if (newly.length > 0) {
+      setFlashScheduleIndices((prevMap) => {
+        const next = { ...prevMap };
+        newly.forEach((i) => {
+          next[i] = true;
+        });
+        return next;
+      });
+
+      // 1.2s = 2 pulsos dentro del keyframe overlapFlash
+      setTimeout(() => {
+        setFlashScheduleIndices((prevMap) => {
+          const next = { ...prevMap };
+          newly.forEach((i) => {
+            delete next[i];
+          });
+          return next;
+        });
+      }, 1300);
+    }
+
+    prevOverlappedRef.current = current;
+  }, [overlapKey]);
+
+  useEffect(() => {
+    if (pendingScrollScheduleIndex === null) return;
+    if (editingScheduleIndex !== pendingScrollScheduleIndex) return;
+
+    const el = scheduleRefs.current?.[pendingScrollScheduleIndex];
+    if (!el) return;
+
+    // Espera un tick para asegurar layout/render antes de scrollear
+    setTimeout(() => {
+      try {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (_) {
+        // noop
+      }
+    }, 0);
+
+    setPendingScrollScheduleIndex(null);
+  }, [pendingScrollScheduleIndex, editingScheduleIndex]);
+
   // Handlers
   const handleEditProfileClick = () => {
     if (noSubscription) {
@@ -357,6 +904,12 @@ export function PerfilPage() {
       }
       return;
     }
+
+    // Si pertenece a una sucursal y no tiene dirección propia, precargar la dirección de la sucursal
+    if (!formData.direccion && user.sucursal?.direccion) {
+      setFormData((prev) => ({ ...prev, direccion: user.sucursal.direccion }));
+    }
+
     setEditProfileMode(true);
   };
   const handleSaveProfileClick = async () => {
@@ -364,6 +917,19 @@ export function PerfilPage() {
       // Detecta si cambió el valor del switch
       const prevValue = user.adminAtiendePersonas || false;
       const newValue = formData.adminAtiendePersonas || false;
+
+      const overlaps = findTimetableOverlaps(formData.timetable);
+      if (overlaps.length > 0) {
+        const detail = overlaps
+          .slice(0, 5)
+          .map(
+            (o) =>
+              `${o.day}: Bloque ${o.aIndex + 1} y Bloque ${o.bIndex + 1} se cruzan (${minutesToTime(o.start)}–${minutesToTime(o.end)})`
+          )
+          .join(' | ');
+        showAlert('error', `Hay solapamiento de horarios. Ajusta las horas para que no se crucen. ${detail}`);
+        return;
+      }
       
       await updatePerfil(user.id || user._id, formData);
 
@@ -389,6 +955,7 @@ export function PerfilPage() {
     setFormData({
       username: user.username || "",
       celular: user.celular || "",
+      direccion: user.direccion || user.sucursal?.direccion || "",
       descripcion: user.descripcion || "",
       especialidad: user.especialidad || "",
       especialidad_principal: user.especialidad_principal || "",
@@ -410,14 +977,16 @@ export function PerfilPage() {
 
   // Horarios
   const handleAddSchedule = () => {
+    const newIndex = (formData.timetable || []).length;
     setFormData({
       ...formData,
       timetable: [
         ...formData.timetable,
-        { fromTime: "", toTime: "", days: [], interval: 30, breakFrom: "", breakTo: "", times: [] }
+        { fromTime: "", toTime: "", days: [], interval: 30, slotCapacity: 1, slotCapacityOverrides: {}, breakFrom: "", breakTo: "", times: [] }
       ]
     });
-    setEditingScheduleIndex(formData.timetable.length);
+    setEditingScheduleIndex(newIndex);
+    setPendingScrollScheduleIndex(newIndex);
   };
 
   // Servicios
@@ -489,6 +1058,8 @@ export function PerfilPage() {
         breakFrom = "",
         breakTo = "",
         interval = 30,
+        slotCapacity,
+        slotCapacityOverrides,
         days = [],
       } = time;
 
@@ -499,12 +1070,51 @@ export function PerfilPage() {
         times = generateTimes(fromTime, toTime, breakFrom, breakTo, interval);
       }
 
-      return { ...time, fromTime, toTime, breakFrom, breakTo, interval, days, times };
+      const capNum = Number(slotCapacity);
+      const safeCapacity = Number.isFinite(capNum) && capNum >= 1 ? Math.floor(capNum) : 1;
+
+      const rawOverrides = (slotCapacityOverrides && typeof slotCapacityOverrides === 'object' && !Array.isArray(slotCapacityOverrides))
+        ? slotCapacityOverrides
+        : {};
+
+      const cleanedOverrides = {};
+      Object.entries(rawOverrides).forEach(([k, v]) => {
+        const normK = normalizeHHMM(k) || k;
+        const n = Number(v);
+        if (!normK) return;
+        if (!Number.isFinite(n) || n < 1) return;
+        cleanedOverrides[normK] = Math.floor(n);
+      });
+
+      // Si tenemos lista de horas calculadas, prunea overrides que ya no existan
+      let finalOverrides = cleanedOverrides;
+      if (Array.isArray(times) && times.length > 0) {
+        const timeSet = new Set(times.map(t => normalizeHHMM(t) || t));
+        finalOverrides = {};
+        Object.entries(cleanedOverrides).forEach(([k, v]) => {
+          if (timeSet.has(k)) finalOverrides[k] = v;
+        });
+      }
+
+      return { ...time, fromTime, toTime, breakFrom, breakTo, interval, slotCapacity: safeCapacity, slotCapacityOverrides: finalOverrides, days, times };
     });
     setFormData({
       ...formData,
       timetable: updatedTimetable,
     });
+
+    const overlaps = findTimetableOverlaps(updatedTimetable);
+    if (overlaps.length > 0) {
+      const detail = overlaps
+        .slice(0, 5)
+        .map(
+          (o) =>
+            `${o.day}: Bloque ${o.aIndex + 1} y Bloque ${o.bIndex + 1} se cruzan (${minutesToTime(o.start)}–${minutesToTime(o.end)})`
+        )
+        .join(' | ');
+      showAlert('error', `Hay solapamiento de horarios. Ajusta las horas para que no se crucen. ${detail}`);
+      return;
+    }
 
     try {
       await updatePerfil(user.id || user._id, { ...formData, timetable: updatedTimetable });
@@ -722,6 +1332,16 @@ export function PerfilPage() {
                   fullWidth
                   disabled={!editProfileMode}
                 />
+                {!esAsistente && (
+                  <TextField
+                    label="Dirección"
+                    name="direccion"
+                    value={formData.direccion}
+                    onChange={handleChange}
+                    fullWidth
+                    disabled={!editProfileMode}
+                  />
+                )}
                 <TextField
                   label="Correo electrónico"
                   name="email"
@@ -926,7 +1546,12 @@ export function PerfilPage() {
           ) : (
             <Box>
               {formData.timetable.map((schedule, index) => (
-                <Box key={index}>
+                <Box
+                  key={index}
+                  ref={(el) => {
+                    if (el) scheduleRefs.current[index] = el;
+                  }}
+                >
                   {editingScheduleIndex === index ? (
                     <ScheduleEditor
                       schedule={schedule}
@@ -934,6 +1559,9 @@ export function PerfilPage() {
                       onChange={handleScheduleChange}
                       onSave={handleSaveSchedule}
                       onCancel={handleCancelScheduleEdit}
+                      overlaps={overlapsByIndex[index] || []}
+                      shouldFlash={!!flashScheduleIndices[index]}
+                      canUseOverbooking={canUseOverbooking}
                     />
                   ) : (
                     <ScheduleBlock
@@ -942,6 +1570,8 @@ export function PerfilPage() {
                       isEditing={editingScheduleIndex !== null}
                       onEdit={handleEditSchedule}
                       onDelete={handleDeleteSchedule}
+                      overlaps={overlapsByIndex[index] || []}
+                      shouldFlash={!!flashScheduleIndices[index]}
                     />
                   )}
                 </Box>
@@ -967,7 +1597,7 @@ export function PerfilPage() {
                   <Box textAlign="center" flex={1} sx={{ minWidth: 0 }}>
                     <Typography variant="h4" color="white" fontWeight="bold">
                       {formData.timetable.reduce(
-                        (total, schedule) => total + (schedule.times ? schedule.times.length : 0),
+                        (total, schedule) => total + computeTotalSlotsForSchedule(schedule),
                         0,
                       )}
                     </Typography>

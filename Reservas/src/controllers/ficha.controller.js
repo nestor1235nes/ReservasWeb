@@ -42,6 +42,120 @@ const TOKEN_TTL_HOURS = 48;
 const base64UrlEncode = (buf) => buf.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
+// Helpers para manejo de horas (HH:mm) y cupos (sobrecupo)
+const toMinutesHHMM = (hhmm) => {
+    if (!hhmm || typeof hhmm !== 'string') return null;
+    const parts = hhmm.split(':');
+    if (parts.length < 2) return null;
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return h * 60 + m;
+};
+
+const fmtHHMM = (mins) => {
+    if (!Number.isFinite(mins)) return null;
+    const h = String(Math.floor(mins / 60)).padStart(2, '0');
+    const m = String(mins % 60).padStart(2, '0');
+    return `${h}:${m}`;
+};
+
+const normalizeHora = (hora) => {
+    const mins = toMinutesHHMM(hora);
+    return mins == null ? hora : fmtHHMM(mins);
+};
+
+const buildLocalDayRange = (dateValue) => {
+    if (!dateValue) return null;
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const day = d.getDate();
+    return {
+        start: new Date(y, m, day, 0, 0, 0, 0),
+        end: new Date(y, m, day, 23, 59, 59, 999),
+    };
+};
+
+const generateTimesForBlock = (fromTime, toTime, breakFrom, breakTo, interval) => {
+    const start = toMinutesHHMM(fromTime);
+    const end = toMinutesHHMM(toTime);
+    const brFrom = toMinutesHHMM(breakFrom);
+    const brTo = toMinutesHHMM(breakTo);
+    const step = parseInt(interval || 30, 10);
+    if (start == null || end == null || !step || step <= 0) return [];
+    const times = [];
+    let t = start;
+    while (t < end) {
+        if (brFrom != null && brTo != null && t >= brFrom && t < brTo) {
+            t = brTo;
+            continue;
+        }
+        times.push(fmtHHMM(t));
+        t += step;
+    }
+    return times.filter(Boolean);
+};
+
+const getOverrideCapFor = (block, hhmm) => {
+    try {
+        if (!block || !hhmm) return null;
+        const overrides = block.slotCapacityOverrides;
+        if (!overrides) return null;
+
+        // Mongoose Map
+        if (typeof overrides.get === 'function') {
+            const v = overrides.get(hhmm);
+            const n = Number(v);
+            return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
+        }
+
+        // Objeto plano
+        if (typeof overrides === 'object') {
+            const v = overrides[hhmm];
+            const n = Number(v);
+            return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
+};
+
+const getSlotCapacityFor = (profesional, dateLocal, horaHHMM) => {
+    try {
+        if (!profesional || !dateLocal || !horaHHMM) return 1;
+        const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        const diaSemana = dias[new Date(dateLocal).getDay()];
+        const horaNorm = normalizeHora(horaHHMM);
+
+        const bloquesDia = Array.isArray(profesional.timetable)
+            ? profesional.timetable.filter(b => Array.isArray(b?.days) && b.days.includes(diaSemana))
+            : [];
+
+        let best = 1;
+        for (const b of bloquesDia) {
+            const rawCap = Number(b?.slotCapacity);
+            const capacity = Number.isFinite(rawCap) && rawCap >= 1 ? Math.floor(rawCap) : 1;
+            const times = (Array.isArray(b?.times) && b.times.length)
+                ? b.times.map(normalizeHora)
+                : generateTimesForBlock(b?.fromTime, b?.toTime, b?.breakFrom, b?.breakTo, b?.interval || 30);
+
+            if (!times.includes(horaNorm)) continue;
+            const override = getOverrideCapFor(b, horaNorm);
+            const capForTime = override ?? capacity;
+            best = Math.max(best, capForTime);
+        }
+
+        return best;
+    } catch {
+        return 1;
+    }
+};
+
 // Enviar WhatsApp (Green API) usando credenciales del profesional para notificar registro de cita
 // Si la reserva no tiene token de confirmación vigente, se genera uno automáticamente
 async function enviarWhatsAppRegistroCita({ profesional, paciente, reserva }) {
@@ -423,6 +537,7 @@ export const createReserva = async (req, res) => {
             diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         }
         const siguienteCitaNorm = normalizeDateField(req.body.siguienteCita);
+        const horaValue = normalizeHora(req.body.hora);
 
         // Pago: permitir indicar si la cita se cobra o es exenta.
         // Si no viene, no tocar (mantener defaults del modelo o valores existentes).
@@ -434,13 +549,32 @@ export const createReserva = async (req, res) => {
 
         // Si ya existe una reserva para este paciente y profesional en la misma fecha y hora, actualizar en lugar de crear
         let reservaExistente = null;
-        if (siguienteCitaNorm && req.body.hora) {
+        if (siguienteCitaNorm && horaValue) {
             reservaExistente = await Reserva.findOne({
                 paciente: paciente._id,
                 profesional: profesionalId,
                 siguienteCita: siguienteCitaNorm,
-                hora: req.body.hora
+                hora: horaValue
             });
+        }
+
+        // Validar cupo por hora (sobrecupo) solo cuando se va a crear una reserva nueva.
+        if (!reservaExistente && siguienteCitaNorm && horaValue) {
+            const range = buildLocalDayRange(siguienteCitaNorm);
+            if (range) {
+                const profesionalDoc = await User.findById(profesionalId);
+                const capacity = getSlotCapacityFor(profesionalDoc, range.start, horaValue);
+                const currentCount = await Reserva.countDocuments({
+                    profesional: profesionalId,
+                    siguienteCita: { $gte: range.start, $lte: range.end },
+                    hora: horaValue,
+                    confirmStatus: { $ne: 'cancelled' },
+                });
+
+                if (currentCount >= capacity) {
+                    return res.status(409).json({ message: `No hay cupos disponibles para la hora ${horaValue}.` });
+                }
+            }
         }
 
         let nuevaReserva;
@@ -507,7 +641,7 @@ export const createReserva = async (req, res) => {
             const reservaPayload = {
                 paciente: paciente._id,
                 siguienteCita: siguienteCitaNorm,
-                hora: req.body.hora,
+                hora: horaValue,
                 mensajePaciente: req.body.mensajePaciente,
                 profesional: profesionalId,
                 diagnostico: req.body.diagnostico,
@@ -1120,16 +1254,34 @@ export const publicCreateReserva = async (req, res) => {
             diaPrimeraCitaValue = normalizeDateField(diaPrimeraCitaValue);
         }
         const siguienteCitaNorm = normalizeDateField(siguienteCita);
+        const horaValue = normalizeHora(hora);
 
         // Deduplicar en flujo público también
         let reservaExistente = null;
-        if (siguienteCitaNorm && hora) {
+        if (siguienteCitaNorm && horaValue) {
             reservaExistente = await Reserva.findOne({
                 paciente: paciente._id,
                 profesional: profesionalId,
                 siguienteCita: siguienteCitaNorm,
-                hora
+                hora: horaValue
             });
+        }
+
+        // Validar cupo por hora (sobrecupo) solo cuando se va a crear una reserva nueva.
+        if (!reservaExistente && siguienteCitaNorm && horaValue) {
+            const range = buildLocalDayRange(siguienteCitaNorm);
+            if (range) {
+                const capacity = getSlotCapacityFor(profesional, range.start, horaValue);
+                const currentCount = await Reserva.countDocuments({
+                    profesional: profesionalId,
+                    siguienteCita: { $gte: range.start, $lte: range.end },
+                    hora: horaValue,
+                    confirmStatus: { $ne: 'cancelled' },
+                });
+                if (currentCount >= capacity) {
+                    return res.status(409).json({ message: `No hay cupos disponibles para la hora ${horaValue}.` });
+                }
+            }
         }
 
         let nuevaReserva;
@@ -1150,7 +1302,7 @@ export const publicCreateReserva = async (req, res) => {
             const reservaPayload = {
                 paciente: paciente._id,
                 siguienteCita: siguienteCitaNorm,
-                hora,
+                hora: horaValue,
                 mensajePaciente,
                 profesional: profesionalId,
                 diagnostico,

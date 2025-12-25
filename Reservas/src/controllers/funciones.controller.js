@@ -144,6 +144,29 @@ export const obtenerHorasDisponibles = async (req, res) => {
       const m = String(mins % 60).padStart(2, '0');
       return `${h}:${m}`;
     };
+
+    const getOverrideCapFor = (block, hhmm) => {
+      try {
+        if (!block || !hhmm) return null;
+        const overrides = block.slotCapacityOverrides;
+        if (!overrides) return null;
+        // Mongoose Map
+        if (typeof overrides.get === 'function') {
+          const v = overrides.get(hhmm);
+          const n = Number(v);
+          return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
+        }
+        // Objeto plano
+        if (typeof overrides === 'object') {
+          const v = overrides[hhmm];
+          const n = Number(v);
+          return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
     // Genera horas usando comparación numérica (robusta ante '9:00' vs '10:00')
     const generateTimes = (fromTime, toTime, breakFrom, breakTo, interval) => {
       const start = toMinutes(fromTime);
@@ -166,14 +189,28 @@ export const obtenerHorasDisponibles = async (req, res) => {
       return times;
     };
 
-    // Junta todos los times de los bloques de ese día, generándolos si faltan
-    let horas = bloquesDia.flatMap(b => {
-      if (Array.isArray(b.times) && b.times.length) {
-        // Normalizar por si vienen sin cero a la izquierda y ordenar
-        const norm = b.times.map(t => fmt(toMinutes(t) ?? 0)).filter(Boolean);
-        return norm.sort();
-      }
-      return generateTimes(b.fromTime, b.toTime, b.breakFrom, b.breakTo, b.interval || 30);
+    // Construye mapa time -> capacidad (override por hora si existe; si no, slotCapacity).
+    const slots = new Map(); // time -> capacity
+    bloquesDia.forEach((b) => {
+      const rawCap = Number(b?.slotCapacity);
+      const capacity = Number.isFinite(rawCap) && rawCap >= 1 ? Math.floor(rawCap) : 1;
+
+      const times = (Array.isArray(b?.times) && b.times.length)
+        ? b.times
+        : generateTimes(b?.fromTime, b?.toTime, b?.breakFrom, b?.breakTo, b?.interval || 30);
+
+      (times || []).forEach((t) => {
+        const mins = toMinutes(t);
+        if (mins == null) return;
+        const norm = fmt(mins);
+
+        const override = getOverrideCapFor(b, norm);
+        const capForTime = override ?? capacity;
+
+        const prev = slots.get(norm);
+        if (!prev) slots.set(norm, capForTime);
+        else slots.set(norm, Math.max(prev, capForTime));
+      });
     });
 
     // Buscar reservas dentro del rango de fechas
@@ -182,15 +219,31 @@ export const obtenerHorasDisponibles = async (req, res) => {
 
     const reservas = await Reserva.find({
       profesional: id,
-      siguienteCita: { $gte: startOfDay, $lte: endOfDay }
+      siguienteCita: { $gte: startOfDay, $lte: endOfDay },
+      confirmStatus: { $ne: 'cancelled' },
+    }).select('hora confirmStatus');
+
+    const counts = new Map(); // time -> reservedCount
+    (reservas || []).forEach((r) => {
+      const mins = toMinutes(r?.hora);
+      if (mins == null) return;
+      const norm = fmt(mins);
+      counts.set(norm, (counts.get(norm) || 0) + 1);
     });
 
-    const reservedTimes = reservas.map(reserva => reserva.hora);
+    const blockedSet = new Set((blockedTimesForDay || []).map(t => {
+      const mins = toMinutes(t);
+      return mins == null ? null : fmt(mins);
+    }).filter(Boolean));
 
-    // Filtra las horas ya reservadas
-    const availableTimes = horas
-      .filter(time => !reservedTimes.includes(time))
-      .filter(time => !blockedTimesForDay.includes(time));
+    const availableTimes = [...slots.entries()]
+      .filter(([time, cap]) => {
+        const reserved = counts.get(time) || 0;
+        return reserved < cap;
+      })
+      .filter(([time]) => !blockedSet.has(time))
+      .map(([time]) => time)
+      .sort((a, b) => (toMinutes(a) ?? 0) - (toMinutes(b) ?? 0));
 
     return res.status(200).json({ times: availableTimes });
   } catch (error) {

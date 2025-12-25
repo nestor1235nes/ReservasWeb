@@ -3,6 +3,16 @@ import mongoose from "mongoose";
 const timetableSchema = new mongoose.Schema({
     days: [String],
     times: [String],
+    // Cantidad de cupos disponibles por cada bloque horario (sobrecupo).
+    // Ej: 1 = normal, 2 = permite 2 reservas en la misma hora.
+    slotCapacity: { type: Number, default: 1, min: 1 },
+    // Overrides de cupos por hora específica. Ej: { "10:00": 3 }.
+    // Si existe para una hora, prima sobre slotCapacity.
+    slotCapacityOverrides: {
+        type: Map,
+        of: { type: Number, min: 1 },
+        default: {},
+    },
     fromTime: { type: String, default: "" },
     toTime: { type: String, default: "" },
     interval: { type: Number, default: 30 },
