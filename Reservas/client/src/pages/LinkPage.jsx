@@ -15,7 +15,28 @@ export default function LinkPage() {
 		const { user, generateMiEnlace, updatePerfil } = useAuth();
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-	const miEnlace = useMemo(() => user?.miEnlace || '', [user]);
+
+	const hasServicios = useMemo(() => {
+		return Array.isArray(user?.servicios) && user.servicios.length > 0;
+	}, [user?.servicios]);
+
+	const hasHorario = useMemo(() => {
+		const timetable = Array.isArray(user?.timetable) ? user.timetable : [];
+		return timetable.some((t) => {
+			const daysOk = Array.isArray(t?.days) && t.days.length > 0;
+			const timesOk = Array.isArray(t?.times) && t.times.length > 0;
+			const rangeOk = Boolean(t?.fromTime && t?.toTime && t.fromTime !== t.toTime);
+			return daysOk && (timesOk || rangeOk);
+		});
+	}, [user?.timetable]);
+
+	const canShare = hasServicios && hasHorario;
+
+	const miEnlace = useMemo(() => {
+		const origin = window.location.origin;
+		if (user?.slug) return `${origin}/p/${encodeURIComponent(user.slug)}`;
+		return user?.miEnlace || '';
+	}, [user?.slug, user?.miEnlace]);
 	const [copied, setCopied] = useState(false);
 	const [loading, setLoading] = useState(false);
 		const [template, setTemplate] = useState(user?.bookingTemplate || 'template1');
@@ -35,6 +56,7 @@ export default function LinkPage() {
 
 	const handleGenerate = async () => {
 		try {
+			if (!canShare) return;
 			setLoading(true);
 			await generateMiEnlace();
 		} finally {
@@ -44,6 +66,7 @@ export default function LinkPage() {
 
 	const handleCopy = async () => {
 		try {
+			if (!canShare) return;
 			if (!miEnlace) return;
 			await navigator.clipboard.writeText(miEnlace);
 			setCopied(true);
@@ -56,7 +79,7 @@ export default function LinkPage() {
 	useEffect(() => {
 		const generateQR = async () => {
 			try {
-				if (!miEnlace) {
+				if (!miEnlace || !canShare) {
 					setQrDataUrl('');
 					return;
 				}
@@ -74,9 +97,10 @@ export default function LinkPage() {
 			}
 		};
 		generateQR();
-	}, [miEnlace]);
+	}, [miEnlace, canShare]);
 
 	const handleDownloadQR = () => {
+		if (!canShare) return;
 		if (!qrDataUrl) return;
 		const a = document.createElement('a');
 		a.href = qrDataUrl;
@@ -141,7 +165,13 @@ export default function LinkPage() {
 								</Box>
 							</Stack>
 
-										{miEnlace ? (
+							{!canShare && (
+								<Alert severity="warning">
+									Para habilitar tu enlace debes configurar tu horario y tus servicios en tu perfil.
+								</Alert>
+							)}
+
+										{miEnlace && canShare ? (
 								<TextField
 									label="Enlace público"
 									value={miEnlace}
@@ -150,7 +180,7 @@ export default function LinkPage() {
 										readOnly: true,
 										endAdornment: (
 											<InputAdornment position="end">
-												<IconButton aria-label="Copiar enlace" onClick={handleCopy} sx={{ color: '#2596be' }}>
+													<IconButton aria-label="Copiar enlace" onClick={handleCopy} sx={{ color: '#2596be' }}>
 													<ContentCopyIcon />
 												</IconButton>
 											</InputAdornment>
@@ -159,14 +189,25 @@ export default function LinkPage() {
 								/>
 							) : (
 								<Box>
-									<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-										Aún no has generado tu enlace público.
-									</Typography>
+										{!miEnlace && (
+											<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+												Aún no has generado tu enlace público.
+											</Typography>
+										)}
+										{miEnlace && !canShare && (
+											<TextField
+												label="Enlace público"
+												value=""
+												placeholder="Configura tu horario y servicios para habilitar el enlace"
+												fullWidth
+												InputProps={{ readOnly: true }}
+											/>
+										)}
 									<Button
 										variant="contained"
 										startIcon={<AddLinkIcon />}
 										onClick={handleGenerate}
-										disabled={loading}
+											disabled={loading || !canShare}
 										sx={{ backgroundColor: '#2596be', '&:hover': { backgroundColor: '#1e7fa0' } }}
 									>
 										{loading ? 'Generando…' : 'Generar link'}
@@ -176,7 +217,7 @@ export default function LinkPage() {
 
 										<Divider sx={{ my: 2 }} />
 										{/* QR Code Section */}
-										{miEnlace && (
+										{miEnlace && canShare && (
 											<Box>
 												<Typography fontWeight={700} mb={1}>Código QR de tu enlace</Typography>
 												<Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
@@ -189,7 +230,7 @@ export default function LinkPage() {
 													</Box>
 													<Stack spacing={1} sx={{ flex: 1, alignSelf: 'stretch' }}>
 														<Typography variant="body2" color="text.secondary">Comparte este QR para que tus pacientes escaneen y agenden directamente.</Typography>
-														<Button variant="outlined" onClick={handleDownloadQR} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, borderColor: '#2596be', color: '#2596be' }}>Descargar PNG</Button>
+															<Button variant="outlined" onClick={handleDownloadQR} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, borderColor: '#2596be', color: '#2596be' }}>Descargar PNG</Button>
 													</Stack>
 												</Stack>
 											</Box>

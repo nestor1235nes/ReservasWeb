@@ -37,6 +37,24 @@ const SucursalSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    // Slug único para URL pública (ej: /sucursal-publica/clinica-mi-salud)
+    slug: {
+        type: String,
+        trim: true,
+        index: true,
+        unique: true,
+        sparse: true,
+    },
+    logo: {
+        type: String,
+        default: "",
+        trim: true,
+    },
+    // Colores para personalizar la página pública de la sucursal
+    publicBrand: {
+        primary: { type: String, default: '#2596be' },
+        secondary: { type: String, default: '#21cbe6' },
+    },
     administradores: {
         type: [mongoose.Schema.Types.ObjectId],
         ref: "User",

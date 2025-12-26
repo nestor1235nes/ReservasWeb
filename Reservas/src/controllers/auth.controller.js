@@ -694,17 +694,28 @@ export const generarEnlace = async (req, res) => {
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Si ya tiene enlace, devolverlo sin cambiar
-    if (user.miEnlace && user.miEnlace.trim() !== "") {
+    // Construir un slug sencillo y estable: nombre-normalizado-<shortid>
+    // (si ya existe slug, lo reutilizamos)
+    const shortId = user._id.toString().slice(-6);
+    const slugBase = (user.username || "usuario")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 40);
+    const slug = user.slug && String(user.slug).trim() !== "" ? user.slug : `${slugBase}-${shortId}`;
+
+    // Si ya tiene enlace, pero es el formato viejo (/front-users?u=), lo migramos
+    const existing = (user.miEnlace || "").trim();
+    const looksLegacy = existing.includes("/front-users?u=");
+    if (existing && !looksLegacy) {
       return res.json({ miEnlace: user.miEnlace });
     }
 
-    // Construir un slug sencillo y único: nombre-normalizado-<shortid>
-    const slugBase = (user.username || "usuario").toString().toLowerCase().normalize("NFD").replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 40);
-    const shortId = user._id.toString().slice(-6);
-    const slug = `${slugBase}-${shortId}`;
-
-    const url = `${FRONTEND_URL}/front-users?u=${encodeURIComponent(slug)}`;
+    const url = `${FRONTEND_URL}/p/${encodeURIComponent(slug)}`;
     user.miEnlace = url;
     user.slug = slug;
     await user.save();

@@ -3,11 +3,51 @@ import Paciente from "../models/paciente.model.js";
 import Reserva from "../models/ficha.model.js";
 import User from "../models/user.model.js";
 
+const isObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
+
+const slugify = (value) => {
+    return (value || '')
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 60);
+};
+
+const buildUniqueSucursalSlug = async ({ base, currentId }) => {
+    let candidate = slugify(base);
+    if (!candidate) candidate = 'sucursal';
+
+    let suffix = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        const slug = suffix === 0 ? candidate : `${candidate}-${suffix + 1}`;
+        const existing = await Sucursal.findOne({ slug }).select('_id').lean();
+        if (!existing) return slug;
+        if (currentId && existing._id?.toString() === currentId.toString()) return slug;
+        suffix += 1;
+    }
+};
+
 /////////////// Obtener todas las sucursales ///////////////
 
 export const obtenerSucursales = async (req, res) => {
     try {
         const sucursales = await Sucursal.find();
+
+        // Backfill: generar slug si falta (mantener compatibilidad, evitar tareas manuales)
+        for (const s of sucursales) {
+            if (!s?.slug) {
+                const slug = await buildUniqueSucursalSlug({ base: s?.nombre, currentId: s?._id });
+                s.slug = slug;
+                await s.save();
+            }
+        }
         res.status(200).json(sucursales);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -25,6 +65,12 @@ export const obtenerSucursalUsuario = async (req, res) => {
         if (!user || !user.sucursal) {
             return res.status(404).json({ message: "Usuario o sucursal no encontrada" });
         }
+
+        if (!user.sucursal.slug) {
+            const slug = await buildUniqueSucursalSlug({ base: user.sucursal.nombre, currentId: user.sucursal._id });
+            user.sucursal.slug = slug;
+            await user.sucursal.save();
+        }
         res.status(200).json(user.sucursal);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -35,7 +81,11 @@ export const obtenerSucursalUsuario = async (req, res) => {
 
 export const crearSucursal = async (req, res) => {
     try {
-        const sucursal = await Sucursal.create(req.body);
+        const payload = { ...(req.body || {}) };
+        if (!payload.slug) {
+            payload.slug = await buildUniqueSucursalSlug({ base: payload.nombre, currentId: null });
+        }
+        const sucursal = await Sucursal.create(payload);
         res.status(201).json(sucursal);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -47,7 +97,17 @@ export const crearSucursal = async (req, res) => {
 export const actualizarSucursal = async (req, res) => {
     try {
         const { id } = req.params;
-        const sucursal = await Sucursal.findByIdAndUpdate(id, req.body, { new: true });
+
+        const existing = await Sucursal.findById(id);
+        if (!existing) return res.status(404).json({ message: "Sucursal no encontrada" });
+
+        const payload = { ...(req.body || {}) };
+        // Mantener slug estable: solo generarlo si aún no existe
+        if (!existing.slug) {
+            payload.slug = await buildUniqueSucursalSlug({ base: payload.nombre || existing.nombre, currentId: id });
+        }
+
+        const sucursal = await Sucursal.findByIdAndUpdate(id, payload, { new: true });
 
         // Si se pasa un administrador, agrégalo al array de administradores
         if(req.body.administrador) {
@@ -222,10 +282,26 @@ export const quitarProfesional = async (req, res) => {
 
 export const obtenerProfesionalesSucursal = async (req, res) => {
     try {
-        const { id } = req.params;
-        const sucursal = await Sucursal.findById(id).populate('profesionales');
+        const key = req.params.id;
+        const query = isObjectId(key) ? { _id: key } : { slug: key };
+        const sucursal = await Sucursal.findOne(query)
+            .populate('profesionales')
+            .populate('administradores');
         if (!sucursal) return res.status(404).json({ message: "Sucursal no encontrada" });
-        res.status(200).json(sucursal.profesionales);
+
+        const profesionales = Array.isArray(sucursal.profesionales) ? sucursal.profesionales : [];
+        const admins = Array.isArray(sucursal.administradores) ? sucursal.administradores : [];
+
+        // Si el administrador marcó que también atiende pacientes, debe aparecer como profesional.
+        const adminsQueAtienden = admins.filter((u) => !!u?.adminAtiendePersonas);
+
+        const byId = new Map();
+        for (const p of [...profesionales, ...adminsQueAtienden]) {
+            if (!p?._id) continue;
+            byId.set(p._id.toString(), p);
+        }
+
+        res.status(200).json(Array.from(byId.values()));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

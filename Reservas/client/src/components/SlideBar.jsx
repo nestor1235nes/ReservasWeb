@@ -49,6 +49,7 @@ const baseMenuItems = [
 const empresaSubItems = [
   { label: 'Gestionar asistentes', icon: <GroupAddIcon />, path: '/sucursal/asistentes' },
   { label: 'Gestionar profesionales', icon: <MedicalServicesIcon />, path: '/sucursal/profesionales' },
+  { label: 'Enlace de sucursal', icon: <AddLinkIcon />, path: '/mi-empresa/enlace' },
   { label: 'Configuración', icon: <SettingsIcon />, path: '/mi-empresa/configuracion' },
   { label: 'Reportes', icon: <AssessmentIcon />, path: '/mi-empresa/reportes' },
 ];

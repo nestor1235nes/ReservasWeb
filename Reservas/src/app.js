@@ -36,6 +36,10 @@ app.use(
   helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false, // evitar romper librerías que no estén listas para COEP
+    // Importante: Helmet por defecto puede enviar Cross-Origin-Resource-Policy: same-origin,
+    // lo que bloquea <img> desde otro origen (p.ej. Vite 5173 embebiendo assets desde API 4000).
+    // Permitimos embebido cross-origin para recursos estáticos.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
 // Política de Referer estricta
@@ -120,8 +124,15 @@ try {
   console.warn('No se pudo crear carpeta de uploads/imagenesPacientes:', e?.message || e);
 }
 
-app.use('/uploads', express.static('uploads'));
-app.use('/imagenesPacientes', express.static('imagenesPacientes'));
+const staticAssetHeaders = (res) => {
+  // Permite que el frontend embeba imágenes desde otro origen/puerto.
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  // Para <img> no siempre es necesario, pero ayuda en algunos contextos.
+  res.setHeader('Access-Control-Allow-Origin', '*');
+};
+
+app.use('/uploads', express.static('uploads', { setHeaders: staticAssetHeaders }));
+app.use('/imagenesPacientes', express.static('imagenesPacientes', { setHeaders: staticAssetHeaders }));
 
 // Redirección universal para /confirmacion/:token hacia el frontend
 app.get('/confirmacion/:token', (req, res) => {

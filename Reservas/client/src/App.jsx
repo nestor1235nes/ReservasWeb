@@ -36,6 +36,8 @@ import LinkPage from "./pages/LinkPage";
 import TemplateBuilderPage from "./pages/TemplateBuilderPage";
 import { SubscriptionProvider } from "./context/subscriptionContext.jsx";
 import AdminPlansPage from "./pages/AdminPlansPage.jsx";
+import PublicSucursalProfesionalesPage from "./pages/PublicSucursalProfesionalesPage.jsx";
+import EnlaceSucursal from "./pages/Sucursales/EnlaceSucursal.jsx";
 
 
 const theme = createTheme({
@@ -61,14 +63,41 @@ function AppContent() {
     start();
   }, []);
 
-  // Oculta sidebar y drawer en la ruta base "/" y en la vista pública de telemedicina para pacientes
+  const reservedTopLevel = new Set([
+    'login',
+    'register',
+    'front-users',
+    'p',
+    'sucursal-publica',
+    'confirmacion',
+    'telemedicina',
+    'payment',
+    'calendario',
+    'hoy',
+    'perfil',
+    'admin',
+    'pacientes',
+    'mi-enlace',
+    'mi-empresa',
+    'template-builder',
+    'sucursal',
+    'reportes',
+  ]);
+
+  const pathSegments = (location.pathname || '').split('/').filter(Boolean);
+  const isPublicSucursalShort = pathSegments.length === 1 && !reservedTopLevel.has(pathSegments[0]);
+
+  // Oculta sidebar y drawer en la ruta base "/" y en vistas públicas
   const hideSidebar =
     location.pathname === "/" ||
     location.pathname === "/login" ||
     location.pathname === "/register" ||
     location.pathname === "/front-users" ||
     location.pathname.startsWith("/confirmacion/") ||
-    location.pathname.startsWith("/telemedicina/join");
+    location.pathname.startsWith("/telemedicina/join") ||
+    location.pathname.startsWith("/sucursal-publica/") ||
+    location.pathname.startsWith("/p/") ||
+    isPublicSucursalShort;
 
   return (
     <ThemeProvider theme={theme}>
@@ -135,6 +164,10 @@ function AppContent() {
                           <Route path="/login" element={<LoginPage />} />
                           <Route path="/register" element={<RegisterPage />} />
                           <Route path="/front-users" element={<FrontUsers />} />
+                          <Route path="/p/:slug" element={<FrontUsers />} />
+                          <Route path="/sucursal-publica/:sucursalKey" element={<PublicSucursalProfesionalesPage />} />
+                          {/* Ruta pública corta (sin prefijo) para sucursal por slug o id */}
+                          <Route path="/:sucursalKey" element={<PublicSucursalProfesionalesPage />} />
                           <Route element={<ProtectedRoute />}>
                             <Route path="/calendario" element={<CalendarioPage />} />
                             <Route path="/hoy" element={<TodayPage />} />
@@ -142,6 +175,7 @@ function AppContent() {
                             <Route path="/admin/planes" element={<AdminPlansPage />} />
                             <Route path="/pacientes" element={<PatientsPage />} />
                             <Route path="/mi-enlace" element={<LinkPage />} />
+                            <Route path="/mi-empresa/enlace" element={<EnlaceSucursal />} />
                             <Route path="/template-builder" element={<TemplateBuilderPage />} />
                             <Route path="/sucursal/asistentes" element={<GestionarAsistentes />} />
                             <Route path="/sucursal/profesionales" element={<GestionarProfesionales />} />

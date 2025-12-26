@@ -11,7 +11,7 @@ import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import GroupsIcon from '@mui/icons-material/Groups';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { Link as RouterLink, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 import LoginModal from '../components/LoginModal';
 import LoginIcon from '@mui/icons-material/Login';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -56,7 +56,8 @@ export default function FrontUsers() {
 	const loginButtonRef = useRef(null);
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [searchParams] = useSearchParams();
-	const slug = searchParams.get('u');
+	const { slug: slugParam } = useParams();
+	const slug = searchParams.get('u') || slugParam;
 	const { obtenerHorasDisponibles } = useAuth();
 	const { getFeriados } = useReserva();
 	const [prof, setProf] = useState(null);

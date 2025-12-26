@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Avatar,
   Box,
   Button,
   Card,
   CardContent,
+  Collapse,
   Divider,
   Grid,
   Stack,
@@ -16,6 +18,8 @@ import { useSucursal } from '../../context/sucursalContext';
 import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
 import FullPageLoader from '../../components/ui/FullPageLoader';
+import axios from '../../api/axios';
+import { ASSETS_BASE } from '../../config';
 
 const splitCsv = (value) => {
   if (!value) return [];
@@ -40,10 +44,19 @@ export default function ConfiguracionSucursal() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [sucursal, setSucursal] = useState(null);
+  const [brandOpen, setBrandOpen] = useState(false);
+
+  const DEFAULT_PUBLIC_BRAND = useMemo(() => {
+    return { primary: '#2596be', secondary: '#21cbe6' };
+  }, []);
 
   const [form, setForm] = useState({
     nombre: '',
+    logo: '',
+    brandPrimary: '#2596be',
+    brandSecondary: '#21cbe6',
     direccion: '',
     descripcion: '',
     contactoEmail: '',
@@ -66,6 +79,9 @@ export default function ConfiguracionSucursal() {
   const hydrateForm = (s) => {
     setForm({
       nombre: s?.nombre || '',
+      logo: s?.logo || '',
+      brandPrimary: s?.publicBrand?.primary || '#2596be',
+      brandSecondary: s?.publicBrand?.secondary || '#21cbe6',
       direccion: s?.direccion || '',
       descripcion: s?.descripcion || '',
       contactoEmail: s?.contacto?.email || '',
@@ -108,6 +124,11 @@ export default function ConfiguracionSucursal() {
   const buildPayload = () => {
     return {
       nombre: form.nombre,
+      logo: form.logo,
+      publicBrand: {
+        primary: form.brandPrimary,
+        secondary: form.brandSecondary,
+      },
       direccion: form.direccion,
       descripcion: form.descripcion,
       contacto: {
@@ -124,6 +145,72 @@ export default function ConfiguracionSucursal() {
       defaultMessage: form.defaultMessage,
       reminderMessage: form.reminderMessage,
     };
+  };
+
+  const handleLogoFileChange = async (e) => {
+    const file = e?.target?.files?.[0];
+    // Permitir volver a seleccionar el mismo archivo
+    if (e?.target) e.target.value = '';
+    if (!file) return;
+    if (!canEdit) {
+      showAlert('error', 'No tienes permisos para editar esta sucursal.');
+      return;
+    }
+
+    setLogoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await axios.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const newUrl = res?.data?.url;
+      if (!newUrl) throw new Error('No se recibió la URL del logo');
+
+      // Limpieza best-effort del logo anterior (solo si era un upload local)
+      const oldLogo = sucursal?.logo;
+      if (oldLogo && oldLogo !== newUrl) {
+        try {
+          await axios.delete('/delete', { data: { filePath: oldLogo } });
+        } catch {
+          // noop
+        }
+      }
+
+      setForm((prev) => ({ ...prev, logo: newUrl }));
+      showAlert('success', 'Logo subido. Recuerda guardar cambios.');
+    } catch (err) {
+      showAlert('error', 'No se pudo subir el logo.');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleEliminarLogo = async () => {
+    if (!canEdit) {
+      showAlert('error', 'No tienes permisos para editar esta sucursal.');
+      return;
+    }
+    if (!form.logo) {
+      setForm((prev) => ({ ...prev, logo: '' }));
+      return;
+    }
+
+    setLogoUploading(true);
+    try {
+      // Elimina archivo (best-effort) y limpia el campo del form
+      await axios.delete('/delete', { data: { filePath: form.logo } });
+      setForm((prev) => ({ ...prev, logo: '' }));
+      showAlert('success', 'Logo eliminado. Recuerda guardar cambios.');
+    } catch {
+      // Aunque falle la eliminación de archivo, permitimos limpiar la referencia
+      setForm((prev) => ({ ...prev, logo: '' }));
+      showAlert('success', 'Logo eliminado. Recuerda guardar cambios.');
+    } finally {
+      setLogoUploading(false);
+    }
   };
 
   const handleGuardar = async () => {
@@ -155,6 +242,14 @@ export default function ConfiguracionSucursal() {
     hydrateForm(sucursal);
   };
 
+  const handleRestablecerBrand = () => {
+    setForm((prev) => ({
+      ...prev,
+      brandPrimary: DEFAULT_PUBLIC_BRAND.primary,
+      brandSecondary: DEFAULT_PUBLIC_BRAND.secondary,
+    }));
+  };
+
   return (
     <Box
       maxWidth={isMobile ? '100%' : '100%'}
@@ -164,7 +259,11 @@ export default function ConfiguracionSucursal() {
       bgcolor="#f5f7fa"
       position="relative"
     >
-      <FullPageLoader open={loading || saving} withinContainer message={saving ? 'Guardando cambios…' : 'Cargando sucursal…'} />
+      <FullPageLoader
+        open={loading || saving || logoUploading}
+        withinContainer
+        message={saving ? 'Guardando cambios…' : (logoUploading ? 'Subiendo logo…' : 'Cargando sucursal…')}
+      />
 
       <Stack
         direction={isMobile ? 'column' : 'row'}
@@ -227,6 +326,46 @@ export default function ConfiguracionSucursal() {
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography fontWeight={600} sx={{ mb: 1 }}>
+                  Logo de la sucursal
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+                  <Avatar
+                    src={form.logo ? `${ASSETS_BASE}${form.logo}` : undefined}
+                    sx={{
+                      width: 96,
+                      height: 96,
+                      bgcolor: '#e3f2fd',
+                      border: '2px solid #e0e0e0',
+                      boxShadow: 2,
+                    }}
+                  />
+                  <Stack spacing={1} sx={{ flex: 1, alignSelf: { xs: 'stretch', sm: 'center' } }}>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      disabled={!canEdit || loading || saving || logoUploading}
+                      sx={{ borderColor: '#2596be', color: '#2596be', alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+                    >
+                      Subir logo
+                      <input hidden type="file" accept="image/*" onChange={handleLogoFileChange} />
+                    </Button>
+                    <Button
+                      variant="text"
+                      color="error"
+                      disabled={!canEdit || loading || saving || logoUploading || !form.logo}
+                      onClick={handleEliminarLogo}
+                      sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+                    >
+                      Quitar logo
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      Se mostrará en la página pública de la sucursal.
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -237,6 +376,27 @@ export default function ConfiguracionSucursal() {
                 />
               </Grid>
               <Grid item xs={12} md={6}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setBrandOpen((v) => !v)}
+                    disabled={!canEdit || loading || saving || logoUploading}
+                    sx={{ borderColor: '#2596be', color: '#2596be', borderRadius: 2, alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+                  >
+                    Cambiar colores página pública
+                  </Button>
+                  <Box
+                    sx={{
+                      width: 96,
+                      height: 36,
+                      borderRadius: 2,
+                      border: '1px solid #e0e0e0',
+                      background: `linear-gradient(90deg, ${form.brandPrimary} 60%, ${form.brandSecondary} 100%)`,
+                    }}
+                  />
+                </Stack>
+              </Grid>
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Dirección"
@@ -244,6 +404,62 @@ export default function ConfiguracionSucursal() {
                   onChange={onChange('direccion')}
                   disabled={!canEdit || loading || saving}
                 />
+              </Grid>
+              <Grid item xs={12}>
+                <Collapse in={brandOpen} timeout="auto" unmountOnExit>
+                  <Card variant="outlined" sx={{ borderRadius: 3 }}>
+                    <CardContent>
+                      <Typography fontWeight={700} sx={{ mb: 1, color: '#2596be' }}>
+                        Colores de la página pública
+                      </Typography>
+                      <Divider sx={{ mb: 2 }} />
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Color principal"
+                            type="color"
+                            value={form.brandPrimary}
+                            onChange={onChange('brandPrimary')}
+                            disabled={!canEdit || loading || saving}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Color secundario"
+                            type="color"
+                            value={form.brandSecondary}
+                            onChange={onChange('brandSecondary')}
+                            disabled={!canEdit || loading || saving}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                            <Button
+                              variant="outlined"
+                              onClick={handleRestablecerBrand}
+                              disabled={!canEdit || loading || saving}
+                              sx={{ borderColor: '#2596be', color: '#2596be', borderRadius: 2, alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+                            >
+                              Restablecer a colores por defecto
+                            </Button>
+                            <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                              Vuelve a los colores base de la aplicación.
+                            </Typography>
+                          </Stack>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Typography variant="body2" color="text.secondary">
+                            Estos colores se usarán en el perfil público de la sucursal.
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Collapse>
               </Grid>
               <Grid item xs={12}>
                 <TextField

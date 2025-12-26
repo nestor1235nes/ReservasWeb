@@ -22,8 +22,22 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={0} sx={{ background: 'transparent', color: 'inherit', borderBottom: '1px solid #e3f2fd', backdropFilter: 'blur(8px)' }}>
         <Toolbar sx={{ py: 1 }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
             <img src={Logo} alt="Sessionly Logo" style={{ width: 150, height: 40 }} />
+            {prof?.sucursal?.logo && (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 800, opacity: 0.75 }}>
+                  →
+                </Typography>
+                <Avatar
+                  variant="rounded"
+                  src={`${ASSETS_BASE}${prof.sucursal.logo}`}
+                  alt={prof?.sucursal?.nombre ? `Logo ${prof.sucursal.nombre}` : 'Logo sucursal'}
+                  sx={{ width: 40, height: 40, bgcolor: 'white', border: '1px solid #e3f2fd' }}
+                  imgProps={{ style: { objectFit: 'contain' } }}
+                />
+              </>
+            )}
           </Stack>
           <Box sx={{ flex: 1 }} />
         </Toolbar>
