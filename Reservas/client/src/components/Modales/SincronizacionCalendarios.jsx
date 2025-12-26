@@ -118,7 +118,7 @@ const SincronizacionCalendarios = ({ open, onClose, user, onSynced }) => {
         `DTEND:${endDateTime.format('YYYYMMDD[T]HHmmss')}`,
         `SUMMARY:Cita con ${reserva.paciente?.nombre || 'Paciente'}`,
         `DESCRIPTION:Tipo: ${reserva.modalidad || 'Consulta'}\\nDiagnóstico: ${reserva.diagnostico || 'Sin diagnóstico'}`,
-        `LOCATION:${reserva.modalidad === 'Presencial' ? 'Consulta médica' : 'Telemedicina'}`,
+        `LOCATION:${reserva.modalidad === 'Presencial' ? 'Consulta médica' : reserva.modalidad === 'Domicilio' ? 'Domicilio' : 'Telemedicina'}`,
         `UID:${reserva._id}@reservasmedicas.com`,
         `CREATED:${dayjs().format('YYYYMMDD[T]HHmmss[Z]')}`,
         `LAST-MODIFIED:${dayjs().format('YYYYMMDD[T]HHmmss[Z]')}`,

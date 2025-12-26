@@ -17,7 +17,7 @@ import 'dayjs/locale/es';
 
 dayjs.locale('es');
 
-const VerHistorial = ({ open, onClose, paciente, profesionalId }) => {
+const VerHistorial = ({ open, onClose, paciente, profesionalId, initialClinicalCaseId, autoFocusSection }) => {
   const [clinicalCases, setClinicalCases] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
   const [historial, setHistorial] = useState([]);
@@ -40,6 +40,9 @@ const VerHistorial = ({ open, onClose, paciente, profesionalId }) => {
   const { getHistorial, getReserva } = useReserva();
   const showAlert = useAlert();
   const { user } = useAuth();
+
+  const didAutoSelectRef = useRef(false);
+  const didAutoFocusRef = useRef(false);
 
   const smoothScrollTo = (ref) => {
     try {
@@ -127,9 +130,38 @@ const VerHistorial = ({ open, onClose, paciente, profesionalId }) => {
     };
 
     if (open) {
+      didAutoSelectRef.current = false;
+      didAutoFocusRef.current = false;
       fetchHistorial();
     }
   }, [open, paciente.rut, profesionalId, getHistorial]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!initialClinicalCaseId) return;
+    if (didAutoSelectRef.current) return;
+    if (!Array.isArray(clinicalCases) || clinicalCases.length === 0) return;
+
+    const target = clinicalCases.find((c) => String(c?._id) === String(initialClinicalCaseId));
+    if (!target) return;
+
+    didAutoSelectRef.current = true;
+    handleSelectCase(target);
+  }, [open, initialClinicalCaseId, clinicalCases]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!selectedCase) return;
+    if (didAutoFocusRef.current) return;
+    if (autoFocusSection !== 'anamnesis') return;
+
+    didAutoFocusRef.current = true;
+    // Esperar a que termine la animación de selección y ReactQuill renderice
+    const t = setTimeout(() => {
+      goToAnamnesis();
+    }, 380);
+    return () => clearTimeout(t);
+  }, [open, selectedCase, autoFocusSection]);
 
   const handleClose = () => {
     setClosing(true);
@@ -367,32 +399,6 @@ const VerHistorial = ({ open, onClose, paciente, profesionalId }) => {
                 <Typography variant="subtitle1" fontWeight={700} color='#2596be'>
                   Anamnesis
                 </Typography>
-                {activeSection !== 'sesiones' && (!showFullAnamnesis && anamnesisIsOverflowing) ? (
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowFullAnamnesis(true);
-                    }}
-                    sx={{ minWidth: 0, px: 1.0, textTransform: 'none', color: '#2596be' }}
-                  >
-                    Ver más
-                  </Button>
-                ) : activeSection !== 'sesiones' && showFullAnamnesis ? (
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowFullAnamnesis(false);
-                      setTimeout(() => smoothScrollTo(anamnesisTopRef), 0);
-                    }}
-                    sx={{ minWidth: 0, px: 1.0, textTransform: 'none', color: '#2596be' }}
-                  >
-                    Ver menos
-                  </Button>
-                ) : null}
               </Box>
             </Box>
 
@@ -405,7 +411,7 @@ const VerHistorial = ({ open, onClose, paciente, profesionalId }) => {
               borderRadius={1}
               boxShadow={5}
               m={activeSection === 'sesiones' ? 0 : 1}
-              overflow={activeSection === 'sesiones' ? 'hidden' : 'auto'}
+              overflow={activeSection === 'sesiones' ? 'hidden' : 'hidden'}
               sx={{
                 opacity: activeSection === 'sesiones' ? 0 : (scrollPulseTarget === 'anamnesis' ? 0.75 : 1),
                 maxHeight: activeSection === 'sesiones'
@@ -418,7 +424,7 @@ const VerHistorial = ({ open, onClose, paciente, profesionalId }) => {
               }}
             >
               <Box ref={anamnesisTopRef} />
-              <Box px={2} pt={2} pb={2}>
+              <Box px={2} pt={2} pb={1}>
                 <Box
                   ref={anamnesisContentRef}
                   sx={{
@@ -439,6 +445,33 @@ const VerHistorial = ({ open, onClose, paciente, profesionalId }) => {
                   />
                 </Box>
               </Box>
+
+              {activeSection !== 'sesiones' && (!showFullAnamnesis && anamnesisIsOverflowing) ? (
+                <Box display="flex" justifyContent="flex-end" px={2} pb={2}>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => setShowFullAnamnesis(true)}
+                    sx={{ minWidth: 0, px: 1.0, textTransform: 'none', color: '#2596be' }}
+                  >
+                    Ver más
+                  </Button>
+                </Box>
+              ) : activeSection !== 'sesiones' && showFullAnamnesis ? (
+                <Box display="flex" justifyContent="flex-end" px={2} pb={2}>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => {
+                      setShowFullAnamnesis(false);
+                      setTimeout(() => smoothScrollTo(anamnesisTopRef), 0);
+                    }}
+                    sx={{ minWidth: 0, textTransform: 'none', color: '#2596be'}}
+                  >
+                    Ver menos
+                  </Button>
+                </Box>
+              ) : null}
             </Box>
 
             {/* Solo título "Sesiones" (clickeable) */}

@@ -221,6 +221,9 @@ export default function FrontUsers() {
 	// If slug present and prof loaded, render personalized booking view
 	if (slug && prof) {
 		const tpl = prof.bookingTemplate || 'template1';
+		const brand = prof?.bookingBrand && typeof prof.bookingBrand === 'object'
+			? { primary: prof.bookingBrand.primary, secondary: prof.bookingBrand.secondary }
+			: undefined;
 
 		// Template 2: perfil arriba, widget abajo
 			if (tpl === 'template2') {
@@ -228,6 +231,7 @@ export default function FrontUsers() {
 					<>
 						<Template2
 							prof={prof}
+							brand={brand}
 							seleccion={seleccion}
 							onFechaChange={handleFechaChange}
 							onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
@@ -248,6 +252,7 @@ export default function FrontUsers() {
 					<>
 						<Template3
 							prof={prof}
+							brand={brand}
 							seleccion={seleccion}
 							onFechaChange={handleFechaChange}
 							onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
@@ -262,11 +267,38 @@ export default function FrontUsers() {
 				);
 			}
 
+		// Template Custom (por ahora basado en Template 1 + colores guardados)
+		if (tpl === 'custom') {
+			return (
+				<>
+					<Template1
+						prof={prof}
+						brand={brand}
+						seleccion={seleccion}
+						onFechaChange={handleFechaChange}
+						onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
+						onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
+						onReservar={handleAbrirReserva}
+						shouldDisableDate={shouldDisableDate}
+						minDate={dayjs().startOf('day')}
+					/>
+					<ModalReservarCita
+						open={modalReservaOpen}
+						onClose={() => setModalReservaOpen(false)}
+						onReserva={handleReservaFinalizada}
+						datosPreseleccionados={datosPreseleccionados}
+					/>
+					<SiteFooter />
+				</>
+			);
+		}
+
 		// Template 1 (por defecto): panel izq perfil + derecha booking
 			return (
 				<>
 					<Template1
 						prof={prof}
+						brand={brand}
 						seleccion={seleccion}
 						onFechaChange={handleFechaChange}
 						onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}

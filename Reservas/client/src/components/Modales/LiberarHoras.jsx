@@ -33,7 +33,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const [reservasDelDia, setReservasDelDia] = useState([]);
     const [loadingReservas, setLoadingReservas] = useState(false);
 
-    const hasWhatsApp = Boolean(user?.idInstance && user?.apiTokenInstance);
+    const hasWhatsApp = Boolean((user?.sucursal?.idInstance || user?.idInstance) && (user?.sucursal?.apiTokenInstance || user?.apiTokenInstance));
     const reservasAfectadas = blockMode === 'times'
         ? reservasDelDia.filter(r => selectedTimes.includes(r?.hora))
         : reservasDelDia;
@@ -165,7 +165,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                 }
             }
     
-            if (user.idInstance && user.apiTokenInstance) {
+                        if (hasWhatsApp) {
                 // Enviar WhatsApp a todos los afectados (política WhatsApp-only)
                 const waList = (reservasLiberadas?.reservasLiberadas || []);
                 if (waList.length > 0) {
@@ -179,7 +179,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                   }
                 }             
             } else {
-                showAlert('warning', 'Green API no está configurado (idInstance y apiTokenInstance). Ve a tu Perfil para configurarlo.');
+                showAlert('warning', user?.sucursal ? 'Green API no está configurado en la sucursal (idInstance y apiTokenInstance).' : 'Green API no está configurado (idInstance y apiTokenInstance). Ve a tu Perfil para configurarlo.');
             }
         } catch (error) {
             console.error(error);
@@ -322,7 +322,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                         </Typography>
                     </Box>
                     <Box p={1} mb={1}>
-                        {(user && user.idInstance) ? (
+                        {(user && hasWhatsApp) ? (
                             <Box>
                                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 700, opacity: 0.7 }}>
                                     ¡Importante!
@@ -444,7 +444,7 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
                                         </Box>
                                     )}
 
-                                    {mustWriteMessage && user?.idInstance && (
+                                    {mustWriteMessage && hasWhatsApp && (
                                         <Box mb={1} display="flex" alignItems="center" flexWrap="wrap" gap={0.5}>
                                             {PLACEHOLDERS.map(ph => (
                                                 <Chip key={ph.token} size="small" label={ph.token} onClick={() => handleInsertPlaceholder(ph.token)} clickable />

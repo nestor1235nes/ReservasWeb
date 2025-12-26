@@ -4,6 +4,7 @@ import { useTheme } from '@mui/material/styles';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import LinkIcon from '@mui/icons-material/Link';
 import AddLinkIcon from '@mui/icons-material/AddLink';
+import PaletteIcon from '@mui/icons-material/Palette';
 import { useAuth } from '../context/authContext';
 import Template1Img from '../assets/referenciaTemplate/template1.png';
 import Template2Img from '../assets/referenciaTemplate/template2.png';
@@ -24,7 +25,13 @@ export default function LinkPage() {
 		template1: Template1Img,
 		template2: Template2Img,
 		template3: Template3Img,
+		custom: Template1Img,
 	})[template], [template]);
+
+	const handleAddTemplate = () => {
+		// Abrir editor en nueva pestaña
+		window.open('/template-builder', '_blank', 'noopener,noreferrer');
+	};
 
 	const handleGenerate = async () => {
 		try {
@@ -189,6 +196,16 @@ export default function LinkPage() {
 										)}
 										<Typography fontWeight={700}>Plantilla de página pública</Typography>
 										<Typography variant="body2" color="text.secondary">Elige cómo verán tu página de agendamiento.</Typography>
+										
+											<Button
+												variant="outlined"
+												startIcon={<PaletteIcon />}
+												onClick={handleAddTemplate}
+												sx={{ alignSelf: 'flex-start', borderColor: '#2596be', color: '#2596be' }}
+											>
+												Cambia de color tu plantilla
+											</Button>
+										
 										<ToggleButtonGroup
 											exclusive
 											color="primary"
@@ -199,6 +216,7 @@ export default function LinkPage() {
 											<ToggleButton value="template1">Plantilla 1</ToggleButton>
 											<ToggleButton value="template2">Plantilla 2</ToggleButton>
 											<ToggleButton value="template3">Plantilla 3</ToggleButton>
+											<ToggleButton value="custom">Personalizada</ToggleButton>
 										</ToggleButtonGroup>
 
 										{/* Vista previa de la plantilla seleccionada */}

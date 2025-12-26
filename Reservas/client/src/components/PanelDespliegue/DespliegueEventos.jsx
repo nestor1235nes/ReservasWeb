@@ -111,6 +111,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const [openModal, setOpenModal] = useState(false);
   const [openSesionModal, setOpenSesionModal] = useState(false);
   const [openHistorialModal, setOpenHistorialModal] = useState(false);
+  const [historialInitialClinicalCaseId, setHistorialInitialClinicalCaseId] = useState(null);
+  const [historialAutoFocusSection, setHistorialAutoFocusSection] = useState(undefined);
   const [diasDeTrabajo, setDiasDeTrabajo] = useState([]);
   const [horasDisponibles, setHorasDisponibles] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -119,6 +121,15 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const [openNewDiagnosisDialog, setOpenNewDiagnosisDialog] = useState(false);
   const [isStartingNewDiagnosis, setIsStartingNewDiagnosis] = useState(false);
   const [openRefreshDialog, setOpenRefreshDialog] = useState(false);
+
+  const [showMoreFichaData, setShowMoreFichaData] = useState(false);
+  const [anamnesisPreviewOverflow, setAnamnesisPreviewOverflow] = useState(false);
+  const anamnesisPreviewRef = useRef(null);
+
+  const [openArchivosPacienteModal, setOpenArchivosPacienteModal] = useState(false);
+  const [archivosSelectedCaseId, setArchivosSelectedCaseId] = useState(null);
+  const [archivosImagenes, setArchivosImagenes] = useState([]);
+  const [imagenesTargetClinicalCaseId, setImagenesTargetClinicalCaseId] = useState(null);
   
   // Estados para profesionales de la sucursal (para asistentes)
   const [profesionalesSucursal, setProfesionalesSucursal] = useState([]);
@@ -305,7 +316,26 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
       profesional: event?.profesional || ''
     });
     setImagenes(event?.imagenes || []);
+    setShowMoreFichaData(false);
+    setAnamnesisPreviewOverflow(false);
   }, [event]);
+
+  useEffect(() => {
+    if (!showMoreFichaData) {
+      setAnamnesisPreviewOverflow(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      try {
+        const el = anamnesisPreviewRef.current;
+        if (!el) return;
+        setAnamnesisPreviewOverflow(el.scrollHeight > el.clientHeight + 1);
+      } catch {
+        // no-op
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [showMoreFichaData, activeClinicalCase?._id, activeClinicalCase?.anamnesis]);
 
   // Funciones para manejar imágenes
   const handlePrevImage = () => {
@@ -323,6 +353,45 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const handleImageClick = (index) => {
     setCurrentImageIndex(index);
     setOpenImageModal(true);
+  };
+
+  const getClinicalCasesForArchivos = () => {
+    const cases = Array.isArray(event?.clinicalCases) ? event.clinicalCases : [];
+    // Fallback: si no hay casos pero sí imágenes legacy, mostrar una opción "General".
+    if (cases.length === 0 && Array.isArray(imagenes) && imagenes.length > 0) {
+      return [{ _id: '__legacy__', diagnostico: 'General', imagenes }];
+    }
+    return cases;
+  };
+
+  const syncArchivosFromCaseId = (caseId) => {
+    const cases = getClinicalCasesForArchivos();
+    const target = cases.find((c) => String(c?._id) === String(caseId));
+    const imgs = Array.isArray(target?.imagenes) ? target.imagenes : [];
+    setArchivosSelectedCaseId(target?._id || null);
+    setArchivosImagenes(imgs);
+  };
+
+  const handleOpenArchivosPaciente = () => {
+    const cases = getClinicalCasesForArchivos();
+    if (cases.length === 0) {
+      setArchivosSelectedCaseId(null);
+      setArchivosImagenes([]);
+    } else {
+      const preferred = activeClinicalCase?._id ? String(activeClinicalCase._id) : null;
+      const initialId = preferred && cases.some((c) => String(c?._id) === preferred)
+        ? preferred
+        : String(cases[0]?._id);
+      syncArchivosFromCaseId(initialId);
+    }
+    setOpenArchivosPacienteModal(true);
+  };
+
+  const handleCloseArchivosPaciente = () => {
+    setOpenArchivosPacienteModal(false);
+    setArchivosSelectedCaseId(null);
+    setArchivosImagenes([]);
+    setImagenesTargetClinicalCaseId(null);
   };
 
   const handleUploadImages = async () => {
@@ -353,14 +422,25 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
       // Debug: Respuesta del servidor recibida
 
       if (response.data.urls) {
-        const newImagenes = [...imagenes, ...response.data.urls];
-        setImagenes(newImagenes);
-        
-        // Actualizar la reserva con las nuevas imágenes
-        await updateReserva(event.paciente.rut, {
-          imagenes: newImagenes,
-          profesionalOriginal: event.profesional?._id || event.profesional?.id
-        });
+        const targetCaseId = imagenesTargetClinicalCaseId;
+        if (targetCaseId && String(targetCaseId) !== '__legacy__') {
+          const newCaseImagenes = [...(Array.isArray(archivosImagenes) ? archivosImagenes : []), ...response.data.urls];
+          setArchivosImagenes(newCaseImagenes);
+          // Actualizar la reserva/caso clínico con las nuevas imágenes
+          await updateReserva(event.paciente.rut, {
+            imagenes: newCaseImagenes,
+            clinicalCaseId: targetCaseId,
+            profesionalOriginal: event.profesional?._id || event.profesional?.id
+          });
+        } else {
+          const newImagenes = [...imagenes, ...response.data.urls];
+          setImagenes(newImagenes);
+          // Actualizar la reserva (legacy) con las nuevas imágenes
+          await updateReserva(event.paciente.rut, {
+            imagenes: newImagenes,
+            profesionalOriginal: event.profesional?._id || event.profesional?.id
+          });
+        }
 
         showAlert('success', 'Imágenes subidas correctamente');
         setUploadFiles([]);
@@ -436,10 +516,13 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             event.profesional = profesionalActual;
           }
 
-            // WhatsApp-only: intenta enviar mensaje usando el texto ingresado o el mensaje por defecto del usuario
-            const template = (mensajePaciente && mensajePaciente.trim()) || (user?.defaultMessage && user.defaultMessage.trim()) || '';
+            // WhatsApp-only: intenta enviar mensaje usando el texto ingresado o el mensaje por defecto (sucursal si aplica)
+            const fallbackDefault = (user?.sucursal?.defaultMessage && user.sucursal.defaultMessage.trim()) || (user?.defaultMessage && user.defaultMessage.trim()) || '';
+            const template = (mensajePaciente && mensajePaciente.trim()) || fallbackDefault || '';
             if (template) {
-              if (user?.idInstance && user?.apiTokenInstance) {
+              const waId = user?.sucursal?.idInstance || user?.idInstance;
+              const waToken = user?.sucursal?.apiTokenInstance || user?.apiTokenInstance;
+              if (waId && waToken) {
                 // Validación simple de teléfono antes de enviar
                 const phone = event?.paciente?.telefono || '';
                 const validPhone = /^569\d{8}$/.test(String(phone));
@@ -456,11 +539,11 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   if (report?.details) console.warn('Detalles envío WhatsApp:', report.details);
                 }
               } else {
-                showAlert('warning', 'Green API no está configurado (idInstance y apiTokenInstance).');
+                showAlert('warning', user?.sucursal ? 'Green API no está configurado en la sucursal (idInstance y apiTokenInstance).' : 'Green API no está configurado (idInstance y apiTokenInstance).');
               }
             } else {
               // No hay mensaje ni por defecto; informar pero no bloquear el guardado
-              showAlert('info', 'Cita actualizada. No se envió WhatsApp porque no hay mensaje definido. Configura tu mensaje por defecto en tu perfil.');
+              showAlert('info', user?.sucursal ? 'Cita actualizada. No se envió WhatsApp porque no hay mensaje definido. Configura el mensaje por defecto en la sucursal.' : 'Cita actualizada. No se envió WhatsApp porque no hay mensaje definido. Configura tu mensaje por defecto en tu perfil.');
             }
 
           // Verificar si la reserva tiene eventId y actualizar Google Calendar
@@ -548,8 +631,16 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const handleCloseModal = () => setOpenModal(false);
   const handleOpenSesionModal = () => setOpenSesionModal(true);
   const handleCloseSesionModal = () => setOpenSesionModal(false);
-  const handleOpenHistorialModal = () => setOpenHistorialModal(true);
-  const handleCloseHistorialModal = () => setOpenHistorialModal(false);
+  const handleOpenHistorialModal = (options = {}) => {
+    setHistorialInitialClinicalCaseId(options?.initialClinicalCaseId ?? null);
+    setHistorialAutoFocusSection(options?.autoFocusSection);
+    setOpenHistorialModal(true);
+  };
+  const handleCloseHistorialModal = () => {
+    setOpenHistorialModal(false);
+    setHistorialInitialClinicalCaseId(null);
+    setHistorialAutoFocusSection(undefined);
+  };
 
   // Inserta placeholder en mensajePaciente
   const handleInsertPlaceholder = (token) => {
@@ -679,7 +770,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   <CalendarTodayIcon sx={{ fontSize: 24 }} />
                 </Avatar>
                 <Box>
-                  <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>
+                  <Typography variant="h5" fontWeight={700} >
                     Detalles de la Cita
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
@@ -702,207 +793,132 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             </Stack>
           </Paper>
 
-          {/* Carrusel de imágenes mejorado */}
-          <Card 
-            sx={{ 
-              mb: 3, 
-              borderRadius: 3,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              border: '1px solid #e2e8f0',
-              overflow: 'hidden'
-            }}
-          >
-            <CardHeader
-              avatar={
-                <Avatar sx={{ bgcolor: '#2596be', width: 40, height: 40 }}>
-                  <ImageIcon />
-                </Avatar>
-              }
-              title={
-                <Typography variant="h6" fontWeight={600} color="text.primary">
-                  Imágenes del Paciente
-                </Typography>
-              }
-              action={
-                <Stack direction="row" spacing={1}>
-                  <Chip 
-                    label={`${imagenes.length} imagen${imagenes.length !== 1 ? 'es' : ''}`}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                  />
-                  {!esAsistente && (
-                    <Tooltip
-                      title={
-                        canUploadExamImages
-                          ? 'Agregar imágenes'
-                          : 'Disponible en Plan Avanzado y Teams'
-                      }
-                    >
-                      <span>
-                        <IconButton 
-                          onClick={() => canUploadExamImages && setOpenUploadModal(true)}
-                          disabled={!canUploadExamImages}
-                          sx={{ 
-                            bgcolor: '#f0f9ff',
-                            color: '#2596be',
-                            '&:hover': { bgcolor: '#e0f2fe' }
-                          }}
-                        >
-                          <AddPhotoAlternateIcon />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  )}
-                </Stack>
-              }
-              sx={{ pb: 1 }}
-            />
-            <CardContent sx={{ pt: 0 }}>
-              {imagenes.length > 0 ? (
-                <Box>
-                  {/* Imagen principal */}
-                  <Box 
-                    sx={{ 
-                      position: 'relative',
-                      borderRadius: 2,
-                      overflow: 'hidden',
-                      bgcolor: '#f8fafc',
-                      mb: 2
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={`${ASSETS_BASE}${imagenes[currentImageIndex]}`}
-                      alt={`Imagen ${currentImageIndex + 1}`}
-                      className="image-carousel-fade"
-                      sx={{
-                        width: '100%',
-                        height: 250,
-                        objectFit: 'cover',
-                        cursor: 'pointer',
-                        transition: 'transform 0.3s ease',
-                        '&:hover': { transform: 'scale(1.02)' }
-                      }}
-                      onClick={() => handleImageClick(currentImageIndex)}
-                    />
-                    
-                    {/* Controles de navegación */}
-                    {imagenes.length > 1 && (
-                      <>
-                        <IconButton
-                          onClick={handlePrevImage}
-                          sx={{
-                            position: 'absolute',
-                            left: 8,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            bgcolor: 'rgba(0,0,0,0.6)',
-                            color: 'white',
-                            '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' }
-                          }}
-                        >
-                          <ArrowBackIosIcon />
-                        </IconButton>
-                        <IconButton
-                          onClick={handleNextImage}
-                          sx={{
-                            position: 'absolute',
-                            right: 8,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            bgcolor: 'rgba(0,0,0,0.6)',
-                            color: 'white',
-                            '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' }
-                          }}
-                        >
-                          <ArrowForwardIosIcon />
-                        </IconButton>
-                      </>
-                    )}
-                    
-                    {/* Indicador de zoom */}
-                    <Chip
-                      icon={<ZoomInIcon />}
-                      label="Click para ampliar"
-                      size="small"
-                      sx={{
-                        position: 'absolute',
-                        bottom: 8,
-                        right: 8,
-                        bgcolor: 'rgba(0,0,0,0.7)',
-                        color: 'white'
-                      }}
-                    />
-                  </Box>
+          <Box mb={1}>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<ImageIcon />}
+              onClick={handleOpenArchivosPaciente}
+              sx={{
+                borderRadius: 2,
+                borderColor: '#2596be',
+                color: '#2596be',
+                backgroundColor: 'white',
+                mt: -4.5,
+                '&:hover': {
+                  borderColor: '#1e7a9b',
+                  backgroundColor: '#e0f2fe'
+                }
+              }}
+            >
+              Archivos del paciente
+            </Button>
+          </Box>
 
-                  {/* Miniaturas */}
-                  {imagenes.length > 1 && (
-                    <Grid container spacing={1}>
-                      {imagenes.map((imagen, index) => (
-                        <Grid item xs={3} key={index}>
-                          <Box
-                            component="img"
-                            src={`${ASSETS_BASE}${imagen}`}
-                            alt={`Miniatura ${index + 1}`}
-                            className={`thumbnail-image ${index === currentImageIndex ? 'active' : ''}`}
-                            sx={{
-                              width: '100%',
-                              height: 60,
-                              objectFit: 'cover',
-                              borderRadius: 1,
-                              cursor: 'pointer',
-                              border: index === currentImageIndex ? '3px solid #2596be' : '2px solid transparent',
-                              transition: 'all 0.3s ease',
-                              '&:hover': { 
-                                transform: 'scale(1.05)',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                              }
-                            }}
-                            onClick={() => setCurrentImageIndex(index)}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-                  )}
-                </Box>
-              ) : (
-                <Box 
-                  sx={{ 
-                    textAlign: 'center', 
-                    py: 4,
-                    bgcolor: '#f8fafc',
-                    borderRadius: 2,
-                    border: '2px dashed #cbd5e1'
-                  }}
-                >
-                  <ImageIcon sx={{ fontSize: 48, color: '#94a3b8', mb: 1 }} />
-                  <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-                    No hay imágenes disponibles
-                  </Typography>
-                  {!esAsistente && (
-                    <Button
-                      variant="contained"
-                      startIcon={<AddPhotoAlternateIcon />}
-                      onClick={() => canUploadExamImages && setOpenUploadModal(true)}
-                      disabled={!canUploadExamImages}
-                      sx={{ 
-                        bgcolor: '#2596be',
-                        '&:hover': { bgcolor: '#1e7a9b' }
-                      }}
+          <Dialog
+            open={openArchivosPacienteModal}
+            onClose={handleCloseArchivosPaciente}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
+          >
+            <DialogTitle sx={{
+              background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1
+            }}>
+              <Box display="flex" alignItems="center" gap={1} minWidth={0}>
+                <ImageIcon />
+                <Typography variant="h6" fontWeight={800} noWrap>
+                  Archivos del paciente
+                </Typography>
+              </Box>
+              <IconButton onClick={handleCloseArchivosPaciente} sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.16)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' } }}>
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+
+            <DialogContent sx={{ p: 3, backgroundColor: '#f8fafc' }}>
+              {getClinicalCasesForArchivos().length > 0 ? (
+                <Stack spacing={2} mt={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Caso clínico</InputLabel>
+                    <Select
+                      label="Caso clínico"
+                      value={archivosSelectedCaseId || ''}
+                      onChange={(e) => syncArchivosFromCaseId(e.target.value)}
                     >
-                      Agregar Imágenes
-                    </Button>
-                  )}
-                  {!canUploadExamImages && !esAsistente && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                      La subida de imágenes está disponible en el Plan Avanzado y Teams.
-                    </Typography>
-                  )}
-                </Box>
+                      {getClinicalCasesForArchivos().map((c) => (
+                        <MenuItem key={String(c?._id)} value={c?._id}>
+                          {c?.diagnostico ? c.diagnostico : (String(c?._id) === '__legacy__' ? 'General' : 'Diagnóstico sin nombre')}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                    <Stack spacing={1.5}>
+                      {!esAsistente && (
+                        <Box display="flex" justifyContent="flex-end">
+                          <Tooltip title={canUploadExamImages ? 'Subir imágenes' : 'Disponible en Plan Avanzado y Teams'}>
+                            <span style={{ width: '100%' }}>
+                              <Button
+                                variant="contained"
+                                size="small"
+                                fullWidth={window.innerWidth < 600}
+                                startIcon={<AddPhotoAlternateIcon />}
+                                disabled={!canUploadExamImages || !archivosSelectedCaseId}
+                                onClick={() => {
+                                  setImagenesTargetClinicalCaseId(archivosSelectedCaseId);
+                                  setOpenUploadModal(true);
+                                }}
+                                sx={{
+                                  background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                                  '&:hover': {
+                                    background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)'
+                                  }
+                                }}
+                              >
+                                Subir imágenes
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        </Box>
+                      )}
+
+                      <Box
+                        sx={{
+                          borderRadius: 2,
+                          border: '1px solid #e2e8f0',
+                          bgcolor: '#f8fafc',
+                          p: 1,
+                          minHeight: 240,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <MostrarImagenes key={String(archivosSelectedCaseId || 'none')} imagenes={archivosImagenes} />
+                      </Box>
+                    </Stack>
+                  </Paper>
+                </Stack>
+              ) : (
+                <Typography variant="body2" color="text.secondary" mt={3}>
+                  No hay casos clínicos registrados para mostrar archivos.
+                </Typography>
               )}
-            </CardContent>
-          </Card>
+            </DialogContent>
+
+            <DialogActions sx={{ p: 2, backgroundColor: 'white', borderTop: '1px solid #e2e8f0' }}>
+              <Button onClick={handleCloseArchivosPaciente} sx={{ borderRadius: 2, textTransform: 'none', color: "#656565ff" }}>
+                Cerrar
+              </Button>
+            </DialogActions>
+          </Dialog>
 
           {/* Modal mensaje paciente mejorado */}
           <Dialog 
@@ -1002,7 +1018,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 </Avatar>
               }
               title={
-                <Typography variant="h6" fontWeight={600} color="text.primary">
+                <Typography variant="h6" fontWeight={600} sx={{color:"#2596be"}}>
                   Información del Paciente
                 </Typography>
               }
@@ -1153,6 +1169,191 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   </Paper>
                 </Grid>
               </Grid>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Box display="flex" justifyContent="flex-end">
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setShowMoreFichaData((prev) => !prev)}
+                  sx={{
+                    borderRadius: 2,
+                    borderColor: '#2596be',
+                    color: '#2596be',
+                    '&:hover': {
+                      borderColor: '#1e7a9b',
+                      backgroundColor: '#e0f2fe'
+                    }
+                  }}
+                >
+                  {showMoreFichaData ? 'Ocultar datos' : 'Ver más datos'}
+                </Button>
+              </Box>
+
+              {showMoreFichaData && (
+                <Box mt={2}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      bgcolor: '#f8fafc',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1, color:"#2596be" }}>
+                      Datos del diagnóstico actual
+                    </Typography>
+
+                    {(() => {
+                      const currentCase = activeClinicalCase || null;
+                      const hasAny = Boolean(
+                        currentCase?.diagnostico ||
+                          currentCase?.anamnesis ||
+                          currentCase?.motivoConsulta ||
+                          currentCase?.antecedentesPersonales ||
+                          currentCase?.antecedentesFamiliares ||
+                          currentCase?.alergias ||
+                          currentCase?.medicamentosActuales ||
+                          currentCase?.examenFisico ||
+                          currentCase?.planTratamiento ||
+                          currentCase?.indicaciones ||
+                          (currentCase?.signosVitales && Object.values(currentCase.signosVitales).some((v) => String(v || '').trim()))
+                      );
+
+                      if (!hasAny) {
+                        return (
+                          <Typography variant="body2" color="text.secondary">
+                            No hay datos clínicos guardados para el diagnóstico activo.
+                          </Typography>
+                        );
+                      }
+
+                      const vital = currentCase?.signosVitales || {};
+                      const renderField = (label, value) => {
+                        const val = String(value || '').trim();
+                        if (!val) return null;
+                        return (
+                          <Box sx={{ mb: 1.25 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>
+                              {label}
+                            </Typography>
+                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                              {val}
+                            </Typography>
+                          </Box>
+                        );
+                      };
+
+                      return (
+                        <Box>
+                          {renderField('Diagnóstico', currentCase?.diagnostico)}
+
+                          <Box sx={{ mb: 1.25 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>
+                              Anamnesis
+                            </Typography>
+                            <Box
+                              sx={{
+                                bgcolor: 'white',
+                                borderRadius: 1,
+                                border: '1px solid #e2e8f0',
+                                p: 1,
+                                height: 140,
+                                overflow: 'hidden',
+                                position: 'relative'
+                              }}
+                            >
+                              <Box
+                                ref={anamnesisPreviewRef}
+                                sx={{
+                                  height: '100%',
+                                  overflow: 'hidden'
+                                }}
+                              >
+                                <ReactQuill value={currentCase?.anamnesis || 'Sin información registrada'} readOnly={true} theme="bubble" />
+                              </Box>
+                            </Box>
+
+                            {anamnesisPreviewOverflow && (
+                              <Box display="flex" justifyContent="flex-end" mt={1}>
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  onClick={() => {
+                                    // Abrir VerHistorial y enfocar la sección Anamnesis del caso activo
+                                    handleOpenHistorialModal({
+                                      initialClinicalCaseId: activeClinicalCase?._id || null,
+                                      autoFocusSection: 'anamnesis'
+                                    });
+                                  }}
+                                  sx={{
+                                    color: '#2596be',
+                                    fontWeight: 700,
+                                    textTransform: 'none'
+                                  }}
+                                >
+                                  Ver más
+                                </Button>
+                              </Box>
+                            )}
+                          </Box>
+
+                          {renderField('Motivo de consulta', currentCase?.motivoConsulta)}
+                          {renderField('Antecedentes personales', currentCase?.antecedentesPersonales)}
+                          {renderField('Antecedentes familiares', currentCase?.antecedentesFamiliares)}
+                          {renderField('Alergias', currentCase?.alergias)}
+                          {renderField('Medicamentos actuales', currentCase?.medicamentosActuales)}
+                          {renderField('Examen físico', currentCase?.examenFisico)}
+                          {renderField('Plan de tratamiento', currentCase?.planTratamiento)}
+                          {renderField('Indicaciones', currentCase?.indicaciones)}
+
+                          {(Object.values(vital).some((v) => String(v || '').trim())) && (
+                            <Box sx={{ mt: 1.5 }}>
+                              <Typography variant="body2" fontWeight={700} sx={{ mb: 0.75 }}>
+                                Signos vitales
+                              </Typography>
+                              <Grid container spacing={1.5}>
+                                {vital?.presionArterial ? (
+                                  <Grid item xs={12} sm={6}>
+                                    {renderField('Presión arterial', vital.presionArterial)}
+                                  </Grid>
+                                ) : null}
+                                {vital?.frecuenciaCardiaca ? (
+                                  <Grid item xs={12} sm={6}>
+                                    {renderField('Frecuencia cardíaca', vital.frecuenciaCardiaca)}
+                                  </Grid>
+                                ) : null}
+                                {vital?.pesoKg ? (
+                                  <Grid item xs={12} sm={6}>
+                                    {renderField('Peso (kg)', vital.pesoKg)}
+                                  </Grid>
+                                ) : null}
+                                {vital?.tallaCm ? (
+                                  <Grid item xs={12} sm={6}>
+                                    {renderField('Talla (cm)', vital.tallaCm)}
+                                  </Grid>
+                                ) : null}
+                                {vital?.temperaturaC ? (
+                                  <Grid item xs={12} sm={6}>
+                                    {renderField('Temperatura (°C)', vital.temperaturaC)}
+                                  </Grid>
+                                ) : null}
+                                {vital?.saturacionO2 ? (
+                                  <Grid item xs={12} sm={6}>
+                                    {renderField('Saturación O2 (%)', vital.saturacionO2)}
+                                  </Grid>
+                                ) : null}
+                              </Grid>
+                            </Box>
+                          )}
+                        </Box>
+                      );
+                    })()}
+                  </Paper>
+                </Box>
+              )}
             </CardContent>
           </Card>
 
@@ -1174,7 +1375,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 </Avatar>
               }
               title={
-                <Typography variant="h6" fontWeight={600} color="text.primary">
+                <Typography variant="h6" fontWeight={600} sx={{color:"#2596be"}}>
                   Información de la Cita
                 </Typography>
               }
@@ -1379,7 +1580,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
         </Avatar>
       }
       title={
-        <Typography variant="h6" fontWeight={600} color="text.primary">
+        <Typography variant="h6" fontWeight={600} sx={{color:"#2596be"}}>
           Estado de Pago
         </Typography>
       }
@@ -1715,7 +1916,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 }}
               >
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                  <Typography id="upload-modal-title" variant="h6" fontWeight={600}>
+                  <Typography id="upload-modal-title" variant="h6" fontWeight={600} >
                     Agregar Imágenes del Paciente
                   </Typography>
                   <IconButton 
@@ -1884,6 +2085,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             onClose={handleCloseHistorialModal}
             paciente={event.paciente}
             profesionalId={esAsistente ? (profesionalActual?._id || profesionalActual?.id) : undefined}
+            initialClinicalCaseId={historialInitialClinicalCaseId}
+            autoFocusSection={historialAutoFocusSection}
           />
 
           <Dialog open={showPlaceholdersHelp} onClose={() => setShowPlaceholdersHelp(false)} maxWidth="sm" fullWidth>

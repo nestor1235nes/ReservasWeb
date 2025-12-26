@@ -5,6 +5,7 @@ import User from "../models/user.model.js";
 import crypto from 'crypto';
 import axios from 'axios';
 import { FRONTEND_URL } from "../config.js";
+import { resolveWhatsAppCredentialsForUser } from '../libs/whatsappCredentials.js';
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -160,7 +161,8 @@ const getSlotCapacityFor = (profesional, dateLocal, horaHHMM) => {
 // Si la reserva no tiene token de confirmación vigente, se genera uno automáticamente
 async function enviarWhatsAppRegistroCita({ profesional, paciente, reserva }) {
     try {
-        if (!profesional?.idInstance || !profesional?.apiTokenInstance) return { ok: false, reason: 'missing_credentials' };
+        const creds = await resolveWhatsAppCredentialsForUser(profesional);
+        if (!creds?.idInstance || !creds?.apiTokenInstance) return { ok: false, reason: 'missing_credentials' };
         const rawPhone = paciente?.telefono;
         const phone = normalizarTelefono(rawPhone);
         if (!/^569\d{8}$/.test(String(phone))) return { ok: false, reason: 'invalid_phone' };
@@ -254,7 +256,7 @@ ${confirmLink}
 Además, se le recordará su cita agendada 24 horas antes. Gracias por su preferencia.`
         ).trim();
 
-        const url = `https://api.green-api.com/waInstance${profesional.idInstance}/sendMessage/${profesional.apiTokenInstance}`;
+        const url = `https://api.green-api.com/waInstance${creds.idInstance}/sendMessage/${creds.apiTokenInstance}`;
         const data = { chatId: `${phone}@c.us`, message };
         const resp = await axios.post(url, data);
         if (resp?.status >= 200 && resp?.status < 300) return { ok: true };
@@ -505,9 +507,46 @@ export const createReserva = async (req, res) => {
         const rawHistorial = Array.isArray(req.body.historial)
             ? (Array.isArray(req.body.historial[0]) ? req.body.historial.flat() : req.body.historial)
             : [];
-        const hasClinicalData = [req.body.diagnostico, req.body.anamnesis].some(
-            (value) => typeof value === 'string' && value.trim().length > 0
-        ) || rawHistorial.length > 0;
+        const hasNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
+        const hasVitalSigns = () => {
+            const keys = ['presionArterial', 'frecuenciaCardiaca', 'pesoKg', 'tallaCm', 'temperaturaC', 'saturacionO2'];
+            return keys.some((k) => hasNonEmptyString(req.body?.[k]));
+        };
+        const hasClinicalData = [
+            req.body.diagnostico,
+            req.body.anamnesis,
+            req.body.motivoConsulta,
+            req.body.antecedentesPersonales,
+            req.body.antecedentesFamiliares,
+            req.body.alergias,
+            req.body.medicamentosActuales,
+            req.body.examenFisico,
+            req.body.planTratamiento,
+            req.body.indicaciones,
+        ].some(hasNonEmptyString) || hasVitalSigns() || rawHistorial.length > 0;
+
+        const extractClinicalFieldsFromBody = (body) => {
+            const result = {};
+            if (hasNonEmptyString(body?.motivoConsulta)) result.motivoConsulta = body.motivoConsulta;
+            if (hasNonEmptyString(body?.antecedentesPersonales)) result.antecedentesPersonales = body.antecedentesPersonales;
+            if (hasNonEmptyString(body?.antecedentesFamiliares)) result.antecedentesFamiliares = body.antecedentesFamiliares;
+            if (hasNonEmptyString(body?.alergias)) result.alergias = body.alergias;
+            if (hasNonEmptyString(body?.medicamentosActuales)) result.medicamentosActuales = body.medicamentosActuales;
+            if (hasNonEmptyString(body?.examenFisico)) result.examenFisico = body.examenFisico;
+            if (hasNonEmptyString(body?.planTratamiento)) result.planTratamiento = body.planTratamiento;
+            if (hasNonEmptyString(body?.indicaciones)) result.indicaciones = body.indicaciones;
+
+            const signosVitales = {};
+            if (hasNonEmptyString(body?.presionArterial)) signosVitales.presionArterial = body.presionArterial;
+            if (hasNonEmptyString(body?.frecuenciaCardiaca)) signosVitales.frecuenciaCardiaca = body.frecuenciaCardiaca;
+            if (hasNonEmptyString(body?.pesoKg)) signosVitales.pesoKg = body.pesoKg;
+            if (hasNonEmptyString(body?.tallaCm)) signosVitales.tallaCm = body.tallaCm;
+            if (hasNonEmptyString(body?.temperaturaC)) signosVitales.temperaturaC = body.temperaturaC;
+            if (hasNonEmptyString(body?.saturacionO2)) signosVitales.saturacionO2 = body.saturacionO2;
+            if (Object.keys(signosVitales).length > 0) result.signosVitales = signosVitales;
+
+            return result;
+        };
 
         const normalizeLegacySessions = (historialVal) => {
             try {
@@ -595,6 +634,7 @@ export const createReserva = async (req, res) => {
             if (hasClinicalData) {
                 const startNewClinicalCase = req.body.startNewClinicalCase === true || req.body.startNewClinicalCase === 'true' || req.body.startNewClinicalCase === 1 || req.body.startNewClinicalCase === '1';
                 const legacySesiones = normalizeLegacySessions(req.body.historial);
+                const extraClinicalFields = extractClinicalFieldsFromBody(req.body);
 
                 const shouldCreateCase = startNewClinicalCase || !reservaExistente.activeClinicalCaseId || !Array.isArray(reservaExistente.clinicalCases) || reservaExistente.clinicalCases.length === 0;
                 if (shouldCreateCase) {
@@ -602,6 +642,7 @@ export const createReserva = async (req, res) => {
                     reservaExistente.clinicalCases.push({
                         diagnostico: req.body.diagnostico || '',
                         anamnesis: req.body.anamnesis || '',
+                        ...extraClinicalFields,
                         createdAt: diaPrimeraCitaValue || new Date(),
                         sesiones: legacySesiones.map((s) => ({
                             fecha: s?.fecha ? new Date(s.fecha) : undefined,
@@ -618,6 +659,24 @@ export const createReserva = async (req, res) => {
                     if (active) {
                         if (typeof req.body.diagnostico === 'string') active.diagnostico = req.body.diagnostico;
                         if (typeof req.body.anamnesis === 'string') active.anamnesis = req.body.anamnesis;
+
+                        if (typeof req.body.motivoConsulta === 'string') active.motivoConsulta = req.body.motivoConsulta;
+                        if (typeof req.body.antecedentesPersonales === 'string') active.antecedentesPersonales = req.body.antecedentesPersonales;
+                        if (typeof req.body.antecedentesFamiliares === 'string') active.antecedentesFamiliares = req.body.antecedentesFamiliares;
+                        if (typeof req.body.alergias === 'string') active.alergias = req.body.alergias;
+                        if (typeof req.body.medicamentosActuales === 'string') active.medicamentosActuales = req.body.medicamentosActuales;
+                        if (typeof req.body.examenFisico === 'string') active.examenFisico = req.body.examenFisico;
+                        if (typeof req.body.planTratamiento === 'string') active.planTratamiento = req.body.planTratamiento;
+                        if (typeof req.body.indicaciones === 'string') active.indicaciones = req.body.indicaciones;
+
+                        if (!active.signosVitales || typeof active.signosVitales !== 'object') active.signosVitales = {};
+                        if (typeof req.body.presionArterial === 'string') active.signosVitales.presionArterial = req.body.presionArterial;
+                        if (typeof req.body.frecuenciaCardiaca === 'string') active.signosVitales.frecuenciaCardiaca = req.body.frecuenciaCardiaca;
+                        if (typeof req.body.pesoKg === 'string') active.signosVitales.pesoKg = req.body.pesoKg;
+                        if (typeof req.body.tallaCm === 'string') active.signosVitales.tallaCm = req.body.tallaCm;
+                        if (typeof req.body.temperaturaC === 'string') active.signosVitales.temperaturaC = req.body.temperaturaC;
+                        if (typeof req.body.saturacionO2 === 'string') active.signosVitales.saturacionO2 = req.body.saturacionO2;
+
                         // Si llega historial legacy, anexarlo como sesiones del caso activo
                         const legacySesiones2 = normalizeLegacySessions(req.body.historial);
                         legacySesiones2.forEach((s) => {
@@ -670,6 +729,7 @@ export const createReserva = async (req, res) => {
                 nuevaReserva.clinicalCases.push({
                     diagnostico: req.body.diagnostico || '',
                     anamnesis: req.body.anamnesis || '',
+                    ...extractClinicalFieldsFromBody(req.body),
                     createdAt: diaPrimeraCitaValue || new Date(),
                     sesiones: legacySesiones.map((s) => ({
                         fecha: s?.fecha ? new Date(s.fecha) : undefined,
@@ -755,13 +815,15 @@ export const updateReserva = async (req, res) => {
         if (has('diagnostico')) datosReserva.diagnostico = req.body.diagnostico;
         if (has('anamnesis')) datosReserva.anamnesis = req.body.anamnesis;
         if (has('historial')) datosReserva.historial = req.body.historial;
+        // Imágenes: por compatibilidad se mantiene reserva.imagenes, pero la fuente de verdad puede ser clinicalCases[*].imagenes.
+        const clinicalCaseIdForImages = has('clinicalCaseId') ? req.body.clinicalCaseId : null;
         if (has('imagenes')) datosReserva.imagenes = req.body.imagenes;
         if (has('eventId')) datosReserva.eventId = req.body.eventId;
 
         // --- Casos clínicos ---
         const startNewClinicalCaseRaw = req.body.startNewClinicalCase;
         const startNewClinicalCase = startNewClinicalCaseRaw === true || startNewClinicalCaseRaw === 'true' || startNewClinicalCaseRaw === 1 || startNewClinicalCaseRaw === '1';
-        const hasClinicalUpdate = has('diagnostico') || has('anamnesis');
+        const hasClinicalUpdate = has('diagnostico') || has('anamnesis') || has('motivoConsulta') || has('antecedentesPersonales') || has('antecedentesFamiliares') || has('alergias') || has('medicamentosActuales') || has('examenFisico') || has('planTratamiento') || has('indicaciones') || has('presionArterial') || has('frecuenciaCardiaca') || has('pesoKg') || has('tallaCm') || has('temperaturaC') || has('saturacionO2');
 
         const ensureActiveCase = () => {
             reserva.clinicalCases = Array.isArray(reserva.clinicalCases) ? reserva.clinicalCases : [];
@@ -772,6 +834,7 @@ export const updateReserva = async (req, res) => {
                 reserva.clinicalCases.push({
                     diagnostico: legacyDiagnostico,
                     anamnesis: legacyAnamnesis,
+                    imagenes: Array.isArray(reserva.imagenes) ? reserva.imagenes : [],
                     createdAt: reserva.diaPrimeraCita || reserva.createdAt || new Date(),
                     sesiones: []
                 });
@@ -785,6 +848,23 @@ export const updateReserva = async (req, res) => {
             }
             return active;
         };
+
+        const setImagesOnCase = (caseId, imagenes) => {
+            const imagesArr = Array.isArray(imagenes) ? imagenes : [];
+            const active = ensureActiveCase();
+            if (!active) return;
+            if (caseId) {
+                const target = reserva.clinicalCases.id(caseId);
+                (target || active).imagenes = imagesArr;
+            } else {
+                active.imagenes = imagesArr;
+            }
+        };
+
+        // Si vienen imágenes, guardarlas también en caso clínico.
+        if (has('imagenes')) {
+            setImagesOnCase(clinicalCaseIdForImages, req.body.imagenes);
+        }
 
         // Permitir iniciar un nuevo caso clínico aunque NO vengan diagnostico/anamnesis.
         // Esto se usa para "Iniciar nuevo diagnóstico" desde el frontend.
@@ -807,6 +887,23 @@ export const updateReserva = async (req, res) => {
             if (active) {
                 if (has('diagnostico') && typeof req.body.diagnostico === 'string') active.diagnostico = req.body.diagnostico;
                 if (has('anamnesis') && typeof req.body.anamnesis === 'string') active.anamnesis = req.body.anamnesis;
+
+                if (has('motivoConsulta') && typeof req.body.motivoConsulta === 'string') active.motivoConsulta = req.body.motivoConsulta;
+                if (has('antecedentesPersonales') && typeof req.body.antecedentesPersonales === 'string') active.antecedentesPersonales = req.body.antecedentesPersonales;
+                if (has('antecedentesFamiliares') && typeof req.body.antecedentesFamiliares === 'string') active.antecedentesFamiliares = req.body.antecedentesFamiliares;
+                if (has('alergias') && typeof req.body.alergias === 'string') active.alergias = req.body.alergias;
+                if (has('medicamentosActuales') && typeof req.body.medicamentosActuales === 'string') active.medicamentosActuales = req.body.medicamentosActuales;
+                if (has('examenFisico') && typeof req.body.examenFisico === 'string') active.examenFisico = req.body.examenFisico;
+                if (has('planTratamiento') && typeof req.body.planTratamiento === 'string') active.planTratamiento = req.body.planTratamiento;
+                if (has('indicaciones') && typeof req.body.indicaciones === 'string') active.indicaciones = req.body.indicaciones;
+
+                if (!active.signosVitales || typeof active.signosVitales !== 'object') active.signosVitales = {};
+                if (has('presionArterial') && typeof req.body.presionArterial === 'string') active.signosVitales.presionArterial = req.body.presionArterial;
+                if (has('frecuenciaCardiaca') && typeof req.body.frecuenciaCardiaca === 'string') active.signosVitales.frecuenciaCardiaca = req.body.frecuenciaCardiaca;
+                if (has('pesoKg') && typeof req.body.pesoKg === 'string') active.signosVitales.pesoKg = req.body.pesoKg;
+                if (has('tallaCm') && typeof req.body.tallaCm === 'string') active.signosVitales.tallaCm = req.body.tallaCm;
+                if (has('temperaturaC') && typeof req.body.temperaturaC === 'string') active.signosVitales.temperaturaC = req.body.temperaturaC;
+                if (has('saturacionO2') && typeof req.body.saturacionO2 === 'string') active.signosVitales.saturacionO2 = req.body.saturacionO2;
             }
         }
 
@@ -855,7 +952,8 @@ export const updateReserva = async (req, res) => {
         }
 
         // Persistir cambios de casos clínicos si hubo modificaciones
-        if (hasClinicalUpdate || startNewClinicalCase || isClosingCycle) {
+        // (incluye imágenes por caso clínico)
+        if (hasClinicalUpdate || startNewClinicalCase || isClosingCycle || has('imagenes')) {
             await reserva.save();
         }
         // Mantener relación multi-profesional al actualizar (si se cambia profesional)
@@ -909,6 +1007,7 @@ export const getHistorial = async (req, res) => {
                     _id: reserva._id,
                     diagnostico: reserva.diagnostico || '',
                     anamnesis: reserva.anamnesis || '',
+                    imagenes: Array.isArray(reserva.imagenes) ? reserva.imagenes : [],
                     createdAt: reserva.diaPrimeraCita || reserva.createdAt,
                     closedAt: null,
                     sesiones: legacySesiones
@@ -923,6 +1022,16 @@ export const getHistorial = async (req, res) => {
                 _id: c._id,
                 diagnostico: c.diagnostico || '',
                 anamnesis: c.anamnesis || '',
+                imagenes: Array.isArray(c.imagenes) ? c.imagenes : [],
+                motivoConsulta: c.motivoConsulta || '',
+                antecedentesPersonales: c.antecedentesPersonales || '',
+                antecedentesFamiliares: c.antecedentesFamiliares || '',
+                alergias: c.alergias || '',
+                medicamentosActuales: c.medicamentosActuales || '',
+                examenFisico: c.examenFisico || '',
+                planTratamiento: c.planTratamiento || '',
+                indicaciones: c.indicaciones || '',
+                signosVitales: c.signosVitales || {},
                 createdAt: c.createdAt,
                 closedAt: c.closedAt,
                 sesiones: Array.isArray(c.sesiones) ? c.sesiones : []

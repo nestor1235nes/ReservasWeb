@@ -103,6 +103,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    cita_domicilio: {
+        type: Boolean,
+        default: false,
+    },
     descripcion: {
         type: String,
     },
@@ -149,8 +153,14 @@ const userSchema = new mongoose.Schema({
     // Plantilla de página pública de reservas
     bookingTemplate: {
         type: String,
-        enum: ['template1', 'template2', 'template3'],
+        enum: ['template1', 'template2', 'template3', 'custom'],
         default: 'template1'
+    },
+
+    // Colores para personalizar la plantilla pública (Plan Avanzado / Teams)
+    bookingBrand: {
+        primary: { type: String, default: '#2596be' },
+        secondary: { type: String, default: '#21cbe6' },
     },
     // Días bloqueados (no se puede agendar)
     blockedDays: {

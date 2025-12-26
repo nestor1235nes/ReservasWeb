@@ -28,6 +28,7 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 import { useSubscription } from '../context/subscriptionContext';
@@ -48,6 +49,7 @@ const baseMenuItems = [
 const empresaSubItems = [
   { label: 'Gestionar asistentes', icon: <GroupAddIcon />, path: '/sucursal/asistentes' },
   { label: 'Gestionar profesionales', icon: <MedicalServicesIcon />, path: '/sucursal/profesionales' },
+  { label: 'Configuración', icon: <SettingsIcon />, path: '/mi-empresa/configuracion' },
   { label: 'Reportes', icon: <AssessmentIcon />, path: '/mi-empresa/reportes' },
 ];
 

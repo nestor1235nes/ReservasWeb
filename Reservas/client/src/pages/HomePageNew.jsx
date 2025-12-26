@@ -38,6 +38,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
+import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import LoginModal from '../components/LoginModal';
@@ -482,6 +483,29 @@ export default function HomePageNew() {
 																	}}
 																>
 																	Telemedicina
+																</Button>
+																<Button
+																	startIcon={<HomeWorkIcon />}
+																	variant={seleccion[prof._id]?.modalidad === 'Domicilio' ? 'contained' : 'outlined'}
+																	size="small"
+																	sx={{
+																		color: seleccion[prof._id]?.modalidad === 'Domicilio' ? 'white' : (prof.cita_domicilio ? '#2596be' : 'grey.500'),
+																		bgcolor: seleccion[prof._id]?.modalidad === 'Domicilio' ? '#2596be' : 'transparent',
+																		borderColor: prof.cita_domicilio ? '#2596be' : 'grey.400',
+																		opacity: prof.cita_domicilio ? 1 : 0.5,
+																		pointerEvents: prof.cita_domicilio ? 'auto' : 'none',
+																		fontWeight: seleccion[prof._id]?.modalidad === 'Domicilio' ? 700 : 400,
+																	}}
+																	onClick={() => {
+																		if (prof.cita_domicilio) {
+																			setSeleccion(prev => ({
+																				...prev,
+																				[prof._id]: { ...prev[prof._id], modalidad: 'Domicilio' },
+																			}));
+																		}
+																	}}
+																>
+																	Domicilio
 																</Button>
 															</Box>
 															<Button

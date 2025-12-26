@@ -164,6 +164,7 @@ export const register = async (req, res) => {
       sucursal,
       cita_presencial,
       cita_virtual,
+      cita_domicilio,
       servicios,
       notifications,
       idInstance, 
@@ -215,6 +216,7 @@ export const register = async (req, res) => {
       sucursal,
       cita_presencial: cita_presencial || false,
       cita_virtual: cita_virtual || false,
+      cita_domicilio: cita_domicilio || false,
       servicios: servicios || [],
       notifications: notifications || [],
       idInstance,
@@ -255,6 +257,7 @@ export const register = async (req, res) => {
       sucursal: userSaved.sucursal,
       cita_presencial: userSaved.cita_presencial,
       cita_virtual: userSaved.cita_virtual,
+      cita_domicilio: userSaved.cita_domicilio,
       servicios: userSaved.servicios,
       notifications: userSaved.notifications,
       idInstance: userSaved.idInstance,
@@ -353,6 +356,7 @@ export const login = async (req, res) => {
       sucursal: userFound.sucursal,
       cita_presencial: userFound.cita_presencial,
       cita_virtual: userFound.cita_virtual,
+      cita_domicilio: userFound.cita_domicilio,
       servicios: userFound.servicios,
       notifications: userFound.notifications,
       idInstance: userFound.idInstance,
@@ -398,6 +402,7 @@ export const verifyToken = async (req, res) => {
       sucursal: userFound.sucursal,
       cita_presencial: userFound.cita_presencial,
       cita_virtual: userFound.cita_virtual,
+      cita_domicilio: userFound.cita_domicilio,
       servicios: userFound.servicios,
       notifications: userFound.notifications,
       idInstance: userFound.idInstance,
@@ -450,6 +455,18 @@ export const updatePerfil = async (req, res) => {
     }
     if (req.body.especialidad_principal) {
       req.body.especialidad_principal = req.body.especialidad_principal.toUpperCase();
+    }
+
+    const current = await User.findById(req.params.id);
+    if (!current) return res.status(404).json({ message: 'User not found' });
+
+    // Si el usuario pertenece a una sucursal, las credenciales de WhatsApp se toman siempre desde la sucursal.
+    // Bloqueamos la modificación de estas claves a nivel de perfil para evitar configuraciones inconsistentes.
+    if (current.sucursal) {
+      delete req.body.idInstance;
+      delete req.body.apiTokenInstance;
+      delete req.body.defaultMessage;
+      delete req.body.reminderMessage;
     }
 
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('sucursal');
@@ -647,10 +664,10 @@ export const getProfile = async (req, res) => {
 
 export const updateConfiguracion = async (req, res) => {
   try {
-    const { cita_presencial, cita_virtual } = req.body;
+    const { cita_presencial, cita_virtual, cita_domicilio } = req.body;
     const updated = await User.findByIdAndUpdate(
       req.params.id,
-      { cita_presencial, cita_virtual },
+      { cita_presencial, cita_virtual, cita_domicilio },
       { new: true }
     );
     res.json(updated);
