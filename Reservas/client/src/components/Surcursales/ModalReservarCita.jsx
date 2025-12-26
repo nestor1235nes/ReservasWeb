@@ -34,6 +34,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import VideoCallIcon from '@mui/icons-material/VideoCall';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
+import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import Rutificador from '../Rutificador';
 import { getPacientePorRutRequest, createPacienteRequest } from '../../api/pacientes';
 import { createReservaRequest, updateReservaRequest } from '../../api/reservas';
@@ -89,6 +90,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       const allowed = [];
       if (raw.includes('Presencial')) allowed.push('Presencial');
       if (raw.includes('Telemedicina')) allowed.push('Telemedicina');
+      if (raw.includes('Domicilio')) allowed.push('Domicilio');
       return allowed;
     }
     return [];
@@ -666,7 +668,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                       <Stack direction="row" alignItems="center" spacing={1}>
                         {modalidad === 'Telemedicina'
                           ? <VideoCallIcon sx={{ color: '#21cbe6' }} />
-                          : <PersonPinCircleIcon sx={{ color: '#2596be' }} />}
+                          : modalidad === 'Domicilio'
+                            ? <HomeWorkIcon sx={{ color: '#2596be' }} />
+                            : <PersonPinCircleIcon sx={{ color: '#2596be' }} />}
                         <Typography variant="body2">
                           Modalidad: {modalidad || 'No seleccionada'}
                         </Typography>

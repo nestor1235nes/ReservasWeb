@@ -1,5 +1,6 @@
 import axios from 'axios';
 import User from '../models/user.model.js';
+import { resolveWhatsAppCredentialsForUser } from '../libs/whatsappCredentials.js';
 
 // Normaliza teléfono a formato 569XXXXXXXX (solo dígitos)
 function normalizarTelefono(telefono) {
@@ -27,9 +28,12 @@ export const sendWhatsApp = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ ok: false, message: 'Usuario no encontrado' });
 
-    const { idInstance, apiTokenInstance } = user;
-    if (!idInstance || !apiTokenInstance)
-      return res.status(400).json({ ok: false, message: 'Faltan credenciales de Green API en tu perfil (idInstance y apiTokenInstance)' });
+    const creds = await resolveWhatsAppCredentialsForUser(user);
+    const { idInstance, apiTokenInstance } = creds;
+    if (!idInstance || !apiTokenInstance) {
+      const where = creds?.source === 'SUCURSAL' ? 'en la sucursal' : 'en tu perfil';
+      return res.status(400).json({ ok: false, message: `Faltan credenciales de Green API ${where} (idInstance y apiTokenInstance)` });
+    }
 
     const { phoneNumber, message, messages } = req.body || {};
     const items = Array.isArray(messages) && messages.length

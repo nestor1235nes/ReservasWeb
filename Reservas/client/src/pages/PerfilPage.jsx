@@ -12,6 +12,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import PlaceIcon from '@mui/icons-material/Place';
+import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -800,6 +801,14 @@ export function PerfilPage() {
   const canSeePlanChip = !loadingSubscription && (!isSucursalScope || esAdminSucursal);
   const canUseOverbooking = planLevel === 'advanced' || planLevel === 'teams';
 
+  const isSucursalMember = !!(user?.sucursal?._id || user?.sucursal);
+  // Regla UX: solo admin de sucursal o profesional independiente ven "Mensajes".
+  const canSeeMensajesTab = !esAsistente && (!isSucursalMember || esAdminSucursal);
+
+  useEffect(() => {
+    if (tab === 4 && !canSeeMensajesTab) setTab(0);
+  }, [tab, canSeeMensajesTab]);
+
 
   const handleOpenPerfil = (profesional) => {
     setProfesionalSeleccionado(profesional);
@@ -818,6 +827,7 @@ export function PerfilPage() {
     experiencia: user.experiencia || "",
     cita_presencial: user.cita_presencial || false,
     cita_virtual: user.cita_virtual || false,
+    cita_domicilio: user.cita_domicilio || false,
     email: user.email || "",
     googleEmail: user.googleEmail || "",
     timetable: normalizeTimetable(user.timetable),
@@ -930,8 +940,16 @@ export function PerfilPage() {
         showAlert('error', `Hay solapamiento de horarios. Ajusta las horas para que no se crucen. ${detail}`);
         return;
       }
-      
-      await updatePerfil(user.id || user._id, formData);
+      const isSucursalMember = !!(user?.sucursal?._id || user?.sucursal);
+      const payload = { ...formData };
+      if (isSucursalMember) {
+        delete payload.idInstance;
+        delete payload.apiTokenInstance;
+        delete payload.defaultMessage;
+        delete payload.reminderMessage;
+      }
+
+      await updatePerfil(user.id || user._id, payload);
 
 
     // Solo si es admin y cambió el valor, actualiza la sucursal
@@ -962,6 +980,7 @@ export function PerfilPage() {
       experiencia: user.experiencia || "",
       cita_presencial: user.cita_presencial || false,
       cita_virtual: user.cita_virtual || false,
+      cita_domicilio: user.cita_domicilio || false,
       email: user.email || "",
       googleEmail: user.googleEmail || "",
       timetable: normalizeTimetable(user.timetable),
@@ -1279,7 +1298,7 @@ export function PerfilPage() {
           {!esAsistente && <Tab label="Información Profesional" disabled={noSubscription} />}
           {!esAsistente && <Tab label="Horarios" disabled={noSubscription} />}
           {!esAsistente && <Tab label="Servicios" disabled={noSubscription} />}
-          <Tab label="Mensajes" disabled={noSubscription} />
+          <Tab label="Mensajes" disabled={noSubscription} sx={{ display: canSeeMensajesTab ? 'flex' : 'none' }} />
         </Tabs>
       </Box>
 
@@ -1487,6 +1506,18 @@ export function PerfilPage() {
                 }
                 label={<><VideoCameraFrontIcon sx={{ mr: 1 }} />Telemedicina</>}
                 disabled={!editProfileMode || !canUseTelemedicina}
+              />
+              <FormControlLabel
+                control={
+                  <MuiSwitch
+                    checked={!!formData.cita_domicilio}
+                    onChange={e =>
+                      setFormData({ ...formData, cita_domicilio: e.target.checked })
+                    }
+                    disabled={!editProfileMode}
+                  />
+                }
+                label={<><HomeWorkIcon sx={{ mr: 1 }} />Domicilio</>}
               />
               {!canUseTelemedicina && (
                 <Typography variant="caption" color="textSecondary">
@@ -1776,13 +1807,18 @@ export function PerfilPage() {
                           </Typography>
                         </Box>
                         <Chip 
-                          icon={
-                            servicio.modalidad.includes('Presencial') && servicio.modalidad.includes('Telemedicina') 
-                              ? <EditIcon /> 
-                              : servicio.modalidad.includes('Presencial') 
-                                ? <PlaceIcon /> 
-                                : <VideoCameraFrontIcon />
-                          } 
+                          icon={(() => {
+                            const m = (servicio?.modalidad || '').toString();
+                            const hasPres = m.includes('Presencial');
+                            const hasTele = m.includes('Telemedicina');
+                            const hasDom = m.includes('Domicilio');
+                            const count = [hasPres, hasTele, hasDom].filter(Boolean).length;
+                            if (count >= 2) return <EditIcon />;
+                            if (hasPres) return <PlaceIcon />;
+                            if (hasTele) return <VideoCameraFrontIcon />;
+                            if (hasDom) return <HomeWorkIcon />;
+                            return <EditIcon />;
+                          })()} 
                           label={servicio.modalidad} 
                           size="small" 
                           color="secondary" 
@@ -1883,7 +1919,7 @@ export function PerfilPage() {
       )}
 
       {/* Mensajes Automáticos */}
-      {!esAsistente && tab === 4 && (
+      {canSeeMensajesTab && tab === 4 && (
         <MensajesAutomaticos
           formData={formData}
           onChange={handleChange}

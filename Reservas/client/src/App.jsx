@@ -27,11 +27,13 @@ import { PerfilPage } from "./pages/PerfilPage";
 import GestionarAsistentes from "./pages/Sucursales/GestionarAsistentes";
 import GestionarProfesionales from "./pages/Sucursales/GestionarProfesionales";
 import ReportesEmpresa from "./pages/Sucursales/ReportesEmpresa";
+import ConfiguracionSucursal from "./pages/Sucursales/ConfiguracionSucursal";
 import Telemedicina from "./pages/Telemedicina";
 import PatientSession from "./pages/PatientSession";
 import FrontUsers from "./pages/FrontUsers";
 import ConfirmationPage from './pages/ConfirmationPage';
 import LinkPage from "./pages/LinkPage";
+import TemplateBuilderPage from "./pages/TemplateBuilderPage";
 import { SubscriptionProvider } from "./context/subscriptionContext.jsx";
 import AdminPlansPage from "./pages/AdminPlansPage.jsx";
 
@@ -140,8 +142,10 @@ function AppContent() {
                             <Route path="/admin/planes" element={<AdminPlansPage />} />
                             <Route path="/pacientes" element={<PatientsPage />} />
                             <Route path="/mi-enlace" element={<LinkPage />} />
+                            <Route path="/template-builder" element={<TemplateBuilderPage />} />
                             <Route path="/sucursal/asistentes" element={<GestionarAsistentes />} />
                             <Route path="/sucursal/profesionales" element={<GestionarProfesionales />} />
+                            <Route path="/mi-empresa/configuracion" element={<ConfiguracionSucursal />} />
                             <Route path="/mi-empresa/reportes" element={<ReportesEmpresa />} />
                             <Route path="/reportes" element={<GraphicsPage />} />
                             <Route path="/telemedicina/:reservaId?" element={<Telemedicina />} />

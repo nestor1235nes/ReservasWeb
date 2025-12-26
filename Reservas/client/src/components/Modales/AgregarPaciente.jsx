@@ -43,7 +43,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 
-const steps = ['Datos del paciente', 'Datos de la consulta', 'Fecha y hora de la cita'];
+const steps = ['Datos del paciente', 'Datos clínicos', 'Datos de la consulta', 'Fecha y hora de la cita'];
 
 const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}) => {
   const theme = useTheme();
@@ -63,6 +63,20 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     hora: '',
     diagnostico: '',
     anamnesis: '',
+    motivoConsulta: '',
+    antecedentesPersonales: '',
+    antecedentesFamiliares: '',
+    alergias: '',
+    medicamentosActuales: '',
+    examenFisico: '',
+    planTratamiento: '',
+    indicaciones: '',
+    presionArterial: '',
+    frecuenciaCardiaca: '',
+    pesoKg: '',
+    tallaCm: '',
+    temperaturaC: '',
+    saturacionO2: '',
     imagenes: []
   });
   const [pacienteExistente, setPacienteExistente] = useState(false);
@@ -196,6 +210,24 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         if (patientData.diagnostico) updatePayload.diagnostico = patientData.diagnostico;
         if (patientData.anamnesis) updatePayload.anamnesis = patientData.anamnesis;
 
+        // Datos clínicos opcionales
+        if (patientData.motivoConsulta) updatePayload.motivoConsulta = patientData.motivoConsulta;
+        if (patientData.antecedentesPersonales) updatePayload.antecedentesPersonales = patientData.antecedentesPersonales;
+        if (patientData.antecedentesFamiliares) updatePayload.antecedentesFamiliares = patientData.antecedentesFamiliares;
+        if (patientData.alergias) updatePayload.alergias = patientData.alergias;
+        if (patientData.medicamentosActuales) updatePayload.medicamentosActuales = patientData.medicamentosActuales;
+        if (patientData.examenFisico) updatePayload.examenFisico = patientData.examenFisico;
+        if (patientData.planTratamiento) updatePayload.planTratamiento = patientData.planTratamiento;
+        if (patientData.indicaciones) updatePayload.indicaciones = patientData.indicaciones;
+
+        // Signos vitales (opcionales)
+        if (patientData.presionArterial) updatePayload.presionArterial = patientData.presionArterial;
+        if (patientData.frecuenciaCardiaca) updatePayload.frecuenciaCardiaca = patientData.frecuenciaCardiaca;
+        if (patientData.pesoKg) updatePayload.pesoKg = patientData.pesoKg;
+        if (patientData.tallaCm) updatePayload.tallaCm = patientData.tallaCm;
+        if (patientData.temperaturaC) updatePayload.temperaturaC = patientData.temperaturaC;
+        if (patientData.saturacionO2) updatePayload.saturacionO2 = patientData.saturacionO2;
+
         // Primer día de consulta: solo si se quiere cambiar o si no existe aún
         if (cambiarDiaPrimera) {
           updatePayload.diaPrimeraCita = diaPrimeraCitaOverride;
@@ -263,7 +295,23 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
 
         // Determinar si necesitamos crear/actualizar una reserva
         const tieneInformacionMedica = patientData.diagnostico || patientData.anamnesis;
-        const necesitaReserva = agendarNuevaCita || tieneInformacionMedica;
+        const tieneDatosClinicos = Boolean(
+          patientData.motivoConsulta ||
+          patientData.antecedentesPersonales ||
+          patientData.antecedentesFamiliares ||
+          patientData.alergias ||
+          patientData.medicamentosActuales ||
+          patientData.examenFisico ||
+          patientData.planTratamiento ||
+          patientData.indicaciones ||
+          patientData.presionArterial ||
+          patientData.frecuenciaCardiaca ||
+          patientData.pesoKg ||
+          patientData.tallaCm ||
+          patientData.temperaturaC ||
+          patientData.saturacionO2
+        );
+        const necesitaReserva = agendarNuevaCita || tieneInformacionMedica || tieneDatosClinicos;
 
         if (necesitaReserva) {
           // Debug: Imprimir valores antes de crear la reserva
@@ -306,7 +354,23 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         
         // Solo actualizar reserva si existe una (si se creó por información médica o cita)
         const tieneInformacionMedica = patientData.diagnostico || patientData.anamnesis;
-        const necesitaReserva = agendarNuevaCita || tieneInformacionMedica;
+        const tieneDatosClinicos = Boolean(
+          patientData.motivoConsulta ||
+          patientData.antecedentesPersonales ||
+          patientData.antecedentesFamiliares ||
+          patientData.alergias ||
+          patientData.medicamentosActuales ||
+          patientData.examenFisico ||
+          patientData.planTratamiento ||
+          patientData.indicaciones ||
+          patientData.presionArterial ||
+          patientData.frecuenciaCardiaca ||
+          patientData.pesoKg ||
+          patientData.tallaCm ||
+          patientData.temperaturaC ||
+          patientData.saturacionO2
+        );
+        const necesitaReserva = agendarNuevaCita || tieneInformacionMedica || tieneDatosClinicos;
         
         if (necesitaReserva) {
           await updateReserva(patientData.rut, { imagenes: response.data.urls, profesional: patientData.profesional });
@@ -376,11 +440,27 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
   
       // 4. Mostrar mensaje de éxito (estilo global) y resetear el formulario
       const tieneInformacionMedica = !!(patientData.diagnostico || patientData.anamnesis);
+      const tieneDatosClinicos = !!(
+        patientData.motivoConsulta ||
+        patientData.antecedentesPersonales ||
+        patientData.antecedentesFamiliares ||
+        patientData.alergias ||
+        patientData.medicamentosActuales ||
+        patientData.examenFisico ||
+        patientData.planTratamiento ||
+        patientData.indicaciones ||
+        patientData.presionArterial ||
+        patientData.frecuenciaCardiaca ||
+        patientData.pesoKg ||
+        patientData.tallaCm ||
+        patientData.temperaturaC ||
+        patientData.saturacionO2
+      );
       let mensaje;
       if (data) {
         if (agendarNuevaCita) {
           mensaje = 'Paciente actualizado y cita agendada correctamente.';
-        } else if (tieneInformacionMedica) {
+        } else if (tieneInformacionMedica || tieneDatosClinicos) {
           mensaje = 'Paciente actualizado con información médica guardada.';
         } else {
           mensaje = 'Paciente actualizado correctamente.';
@@ -388,7 +468,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
       } else {
         if (agendarNuevaCita) {
           mensaje = 'Paciente registrado y cita agendada correctamente.';
-        } else if (tieneInformacionMedica) {
+        } else if (tieneInformacionMedica || tieneDatosClinicos) {
           mensaje = 'Paciente registrado con información médica guardada.';
         } else {
           mensaje = 'Paciente registrado correctamente.';
@@ -405,6 +485,20 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         hora: '',
         diagnostico: '',
         anamnesis: '',
+        motivoConsulta: '',
+        antecedentesPersonales: '',
+        antecedentesFamiliares: '',
+        alergias: '',
+        medicamentosActuales: '',
+        examenFisico: '',
+        planTratamiento: '',
+        indicaciones: '',
+        presionArterial: '',
+        frecuenciaCardiaca: '',
+        pesoKg: '',
+        tallaCm: '',
+        temperaturaC: '',
+        saturacionO2: '',
         imagenes: [],
       });
       setFiles([]); // Limpiar las imágenes seleccionadas
@@ -426,6 +520,8 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
     } else if (activeStep === 1) {
       return true; // Datos de consulta son opcionales
     } else if (activeStep === 2) {
+      return true; // Datos de consulta son opcionales
+    } else if (activeStep === 3) {
       // Si se quiere agendar nueva cita, validar que tenga fecha y hora
       if (agendarNuevaCita) {
         return patientData.diaPrimeraCita && patientData.hora;
@@ -645,7 +741,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
               </Card>
             )}
 
-            {activeStep === 2 && (
+            {activeStep === 3 && (
               <Card 
                 elevation={0} 
                 sx={{ 
@@ -777,6 +873,217 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
             )}
 
             {activeStep === 1 && (
+              <Card
+                elevation={0}
+                sx={{
+                  border: `1px solid ${alpha('#2596be', 0.2)}`,
+                  borderRadius: 2
+                }}
+              >
+                <CardHeader
+                  avatar={
+                    <Avatar sx={{ bgcolor: '#2596be' }}>
+                      <NotesIcon />
+                    </Avatar>
+                  }
+                  title={
+                    <Typography variant="h6" color="#2596be" fontWeight="bold">
+                      Datos Clínicos (Opcional)
+                    </Typography>
+                  }
+                  subheader="Motivo, antecedentes y signos vitales"
+                />
+                <CardContent>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <TextField
+                      label="Motivo de consulta"
+                      name="motivoConsulta"
+                      value={patientData.motivoConsulta}
+                      onChange={handleChange}
+                      fullWidth
+                      multiline
+                      rows={2}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-focused fieldset': { borderColor: '#2596be' },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#2596be' },
+                      }}
+                    />
+
+                    <TextField
+                      label="Antecedentes personales"
+                      name="antecedentesPersonales"
+                      value={patientData.antecedentesPersonales}
+                      onChange={handleChange}
+                      fullWidth
+                      multiline
+                      rows={2}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-focused fieldset': { borderColor: '#2596be' },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#2596be' },
+                      }}
+                    />
+
+                    <TextField
+                      label="Antecedentes familiares"
+                      name="antecedentesFamiliares"
+                      value={patientData.antecedentesFamiliares}
+                      onChange={handleChange}
+                      fullWidth
+                      multiline
+                      rows={2}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-focused fieldset': { borderColor: '#2596be' },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#2596be' },
+                      }}
+                    />
+
+                    <TextField
+                      label="Alergias"
+                      name="alergias"
+                      value={patientData.alergias}
+                      onChange={handleChange}
+                      fullWidth
+                      multiline
+                      rows={2}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-focused fieldset': { borderColor: '#2596be' },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#2596be' },
+                      }}
+                    />
+
+                    <TextField
+                      label="Medicamentos actuales"
+                      name="medicamentosActuales"
+                      value={patientData.medicamentosActuales}
+                      onChange={handleChange}
+                      fullWidth
+                      multiline
+                      rows={2}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-focused fieldset': { borderColor: '#2596be' },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#2596be' },
+                      }}
+                    />
+
+                    <TextField
+                      label="Examen físico"
+                      name="examenFisico"
+                      value={patientData.examenFisico}
+                      onChange={handleChange}
+                      fullWidth
+                      multiline
+                      rows={3}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-focused fieldset': { borderColor: '#2596be' },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#2596be' },
+                      }}
+                    />
+
+                    <TextField
+                      label="Plan de tratamiento"
+                      name="planTratamiento"
+                      value={patientData.planTratamiento}
+                      onChange={handleChange}
+                      fullWidth
+                      multiline
+                      rows={3}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-focused fieldset': { borderColor: '#2596be' },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#2596be' },
+                      }}
+                    />
+
+                    <TextField
+                      label="Indicaciones"
+                      name="indicaciones"
+                      value={patientData.indicaciones}
+                      onChange={handleChange}
+                      fullWidth
+                      multiline
+                      rows={3}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-focused fieldset': { borderColor: '#2596be' },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#2596be' },
+                      }}
+                    />
+
+                    <Box>
+                      <Typography variant="subtitle1" color="#2596be" fontWeight="bold" mb={1}>
+                        Signos vitales (opcional)
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: window.innerWidth < 600 ? '1fr' : '1fr 1fr',
+                          gap: 2
+                        }}
+                      >
+                        <TextField
+                          label="Presión arterial (ej: 120/80)"
+                          name="presionArterial"
+                          value={patientData.presionArterial}
+                          onChange={handleChange}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Frecuencia cardíaca"
+                          name="frecuenciaCardiaca"
+                          value={patientData.frecuenciaCardiaca}
+                          onChange={handleChange}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Peso (kg)"
+                          name="pesoKg"
+                          value={patientData.pesoKg}
+                          onChange={handleChange}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Talla (cm)"
+                          name="tallaCm"
+                          value={patientData.tallaCm}
+                          onChange={handleChange}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Temperatura (°C)"
+                          name="temperaturaC"
+                          value={patientData.temperaturaC}
+                          onChange={handleChange}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Saturación O2 (%)"
+                          name="saturacionO2"
+                          value={patientData.saturacionO2}
+                          onChange={handleChange}
+                          fullWidth
+                        />
+                      </Box>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeStep === 2 && (
               <Card 
                 elevation={0} 
                 sx={{ 
@@ -792,7 +1099,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
                   }
                   title={
                     <Typography variant="h6" color="#2596be" fontWeight="bold">
-                      Información Médica
+                      Datos de la Consulta
                     </Typography>
                   }
                   subheader="Diagnóstico, anamnesis e imágenes (opcional)"

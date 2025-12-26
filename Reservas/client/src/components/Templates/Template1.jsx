@@ -5,14 +5,18 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
+import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import Logo from '../../assets/LOGO.png';
 
-export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate }) {
-  const BRAND = { primary: '#2596be', secondary: '#21cbe6' };
+export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate, brand }) {
+  const BRAND = {
+    primary: brand?.primary || '#2596be',
+    secondary: brand?.secondary || '#21cbe6',
+  };
   const isReady = Boolean(seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad);
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
@@ -68,7 +72,7 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                           <ListItemIcon>
                             <VideoCameraFrontIcon sx={{ color: BRAND.primary }} />
                           </ListItemIcon>
-                          <ListItemText primary="Selecciona la modalidad: Presencial o Telemedicina" />
+                          <ListItemText primary="Selecciona la modalidad: Presencial, Telemedicina o Domicilio" />
                         </ListItem>
                         <Divider sx={{ my: 0.5 }} />
                         <ListItem>
@@ -161,6 +165,23 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                       onClick={() => { if (prof.cita_virtual) onModalidadSelect('Telemedicina'); }}
                     >
                       Telemedicina
+                    </Button>
+                    <Button
+                      startIcon={<HomeWorkIcon />}
+                      variant={seleccion.modalidad === 'Domicilio' ? 'contained' : 'outlined'}
+                      size="small"
+                      sx={{
+                        width: { xs: '100%', sm: 'auto' },
+                        color: seleccion.modalidad === 'Domicilio' ? 'white' : (prof.cita_domicilio ? BRAND.primary : 'grey.500'),
+                        bgcolor: seleccion.modalidad === 'Domicilio' ? BRAND.primary : 'transparent',
+                        borderColor: prof.cita_domicilio ? BRAND.primary : 'grey.400',
+                        opacity: prof.cita_domicilio ? 1 : 0.5,
+                        pointerEvents: prof.cita_domicilio ? 'auto' : 'none',
+                        fontWeight: seleccion.modalidad === 'Domicilio' ? 700 : 400,
+                      }}
+                      onClick={() => { if (prof.cita_domicilio) onModalidadSelect('Domicilio'); }}
+                    >
+                      Domicilio
                     </Button>
                   </Box>
 

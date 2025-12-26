@@ -19,6 +19,7 @@ import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import VideoCallIcon from "@mui/icons-material/VideoCall";
 import PersonPinCircleIcon from "@mui/icons-material/PersonPinCircle";
+import HomeWorkIcon from "@mui/icons-material/HomeWork";
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useTheme } from "@mui/material/styles";
@@ -245,6 +246,10 @@ export default function ModalPerfilProfesional({ open, onClose, profesional }) {
                   <VideoCallIcon color={profesional.cita_virtual ? "success" : "disabled"} />
                   <Typography>
                     Telemedicina: {profesional.cita_virtual ? "Sí" : "No"}
+                  </Typography>
+                  <HomeWorkIcon color={profesional.cita_domicilio ? "success" : "disabled"} />
+                  <Typography>
+                    Domicilio: {profesional.cita_domicilio ? "Sí" : "No"}
                   </Typography>
                 </Stack>
               </Stack>

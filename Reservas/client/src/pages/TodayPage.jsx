@@ -21,6 +21,7 @@ import {
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import PlaceIcon from "@mui/icons-material/Place";
+import HomeWorkIcon from "@mui/icons-material/HomeWork";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -49,9 +50,11 @@ function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
   const handleMenuClose = () => setAnchorEl(null);
   console.log('Renderizando AppointmentCard para reserva:', reserva);
 
+  const tipoAtencionValue = reserva.tipoAtencion || reserva.modalidad;
   const tipoAtencionIcon =
-    reserva.tipoAtencion === "Telemedicina" ? <VideocamIcon fontSize="small" sx={{ mr: 0.5 }} /> :
-    reserva.tipoAtencion === "Presencial" ? <PlaceIcon fontSize="small" sx={{ mr: 0.5 }} /> : null;
+    tipoAtencionValue === "Telemedicina" ? <VideocamIcon fontSize="small" sx={{ mr: 0.5 }} /> :
+    tipoAtencionValue === "Presencial" ? <PlaceIcon fontSize="small" sx={{ mr: 0.5 }} /> :
+    tipoAtencionValue === "Domicilio" ? <HomeWorkIcon fontSize="small" sx={{ mr: 0.5 }} /> : null;
 
   const estadoRaw = (reserva.confirmStatus || 'pending').toString().toLowerCase();
   const status = statusMap[estadoRaw] || statusMap.pending;

@@ -30,8 +30,36 @@ import { useAlert } from '../../context/AlertContext';
 const MODALIDADES_ALL = [
   'Presencial',
   'Telemedicina',
-  'Presencial y Telemedicina'
+  'Domicilio',
+  'Presencial y Telemedicina',
+  'Presencial y Domicilio',
+  'Telemedicina y Domicilio',
+  'Presencial, Telemedicina y Domicilio'
 ];
+
+const computeAllowedModalidades = ({ allowPresencial, allowVirtual, allowDomicilio }) => {
+  const enabled = [];
+  if (allowPresencial) enabled.push('Presencial');
+  if (allowVirtual) enabled.push('Telemedicina');
+  if (allowDomicilio) enabled.push('Domicilio');
+
+  if (enabled.length === 0) return [];
+  if (enabled.length === 1) return enabled;
+
+  const combos = [];
+  // pares
+  for (let i = 0; i < enabled.length; i++) {
+    for (let j = i + 1; j < enabled.length; j++) {
+      combos.push(`${enabled[i]} y ${enabled[j]}`);
+    }
+  }
+  // triple
+  if (enabled.length === 3) combos.push('Presencial, Telemedicina y Domicilio');
+
+  // Respetar el set de strings conocidos (compatibilidad)
+  const all = [...enabled, ...combos].filter((m) => MODALIDADES_ALL.includes(m));
+  return all;
+};
 
 // Duraciones base (se complementarán dinámicamente con el intervalo del horario si falta)
 const DURACIONES_BASE = [
@@ -71,13 +99,8 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
   // Modalidades permitidas según perfil del usuario
   const allowPresencial = !!user?.cita_presencial;
   const allowVirtual = !!user?.cita_virtual;
-  const allowedModalidades = allowPresencial && allowVirtual
-    ? MODALIDADES_ALL
-    : allowPresencial
-      ? ['Presencial']
-      : allowVirtual
-        ? ['Telemedicina']
-        : [];
+  const allowDomicilio = !!user?.cita_domicilio;
+  const allowedModalidades = computeAllowedModalidades({ allowPresencial, allowVirtual, allowDomicilio });
 
   // Cuando abre el modal, preparar duraciones y autoseleccionar duración vinculada al intervalo si aplica
   useEffect(() => {
@@ -123,7 +146,7 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
         descripcion: ''
       });
     }
-  }, [isEditing, servicio, open, singleInterval, allowPresencial, allowVirtual]);
+  }, [isEditing, servicio, open, singleInterval, allowPresencial, allowVirtual, allowDomicilio]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -284,7 +307,7 @@ export default function ModalServicio({ open, onClose, servicio, index, isEditin
               </Select>
               {allowedModalidades.length === 0 && (
                 <Typography variant="caption" color="error" sx={{ ml: 1 }}>
-                  No tienes modalidades habilitadas en tu perfil. Activa Presencial y/o Telemedicina en "Información Profesional".
+                  No tienes modalidades habilitadas en tu perfil. Activa Presencial, Telemedicina y/o Domicilio en "Información Profesional".
                 </Typography>
               )}
               {allowedModalidades.length === 1 && (

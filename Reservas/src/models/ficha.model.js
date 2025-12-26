@@ -72,6 +72,23 @@ const ReservasSchema = new mongoose.Schema({
             {
                 diagnostico: { type: String, default: '' },
                 anamnesis: { type: String, default: '' },
+                imagenes: { type: [String], default: [] },
+                motivoConsulta: { type: String, default: '' },
+                antecedentesPersonales: { type: String, default: '' },
+                antecedentesFamiliares: { type: String, default: '' },
+                alergias: { type: String, default: '' },
+                medicamentosActuales: { type: String, default: '' },
+                examenFisico: { type: String, default: '' },
+                planTratamiento: { type: String, default: '' },
+                indicaciones: { type: String, default: '' },
+                signosVitales: {
+                    presionArterial: { type: String, default: '' },
+                    frecuenciaCardiaca: { type: String, default: '' },
+                    pesoKg: { type: String, default: '' },
+                    tallaCm: { type: String, default: '' },
+                    temperaturaC: { type: String, default: '' },
+                    saturacionO2: { type: String, default: '' },
+                },
                 createdAt: { type: Date, default: Date.now },
                 closedAt: { type: Date },
                 sesiones: {

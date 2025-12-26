@@ -6,6 +6,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import { useAuth } from '../context/authContext';
+import { useSucursal } from '../context/sucursalContext';
 import api from '../api/axios';
 
 const PLACEHOLDERS = [
@@ -37,10 +38,12 @@ const applyPreview = (template) => {
 // Eliminado: ya no se añade ninguna línea automática de confirmación.
 
 const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, reservaDemo }) => {
-  const { updatePerfil, user } = useAuth();
+  const { updatePerfil, user, esAdminSucursal } = useAuth();
+  const { getSucursal, updateSucursal } = useSucursal();
   const [editing, setEditing] = useState(false); // edición local
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [sucursalData, setSucursalData] = useState(null);
   const [localData, setLocalData] = useState({
     idInstance: '',
     apiTokenInstance: '',
@@ -55,18 +58,43 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
   const [testPhone, setTestPhone] = useState('');
   const [testPhoneError, setTestPhoneError] = useState('');
 
-  // Sync con props inicial y cuando cambia user (re-hidratación)
+  const isSucursalMember = !!(user?.sucursal?._id || user?.sucursal);
+  const useSucursalConfig = isSucursalMember && !!esAdminSucursal;
+
+  // Cargar sucursal si corresponde (admin de sucursal)
   useEffect(() => {
+    const cargar = async () => {
+      if (!useSucursalConfig) return;
+      try {
+        const s = await getSucursal();
+        setSucursalData(s);
+      } catch (e) {
+        setSucursalData(null);
+      }
+    };
+    cargar();
+  }, [useSucursalConfig, getSucursal]);
+
+  // Sync con props inicial y cuando cambia la fuente
+  useEffect(() => {
+    if (useSucursalConfig) {
+      setLocalData({
+        idInstance: sucursalData?.idInstance || '',
+        apiTokenInstance: sucursalData?.apiTokenInstance || '',
+        reminderMessage: sucursalData?.reminderMessage || ''
+      });
+      return;
+    }
     setLocalData({
       idInstance: formData.idInstance || '',
       apiTokenInstance: formData.apiTokenInstance || '',
       reminderMessage: formData.reminderMessage || ''
     });
-  }, [formData.idInstance, formData.apiTokenInstance, formData.reminderMessage]);
+  }, [useSucursalConfig, sucursalData?.idInstance, sucursalData?.apiTokenInstance, sucursalData?.reminderMessage, formData.idInstance, formData.apiTokenInstance, formData.reminderMessage]);
 
   const propagate = (name, value) => {
     // notificar al padre (PerfilPage) para mantener un solo origen de verdad
-    if (onChange) {
+    if (!useSucursalConfig && onChange) {
       onChange({ target: { name, value } });
     }
   };
@@ -108,11 +136,19 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     setError(null);
     setEditing(false);
     // revertir a props
-    setLocalData({
-      idInstance: formData.idInstance || '',
-      apiTokenInstance: formData.apiTokenInstance || '',
-      reminderMessage: formData.reminderMessage || ''
-    });
+    if (useSucursalConfig) {
+      setLocalData({
+        idInstance: sucursalData?.idInstance || '',
+        apiTokenInstance: sucursalData?.apiTokenInstance || '',
+        reminderMessage: sucursalData?.reminderMessage || ''
+      });
+    } else {
+      setLocalData({
+        idInstance: formData.idInstance || '',
+        apiTokenInstance: formData.apiTokenInstance || '',
+        reminderMessage: formData.reminderMessage || ''
+      });
+    }
   };
 
 
@@ -128,11 +164,19 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     }
     try {
       setSaving(true);
-      await updatePerfil(user.id || user._id, {
-        idInstance,
-        apiTokenInstance,
-        reminderMessage
-      });
+      if (useSucursalConfig) {
+        const sid = sucursalData?._id || user?.sucursal?._id || user?.sucursal;
+        if (!sid) throw new Error('missing_sucursal_id');
+        await updateSucursal(sid, { idInstance, apiTokenInstance, reminderMessage });
+        const refreshed = await getSucursal();
+        setSucursalData(refreshed);
+      } else {
+        await updatePerfil(user.id || user._id, {
+          idInstance,
+          apiTokenInstance,
+          reminderMessage
+        });
+      }
       setEditing(false);
     } catch (e) {
       setError('Error al guardar cambios.');

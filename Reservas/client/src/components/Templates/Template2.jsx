@@ -5,14 +5,18 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
+import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import Logo from '../../assets/LOGO.png';
 import { ASSETS_BASE } from '../../config';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
-export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate }) {
-  const BRAND = { primary: '#2596be', secondary: '#21cbe6' };
+export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate, brand }) {
+  const BRAND = {
+    primary: brand?.primary || '#2596be',
+    secondary: brand?.secondary || '#21cbe6',
+  };
   const isReady = Boolean(seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad);
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
@@ -40,13 +44,13 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
         <Card elevation={0} sx={{ border: '1px solid #e3f2fd', borderRadius: 3, boxShadow: '0 8px 24px rgba(37,150,190,0.08)' }}>
           <CardContent>
             <Stack spacing={2}>
-              <Typography variant="h6" fontWeight={900} sx={{ background: 'linear-gradient(135deg, #2596be, #21cbe6)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <Typography variant="h6" fontWeight={900} sx={{ background: `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})`, backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Agenda con {prof.username}
               </Typography>
               <Divider />
               <Accordion elevation={0} sx={{ border: '1px solid #e3f2fd', borderRadius: 2, boxShadow: '0 8px 16px rgba(37,150,190,0.06)' }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography sx={{ background: 'linear-gradient(135deg, #2596be, #21cbe6)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }} fontWeight={800}>
+                  <Typography sx={{ background: `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})`, backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }} fontWeight={800}>
                     ¿Cómo agendar?
                   </Typography>
                 </AccordionSummary>
@@ -54,26 +58,26 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
                   <List dense>
                     <ListItem>
                       <ListItemIcon>
-                        <CalendarMonthIcon sx={{ color: '#2596be' }} />
+                        <CalendarMonthIcon sx={{ color: BRAND.primary }} />
                       </ListItemIcon>
                       <ListItemText primary="Selecciona la fecha de tu cita" />
                     </ListItem>
                     <ListItem>
                       <ListItemIcon>
-                        <AccessTimeIcon sx={{ color: '#2596be' }} />
+                        <AccessTimeIcon sx={{ color: BRAND.primary }} />
                       </ListItemIcon>
                       <ListItemText primary="Elige una hora disponible" />
                     </ListItem>
                     <ListItem>
                       <ListItemIcon>
-                        <VideoCameraFrontIcon sx={{ color: '#2596be' }} />
+                        <VideoCameraFrontIcon sx={{ color: BRAND.primary }} />
                       </ListItemIcon>
                       <ListItemText primary="Selecciona la modalidad: Presencial o Telemedicina" />
                     </ListItem>
                     <Divider sx={{ my: 0.5 }} />
                     <ListItem>
                       <ListItemIcon>
-                        <CheckCircleOutlineIcon sx={{ color: '#21cbe6' }} />
+                        <CheckCircleOutlineIcon sx={{ color: BRAND.secondary }} />
                       </ListItemIcon>
                       <ListItemText primary="Presiona 'Reservar cita' para confirmar" />
                     </ListItem>
@@ -134,6 +138,7 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch">
                   <Button startIcon={<PersonPinCircleIcon />} variant={seleccion.modalidad === 'Presencial' ? 'contained' : 'outlined'} size="small" sx={{ borderRadius: 999, px: 1.5, width: { xs: '100%', sm: 'auto' }, color: seleccion.modalidad === 'Presencial' ? 'white' : (prof.cita_presencial ? BRAND.primary : 'grey.500'), bgcolor: seleccion.modalidad === 'Presencial' ? BRAND.primary : 'transparent', borderColor: prof.cita_presencial ? BRAND.primary : 'grey.300', opacity: prof.cita_presencial ? 1 : 0.5, pointerEvents: prof.cita_presencial ? 'auto' : 'none' }} onClick={() => { if (prof.cita_presencial) onModalidadSelect('Presencial'); }}>Presencial</Button>
                   <Button startIcon={<VideoCameraFrontIcon />} variant={seleccion.modalidad === 'Telemedicina' ? 'contained' : 'outlined'} size="small" sx={{ borderRadius: 999, px: 1.5, width: { xs: '100%', sm: 'auto' }, color: seleccion.modalidad === 'Telemedicina' ? 'white' : (prof.cita_virtual ? BRAND.secondary : 'grey.500'), bgcolor: seleccion.modalidad === 'Telemedicina' ? BRAND.secondary : 'transparent', borderColor: prof.cita_virtual ? BRAND.secondary : 'grey.300', opacity: prof.cita_virtual ? 1 : 0.5, pointerEvents: prof.cita_virtual ? 'auto' : 'none' }} onClick={() => { if (prof.cita_virtual) onModalidadSelect('Telemedicina'); }}>Telemedicina</Button>
+                  <Button startIcon={<HomeWorkIcon />} variant={seleccion.modalidad === 'Domicilio' ? 'contained' : 'outlined'} size="small" sx={{ borderRadius: 999, px: 1.5, width: { xs: '100%', sm: 'auto' }, color: seleccion.modalidad === 'Domicilio' ? 'white' : (prof.cita_domicilio ? BRAND.primary : 'grey.500'), bgcolor: seleccion.modalidad === 'Domicilio' ? BRAND.primary : 'transparent', borderColor: prof.cita_domicilio ? BRAND.primary : 'grey.300', opacity: prof.cita_domicilio ? 1 : 0.5, pointerEvents: prof.cita_domicilio ? 'auto' : 'none' }} onClick={() => { if (prof.cita_domicilio) onModalidadSelect('Domicilio'); }}>Domicilio</Button>
                 </Stack>
               </Box>
                 <Button
