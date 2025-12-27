@@ -5,7 +5,7 @@ import { useAuth } from '../context/authContext';
 import { useAlert } from '../context/AlertContext'; 
 import axios from '../api/axios';
 import AvatarEditor from 'react-avatar-editor';
-import { ASSETS_BASE } from '../config';
+import { resolveAssetUrl } from '../utils/resolveAssetUrl';
 
 const FotoPerfil = forwardRef(({ size = 140 }, ref) => {
   const { user, updatePerfil } = useAuth();
@@ -35,22 +35,39 @@ const FotoPerfil = forwardRef(({ size = 140 }, ref) => {
     if (editorRef.current) {
       const canvas = editorRef.current.getImageScaledToCanvas().toDataURL();
       const blob = await fetch(canvas).then(res => res.blob());
-      const formData = new FormData();
-      formData.append('file', blob, selectedFile.name);
 
       try {
-        // Eliminar la foto de perfil anterior
-        if (user.fotoPerfil) {
-          await axios.delete(`/delete`, { data: { filePath: user.fotoPerfil } });
+        // Limpieza best-effort solo para uploads legacy locales
+        if (user.fotoPerfil && String(user.fotoPerfil).startsWith('/uploads/')) {
+          try {
+            await axios.delete(`/delete`, { data: { filePath: user.fotoPerfil } });
+          } catch {
+            // noop
+          }
         }
 
-        // Subir la nueva foto de perfil
-        const res = await axios.post('/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+        const init = await axios.post('/upload/signed-upload', {
+          kind: 'profile',
+          name: selectedFile?.name || 'perfil',
+          type: blob.type || selectedFile?.type || 'image/png',
+          size: blob.size || 0,
         });
-        await updatePerfil(user.id || user._id, { fotoPerfil: res.data.url });
+
+        const uploadUrl = init?.data?.uploadUrl;
+        const finalUrl = init?.data?.url;
+        if (!uploadUrl || !finalUrl) throw new Error('No se recibió URL de subida');
+
+        const put = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+          body: blob,
+        });
+        if (!put.ok) {
+          const txt = await put.text().catch(() => '');
+          throw new Error(`Error subiendo foto (${put.status}): ${txt || 'falló'}`);
+        }
+
+        await updatePerfil(user.id || user._id, { fotoPerfil: finalUrl });
         setEditorOpen(false);
         showAlert('success', 'Foto de perfil actualizada correctamente');
       } catch (error) {
@@ -74,7 +91,7 @@ const FotoPerfil = forwardRef(({ size = 140 }, ref) => {
         <Tooltip title="Agregar foto de perfil" arrow>
           <IconButton color="primary" component="span" sx={{ p: 0 }}>
             <Avatar 
-              src={user.fotoPerfil ? `${ASSETS_BASE}${user.fotoPerfil}` : undefined}
+              src={user.fotoPerfil ? resolveAssetUrl(user.fotoPerfil) : undefined}
               sx={{ 
                 width: size, 
                 height: size,

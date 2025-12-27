@@ -33,7 +33,7 @@ import { useAuth } from "../../context/authContext";
 import { useSubscription } from "../../context/subscriptionContext";
 import RegisterProfesional from "../../components/Surcursales/RegisterProfesional";
 import { useTheme } from "@mui/material/styles";
-import { ASSETS_BASE } from "../../config";
+import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 
 export default function GestionarProfesionales() {
   const { user, deleteUser } = useAuth();
@@ -203,7 +203,7 @@ export default function GestionarProfesionales() {
         }}
       >
         <Avatar
-          src={profesional.fotoPerfil ? `${ASSETS_BASE}${profesional.fotoPerfil}` : undefined}
+          src={profesional.fotoPerfil ? resolveAssetUrl(profesional.fotoPerfil) : undefined}
           sx={{
             bgcolor: profesional.fotoPerfil ? "white" : "#2596be",
             color: profesional.fotoPerfil ? "#2596be" : "white",

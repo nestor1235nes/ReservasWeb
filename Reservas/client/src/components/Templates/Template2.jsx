@@ -7,7 +7,7 @@ import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import Logo from '../../assets/LOGO.png';
-import { ASSETS_BASE } from '../../config';
+import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -31,7 +31,7 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
                 </Typography>
                 <Avatar
                   variant="rounded"
-                  src={`${ASSETS_BASE}${prof.sucursal.logo}`}
+                  src={resolveAssetUrl(prof.sucursal.logo)}
                   alt={prof?.sucursal?.nombre ? `Logo ${prof.sucursal.nombre}` : 'Logo sucursal'}
                   sx={{ width: 40, height: 40, bgcolor: 'white', border: '1px solid #e3f2fd' }}
                   imgProps={{ style: { objectFit: 'contain' } }}
@@ -46,7 +46,7 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
       <Box sx={{ py: 6, background: 'linear-gradient(180deg, #ffffff 0%, #f0fbff 100%)', borderBottom: '1px solid #e3f2fd' }}>
         <Container maxWidth="md">
           <Stack spacing={1} alignItems="center">
-            <Avatar src={prof.fotoPerfil ? `${ASSETS_BASE}${prof.fotoPerfil}` : undefined} sx={{ width: 110, height: 110, boxShadow: '0 0 0 4px #fff, 0 4px 18px rgba(37,150,190,0.25)' }} />
+            <Avatar src={prof.fotoPerfil ? resolveAssetUrl(prof.fotoPerfil) : undefined} sx={{ width: 110, height: 110, boxShadow: '0 0 0 4px #fff, 0 4px 18px rgba(37,150,190,0.25)' }} />
             <Typography variant="h5" fontWeight={900}>{prof.username}</Typography>
             <Typography color="text.secondary">{prof.especialidad}</Typography>
             <Chip size="small" label={prof.sucursal?.nombre || 'Independiente'} sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: '#2596be', fontWeight: 700 }} />

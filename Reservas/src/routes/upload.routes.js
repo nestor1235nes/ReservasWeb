@@ -12,6 +12,13 @@ import {
   createSignedUploadUrl,
   getPrivateImagesBucketName,
 } from '../libs/gcsPrivateImages.js';
+import {
+  assertAllowedPublicAsset,
+  buildPublicAssetObjectName,
+  createSignedUploadUrl as createPublicSignedUploadUrl,
+  getPublicAssetUrl,
+  getPublicAssetsBucketName,
+} from '../libs/gcsPublicAssets.js';
 
 const router = Router();
 
@@ -52,6 +59,39 @@ router.post('/upload', (req, res, next) => {
     if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
     res.json({ url: `/uploads/${req.file.filename}` });
   });
+});
+
+// NUEVO: Signed upload para assets (foto perfil / logo) subidos directo a GCS.
+// Request: { kind: 'profile'|'logo', name, type, size }
+// Response: { uploadUrl, url }
+router.post('/upload/signed-upload', auth, async (req, res) => {
+  try {
+    const bucketName = getPublicAssetsBucketName();
+    if (!bucketName) {
+      return res.status(501).json({ error: 'GCS_PUBLIC_ASSETS_BUCKET no está configurado' });
+    }
+
+    const kind = (req.body?.kind || '').toString().trim().toLowerCase();
+    if (!['profile', 'logo'].includes(kind)) {
+      return res.status(400).json({ error: "kind inválido (use 'profile' o 'logo')" });
+    }
+
+    const contentType = (req.body?.type || '').toString();
+    const sizeBytes = req.body?.size;
+    const originalName = (req.body?.name || 'imagen').toString();
+    assertAllowedPublicAsset({ contentType, sizeBytes });
+
+    const ownerId = req.user?.id;
+    if (!ownerId) return res.status(401).json({ error: 'No autorizado' });
+
+    const object = buildPublicAssetObjectName({ kind, ownerId, originalName, contentType });
+    const uploadUrl = await createPublicSignedUploadUrl({ bucketName, objectName: object, contentType });
+    const url = getPublicAssetUrl({ bucketName, objectName: object });
+
+    return res.json({ uploadUrl, url, object });
+  } catch (e) {
+    return res.status(400).json({ error: e?.message || 'No se pudo generar signed upload URL' });
+  }
 });
 
 // Ruta para subir múltiples imágenes de pacientes

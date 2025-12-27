@@ -44,7 +44,7 @@ import DescargarICSModal from '../components/Modales/DescargarICSModal';
 import { generateICS } from '../utils/icalendar';
 import { usePaciente } from '../context/pacienteContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ASSETS_BASE } from '../config';
+import { resolveAssetUrl } from '../utils/resolveAssetUrl';
 
 
 dayjs.locale('es');
@@ -353,7 +353,7 @@ export default function HomePage() {
                           borderRadius={1}
                           sx={{ Maxheight:'100%' ,background: "linear-gradient(90deg, #2596be 60%, #21cbe6 100%)" }}
                         >
-                          <Avatar src={prof.fotoPerfil ? `${ASSETS_BASE}${prof.fotoPerfil}` : undefined} sx={{ width: 80, height: 80, mb: 1 }} />
+                          <Avatar src={prof.fotoPerfil ? resolveAssetUrl(prof.fotoPerfil) : undefined} sx={{ width: 80, height: 80, mb: 1 }} />
                           <Typography fontWeight={600} color='white'>{prof.username}</Typography>
                           <Typography color="white" fontSize={14}>{prof.especialidad}</Typography>
                           <Box display="flex" alignItems="center" mt={1} color="text.secondary" fontSize={13}>

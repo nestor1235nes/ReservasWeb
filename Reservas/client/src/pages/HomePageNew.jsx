@@ -55,7 +55,7 @@ import { generateICS } from '../utils/icalendar';
 import Logo from '../assets/LOGO.png';
 import SiteFooter from '../components/ui/SiteFooter';
 import TopAppBar from '../components/ui/TopAppBar';
-import { ASSETS_BASE } from '../config';
+import { resolveAssetUrl } from '../utils/resolveAssetUrl';
 
 // Simple, static homepage design. No business logic or data fetching.
 export default function HomePageNew() {
@@ -366,7 +366,7 @@ export default function HomePageNew() {
 														}}
 													>
 														<Box p={2} display="flex" flexDirection="column" alignItems="center">
-																											<Avatar src={prof.fotoPerfil ? `${ASSETS_BASE}${prof.fotoPerfil}` : undefined} sx={{ width: 80, height: 80, mb: 1 }} />
+																											<Avatar src={prof.fotoPerfil ? resolveAssetUrl(prof.fotoPerfil) : undefined} sx={{ width: 80, height: 80, mb: 1 }} />
 															<Typography fontWeight={600} color='white'>{prof.username}</Typography>
 															<Typography color="white" fontSize={14}>{prof.especialidad}</Typography>
 															<Box display="flex" alignItems="center" mt={1} fontSize={13}>

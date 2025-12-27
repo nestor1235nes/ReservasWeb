@@ -31,7 +31,7 @@ import XIcon from '@mui/icons-material/X';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getProfesionalesSucursalRequest, getSucursalesRequest } from '../api/sucursales';
-import { ASSETS_BASE } from '../config';
+import { resolveAssetUrl } from '../utils/resolveAssetUrl';
 import TopAppBar from '../components/ui/TopAppBar';
 
 export default function PublicSucursalProfesionalesPage() {
@@ -172,7 +172,7 @@ export default function PublicSucursalProfesionalesPage() {
         >
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
             <Avatar
-              src={selectedPro?.fotoPerfil ? `${ASSETS_BASE}${selectedPro.fotoPerfil}` : undefined}
+              src={selectedPro?.fotoPerfil ? resolveAssetUrl(selectedPro.fotoPerfil) : undefined}
               sx={{ width: 44, height: 44, bgcolor: 'white', color: brand.primary }}
             >
               {!selectedPro?.fotoPerfil && <PersonIcon />}
@@ -257,7 +257,7 @@ export default function PublicSucursalProfesionalesPage() {
             <Stack spacing={2}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'center', sm: 'flex-start' }}>
                 <Avatar
-                  src={sucursal?.logo ? `${ASSETS_BASE}${sucursal.logo}` : undefined}
+                  src={sucursal?.logo ? resolveAssetUrl(sucursal.logo) : undefined}
                   sx={{
                     width: isMobile ? 112 : 140,
                     height: isMobile ? 112 : 140,
@@ -427,7 +427,7 @@ export default function PublicSucursalProfesionalesPage() {
                         }}
                       >
                         <Avatar
-                          src={p?.fotoPerfil ? `${ASSETS_BASE}${p.fotoPerfil}` : undefined}
+                          src={p?.fotoPerfil ? resolveAssetUrl(p.fotoPerfil) : undefined}
                           sx={{
                             bgcolor: p?.fotoPerfil ? 'white' : '#2596be',
                             color: p?.fotoPerfil ? '#2596be' : 'white',

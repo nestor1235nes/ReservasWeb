@@ -19,7 +19,7 @@ import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
 import FullPageLoader from '../../components/ui/FullPageLoader';
 import axios from '../../api/axios';
-import { ASSETS_BASE } from '../../config';
+import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 
 const splitCsv = (value) => {
   if (!value) return [];
@@ -159,21 +159,32 @@ export default function ConfiguracionSucursal() {
 
     setLogoUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await axios.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      const init = await axios.post('/upload/signed-upload', {
+        kind: 'logo',
+        name: file?.name || 'logo',
+        type: file?.type || 'application/octet-stream',
+        size: file?.size || 0,
       });
 
-      const newUrl = res?.data?.url;
+      const uploadUrl = init?.data?.uploadUrl;
+      const newUrl = init?.data?.url;
       if (!newUrl) throw new Error('No se recibió la URL del logo');
+
+      if (!uploadUrl) throw new Error('No se recibió URL de subida');
+      const put = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file?.type || 'application/octet-stream' },
+        body: file,
+      });
+      if (!put.ok) throw new Error('No se pudo subir el logo');
 
       // Limpieza best-effort del logo anterior (solo si era un upload local)
       const oldLogo = sucursal?.logo;
       if (oldLogo && oldLogo !== newUrl) {
         try {
-          await axios.delete('/delete', { data: { filePath: oldLogo } });
+          if (String(oldLogo).startsWith('/uploads/')) {
+            await axios.delete('/delete', { data: { filePath: oldLogo } });
+          }
         } catch {
           // noop
         }
@@ -201,7 +212,9 @@ export default function ConfiguracionSucursal() {
     setLogoUploading(true);
     try {
       // Elimina archivo (best-effort) y limpia el campo del form
-      await axios.delete('/delete', { data: { filePath: form.logo } });
+      if (String(form.logo || '').startsWith('/uploads/')) {
+        await axios.delete('/delete', { data: { filePath: form.logo } });
+      }
       setForm((prev) => ({ ...prev, logo: '' }));
       showAlert('success', 'Logo eliminado. Recuerda guardar cambios.');
     } catch {
@@ -332,7 +345,7 @@ export default function ConfiguracionSucursal() {
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
                   <Avatar
-                    src={form.logo ? `${ASSETS_BASE}${form.logo}` : undefined}
+                    src={form.logo ? resolveAssetUrl(form.logo) : undefined}
                     sx={{
                       width: 96,
                       height: 96,

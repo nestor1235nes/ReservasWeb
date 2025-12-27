@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ASSETS_BASE } from '../config';
 import { Box, IconButton, Dialog, Typography } from '@mui/material';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
@@ -22,6 +22,8 @@ const MostrarImagenes = ({ imagenes, rut }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [openZoom, setOpenZoom] = useState(false);
   const [resolved, setResolved] = useState([]);
+  const refreshFnRef = useRef(null);
+  const lastErrorRefreshAtRef = useRef(0);
 
   const handlePrev = () => {
     setCurrentIndex((prevIndex) => (prevIndex === 0 ? imagenes.length - 1 : prevIndex - 1));
@@ -55,6 +57,8 @@ const MostrarImagenes = ({ imagenes, rut }) => {
 
   useEffect(() => {
     let cancelled = false;
+    let refreshTimer = null;
+
     const run = async () => {
       const list = Array.isArray(imagenes) ? imagenes : [];
       const needs = list.filter(isGcsObjectName);
@@ -85,9 +89,19 @@ const MostrarImagenes = ({ imagenes, rut }) => {
       }
     };
 
+    refreshFnRef.current = run;
+
     run();
+
+    // Las signed URLs expiran (TTL backend = 6 días). Refrescamos 1 vez por ciclo.
+    // 5.5 días = 5.5 * 24 * 60 * 60 * 1000
+    refreshTimer = window.setInterval(() => {
+      run();
+    }, 5.5 * 24 * 60 * 60 * 1000);
+
     return () => {
       cancelled = true;
+      if (refreshTimer) window.clearInterval(refreshTimer);
     };
   }, [imagenes, rut, displayList]);
 
@@ -106,6 +120,13 @@ const MostrarImagenes = ({ imagenes, rut }) => {
         src={resolved[currentIndex] || displayList[currentIndex] || ''}
         style={{ maxWidth: '100%', maxHeight: '200px', cursor: 'pointer' }}
         onClick={handleZoomOpen}
+        onError={() => {
+          // Si expiró la URL, intentamos refrescar una vez (rate-limited) para no entrar en loop.
+          const now = Date.now();
+          if (now - lastErrorRefreshAtRef.current < 30_000) return;
+          lastErrorRefreshAtRef.current = now;
+          if (typeof refreshFnRef.current === 'function') refreshFnRef.current();
+        }}
       />
       {imagenes.length > 1 && (
         <IconButton onClick={handleNext}>

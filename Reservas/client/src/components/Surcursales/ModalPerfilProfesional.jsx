@@ -23,7 +23,7 @@ import HomeWorkIcon from "@mui/icons-material/HomeWork";
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useTheme } from "@mui/material/styles";
-import { ASSETS_BASE } from '../../config';
+import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 
 
 // Props: { open, onClose, profesional }
@@ -51,7 +51,7 @@ export default function ModalPerfilProfesional({ open, onClose, profesional }) {
     {/* Header */}
         <Stack direction={isMobile ? "column" : "row"} spacing={3} alignItems="center" position="relative">
           <Avatar
-            src={profesional.fotoPerfil ? `${ASSETS_BASE}${profesional.fotoPerfil}` : undefined}
+            src={profesional.fotoPerfil ? resolveAssetUrl(profesional.fotoPerfil) : undefined}
             sx={{ width: 96, height: 96, fontSize: 36, bgcolor: "#2596be" }}
           >
             {profesional.username?.[0]}

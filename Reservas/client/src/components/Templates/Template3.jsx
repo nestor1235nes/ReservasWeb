@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar, Chip, Divider, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { ASSETS_BASE } from '../../config';
+import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -31,7 +31,7 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
                 </Typography>
                 <Avatar
                   variant="rounded"
-                  src={`${ASSETS_BASE}${prof.sucursal.logo}`}
+                  src={resolveAssetUrl(prof.sucursal.logo)}
                   alt={prof?.sucursal?.nombre ? `Logo ${prof.sucursal.nombre}` : 'Logo sucursal'}
                   sx={{ width: 40, height: 40, bgcolor: 'white', border: '1px solid #e3f2fd' }}
                   imgProps={{ style: { objectFit: 'contain' } }}
@@ -49,7 +49,7 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
               <Box sx={{ height: 110, background: `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})` }} />
               <CardContent sx={{ pt: 0 }}>
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: -6 }}>
-                  <Avatar src={prof.fotoPerfil ? `${ASSETS_BASE}${prof.fotoPerfil}` : undefined} sx={{ width: 88, height: 88, boxShadow: '0 0 0 4px #fff' }} />
+                  <Avatar src={prof.fotoPerfil ? resolveAssetUrl(prof.fotoPerfil) : undefined} sx={{ width: 88, height: 88, boxShadow: '0 0 0 4px #fff' }} />
                   <Box>
                     <Typography variant="h6" fontWeight={900}>{prof.username}</Typography>
                     <Typography color="text.secondary">{prof.especialidad}</Typography>

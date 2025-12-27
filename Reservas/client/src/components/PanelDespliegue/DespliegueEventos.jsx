@@ -41,7 +41,7 @@ import 'dayjs/locale/es';
 import ReactQuill from 'react-quill';
 import '../ui/AgregarSesionCSS.css';
 import MostrarImagenes from '../MostrarImagenes';
-import { ASSETS_BASE } from '../../config';
+import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import localeData from 'dayjs/plugin/localeData';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { useDropzone } from 'react-dropzone';
@@ -201,10 +201,63 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   const [imagenes, setImagenes] = useState(event?.imagenes || []);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [openImageModal, setOpenImageModal] = useState(false);
+  const [modalImageSrc, setModalImageSrc] = useState(null);
   const [openUploadModal, setOpenUploadModal] = useState(false);
   const [uploadFiles, setUploadFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showPlaceholdersHelp, setShowPlaceholdersHelp] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!openImageModal) {
+        setModalImageSrc(null);
+        return;
+      }
+
+      const v = Array.isArray(imagenes) ? imagenes[currentImageIndex] : null;
+      if (!v) {
+        setModalImageSrc(null);
+        return;
+      }
+
+      // Ya es URL absoluta (GCS público, Cloudinary, etc.)
+      if (typeof v === 'string' && /^https?:\/\//i.test(v)) {
+        setModalImageSrc(v);
+        return;
+      }
+
+      // Objeto privado en GCS
+      if (typeof v === 'string' && v.startsWith('pacientes/')) {
+        const rut = event?.paciente?.rut;
+        if (!rut) {
+          setModalImageSrc(null);
+          return;
+        }
+        try {
+          const res = await axios.post('/imagenesPacientes/signed-read', { rut, objects: [v] });
+          const url = res?.data?.urls?.[v] || null;
+          if (!cancelled) setModalImageSrc(url);
+        } catch (e) {
+          console.error('Error obteniendo signed read URL (modal):', e);
+          if (!cancelled) setModalImageSrc(null);
+        }
+        return;
+      }
+
+      // Legacy local path (Cloud Run dev/local)
+      if (typeof v === 'string') {
+        setModalImageSrc(resolveAssetUrl(v));
+        return;
+      }
+
+      setModalImageSrc(null);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [openImageModal, currentImageIndex, imagenes, event?.paciente?.rut]);
 
   // Configuración del dropzone
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -2064,7 +2117,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 {imagenes.length > 0 && (
                   <Box
                     component="img"
-                    src={`${ASSETS_BASE}${imagenes[currentImageIndex]}`}
+                    src={modalImageSrc || undefined}
                     alt={`Imagen ${currentImageIndex + 1}`}
                     sx={{
                       width: '100%',

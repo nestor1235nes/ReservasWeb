@@ -31,7 +31,7 @@ import { useAuth } from "../../context/authContext";
 import { useSubscription } from "../../context/subscriptionContext";
 import RegisterAsistente from "../../components/Surcursales/RegisterAsistente";
 import { useTheme } from "@mui/material/styles";
-import { ASSETS_BASE } from "../../config";
+import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 
 export default function GestionarAsistentes() {
   const { user, deleteUser } = useAuth();
@@ -101,8 +101,8 @@ export default function GestionarAsistentes() {
   };
 
   // Abre el modal de confirmación
-  const handleOpenConfirm = (asistenteId, asistenteNombre) => {
-    setConfirmDialog({
+        <Avatar
+          src={asistente.fotoPerfil ? resolveAssetUrl(asistente.fotoPerfil) : undefined}
       open: true,
       asistenteId,
       asistenteNombre
@@ -200,7 +200,7 @@ export default function GestionarAsistentes() {
         }}
       >
         <Avatar
-          src={asistente.fotoPerfil ? `${ASSETS_BASE}${asistente.fotoPerfil}` : undefined}
+          src={asistente.fotoPerfil ? resolveAssetUrl(asistente.fotoPerfil) : undefined}
           sx={{
             bgcolor: asistente.fotoPerfil ? "white" : "#2596be",
             color: asistente.fotoPerfil ? "#2596be" : "white",
