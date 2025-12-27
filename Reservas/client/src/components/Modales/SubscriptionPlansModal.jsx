@@ -30,6 +30,7 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LockIcon from '@mui/icons-material/Lock';
 import { useSubscription } from '../../context/subscriptionContext';
+import { createSubscriptionPaymentRequest } from '../../api/payment';
 
 const formatPrice = (value) => {
   if (typeof value !== 'number') return '-';
@@ -41,7 +42,7 @@ const formatPrice = (value) => {
 };
 
 export default function SubscriptionPlansModal({ open, onClose }) {
-  const { plans, subscribe, calculatePrice, loading } = useSubscription();
+  const { plans, calculatePrice, loading } = useSubscription();
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
@@ -81,8 +82,29 @@ export default function SubscriptionPlansModal({ open, onClose }) {
 
     try {
       setSubmitting(true);
-      await subscribe({ planId: selectedPlanId, billingCycle });
-      handleClose();
+      const paymentResp = await createSubscriptionPaymentRequest({
+        planId: selectedPlanId,
+        billingCycle,
+      });
+
+      try {
+        const returnTo = window.location.pathname + window.location.search + window.location.hash;
+        sessionStorage.setItem('webpay:returnTo', returnTo);
+      } catch {
+        // ignore
+      }
+
+      // Redirigir a Webpay (form POST)
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = paymentResp.data.url;
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'token_ws';
+      tokenInput.value = paymentResp.data.token;
+      form.appendChild(tokenInput);
+      document.body.appendChild(form);
+      form.submit();
     } catch (e) {
       setSubmitting(false);
     }
@@ -147,14 +169,32 @@ export default function SubscriptionPlansModal({ open, onClose }) {
       const admins = parseInt(teamsCounts.cantidadAdmins, 10);
       const pros = parseInt(teamsCounts.cantidadProfessionals, 10);
       const asists = parseInt(teamsCounts.cantidadAssistants, 10);
-      await subscribe({
+      const paymentResp = await createSubscriptionPaymentRequest({
         planId: teamsPlan._id,
         cantidadAdmins: Number.isNaN(admins) || admins < 1 ? 1 : admins,
         cantidadProfessionals: Number.isNaN(pros) ? 0 : pros,
         cantidadAssistants: Number.isNaN(asists) ? 0 : asists,
         billingCycle,
       });
-      handleClose();
+
+      try {
+        const returnTo = window.location.pathname + window.location.search + window.location.hash;
+        sessionStorage.setItem('webpay:returnTo', returnTo);
+      } catch {
+        // ignore
+      }
+
+      // Redirigir a Webpay (form POST)
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = paymentResp.data.url;
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'token_ws';
+      tokenInput.value = paymentResp.data.token;
+      form.appendChild(tokenInput);
+      document.body.appendChild(form);
+      form.submit();
     } catch (e) {
       setSubmitting(false);
     }

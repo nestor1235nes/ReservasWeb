@@ -1,25 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   Button,
   Typography,
-  CircularProgress
+  CircularProgress,
+  IconButton,
+  Stack,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CloseIcon from '@mui/icons-material/Close';
 import { confirmPaymentRequest, getPaymentStatusRequest } from '../api/payment';
+import { useSubscription } from '../context/subscriptionContext';
 
 const PaymentConfirmPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { loadCurrent: loadSubscriptionCurrent } = useSubscription();
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(true);
   const [result, setResult] = useState(null);
+  const confirmInFlightRef = useRef(false);
+
+  const tokenWs = searchParams.get('token_ws');
+
+  const isSubscriptionPayment = (data) => {
+    // Para suscripción el backend retorna `scope` y `subscription`.
+    // Para reservas retorna `reserva`.
+    return !!data?.success && (!!data?.subscription || (data?.scope === 'USER' || data?.scope === 'SUCURSAL'));
+  };
 
   useEffect(() => {
     let pollingInterval = null;
@@ -61,22 +74,25 @@ const PaymentConfirmPage = () => {
     };
 
     const confirm = async () => {
-      const token = searchParams.get('token_ws');
-      if (!token) {
+      if (!tokenWs) {
         setResult({ success: false, message: 'Token inválido' });
         setLoading(false);
         return;
       }
 
+      if (confirmInFlightRef.current) return;
+      confirmInFlightRef.current = true;
+
       try {
         // Primer intento de commit/confirmación
-        const res = await confirmPaymentRequest(token);
+        const res = await confirmPaymentRequest(tokenWs);
 
         // Si backend indica éxito, mostrar inmediatamente
         if (res.data?.success) {
           setResult(res.data);
           setLoading(false);
           setOpen(true);
+          try { await loadSubscriptionCurrent(); } catch {}
           return;
         }
 
@@ -95,11 +111,12 @@ const PaymentConfirmPage = () => {
           while (retry < maxRetry) {
             retry += 1;
             try {
-              const retryRes = await confirmPaymentRequest(token);
+              const retryRes = await confirmPaymentRequest(tokenWs);
               if (retryRes.data?.success) {
                 setResult(retryRes.data);
                 setLoading(false);
                 setOpen(true);
+                try { await loadSubscriptionCurrent(); } catch {}
                 return;
               }
               const rId = retryRes.data?.reserva?._id;
@@ -134,11 +151,12 @@ const PaymentConfirmPage = () => {
         while (retry < maxRetry) {
           retry += 1;
           try {
-            const retryRes = await confirmPaymentRequest(token);
+            const retryRes = await confirmPaymentRequest(tokenWs);
             if (retryRes.data?.success) {
               setResult(retryRes.data);
               setLoading(false);
               setOpen(true);
+              try { await loadSubscriptionCurrent(); } catch {}
               return;
             }
             const rId = retryRes.data?.reserva?._id;
@@ -157,6 +175,8 @@ const PaymentConfirmPage = () => {
         setResult({ success: false, message: err?.response?.data?.message || 'Error de red' });
         setLoading(false);
         setOpen(true);
+      } finally {
+        confirmInFlightRef.current = false;
       }
     };
 
@@ -165,57 +185,164 @@ const PaymentConfirmPage = () => {
     return () => {
       if (pollingInterval) clearInterval(pollingInterval);
     };
-  }, [searchParams]);
+  }, [tokenWs, loadSubscriptionCurrent]);
 
   const handleClose = () => {
+    // Evitar que se cierre mientras está confirmando (consistencia con otros modales)
+    if (loading) return;
     setOpen(false);
-    // Redirect to home when modal is closed (fallback)
-    navigate('/', { replace: true, state: { paymentResult: result } });
+    // Redirect when modal is closed (volver al contexto previo si existe)
+    let returnTo = null;
+    try {
+      returnTo = sessionStorage.getItem('webpay:returnTo');
+      sessionStorage.removeItem('webpay:returnTo');
+    } catch {
+      // ignore
+    }
+
+    const target = isSubscriptionPayment(result)
+      ? '/perfil'
+      : (returnTo || '/');
+
+    // No pasar paymentResult al destino para evitar doble-modal (HomePageNew/HomePage)
+    navigate(target, { replace: true });
   };
 
-  // When we have a final result and loading finished, redirect to home and pass the result
-  useEffect(() => {
-    if (!loading && result) {
-      navigate('/', { state: { paymentResult: result } });
-    }
-  }, [loading, result, navigate]);
-
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-      <DialogTitle>
-        {loading ? 'Confirmando pago...' : result?.success ? 'Pago Exitoso' : 'Pago Fallido'}
-      </DialogTitle>
-      <DialogContent dividers>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      fullWidth
+      maxWidth="sm"
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          overflow: 'hidden',
+        },
+      }}
+    >
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+          color: 'white',
+          px: 3,
+          py: 2.5,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box>
+          <Typography variant="h6" fontWeight={800}>
+            {loading ? 'Confirmando pago...' : result?.success ? 'Pago Exitoso' : 'Pago Fallido'}
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.9 }}>
+            {isSubscriptionPayment(result)
+              ? 'Al finalizar te llevaremos a tu perfil.'
+              : 'Al finalizar te llevaremos al inicio.'}
+          </Typography>
+        </Box>
+        <IconButton onClick={handleClose} sx={{ color: 'white' }} disabled={loading}>
+          <CloseIcon />
+        </IconButton>
+      </Box>
+
+      <DialogContent sx={{ p: 3, backgroundColor: '#f8fafc' }}>
         {loading ? (
-          <Box display="flex" alignItems="center" justifyContent="center" p={3}>
+          <Stack spacing={2} alignItems="center" justifyContent="center" sx={{ py: 4 }}>
             <CircularProgress />
-          </Box>
-        ) : result?.success ? (
-          <Box textAlign="center">
-            <CheckCircleOutlineIcon color="success" sx={{ fontSize: 64 }} />
-            <Typography variant="body1" mt={2}>
-              {result?.message || 'El pago fue procesado correctamente.'}
+            <Typography variant="body2" color="text.secondary">
+              Esto puede tardar unos segundos…
             </Typography>
-            {result?.transaction && (
-              <Box mt={2} textAlign="left">
-                <Typography variant="subtitle2">Detalles:</Typography>
-                <Typography variant="body2">Código autorización: {result.transaction.authorization_code}</Typography>
-                <Typography variant="body2">Monto: ${result.transaction.amount?.toLocaleString()}</Typography>
-                <Typography variant="body2">Fecha: {new Date(result.transaction.transaction_date).toLocaleString()}</Typography>
+          </Stack>
+        ) : result?.success ? (
+          <Box
+            sx={{
+              backgroundColor: 'white',
+              borderRadius: 3,
+              p: 3,
+              border: '1px solid rgba(0,0,0,0.06)',
+            }}
+          >
+            <Stack spacing={2} alignItems="center">
+              <Box
+                sx={{
+                  width: 84,
+                  height: 84,
+                  borderRadius: 999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(135deg, rgba(37, 150, 190, 0.12) 0%, rgba(33, 203, 230, 0.12) 100%)',
+                }}
+              >
+                <CheckCircleOutlineIcon sx={{ fontSize: 56, color: '#2596be' }} />
               </Box>
-            )}
+              <Typography variant="body1" fontWeight={700} textAlign="center">
+                {result?.message || 'El pago fue procesado correctamente.'}
+              </Typography>
+
+              {result?.transaction && (
+                <Box sx={{ width: '100%', mt: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Detalles
+                  </Typography>
+                  <Typography variant="body2">
+                    Código autorización: {result.transaction.authorization_code || '-'}
+                  </Typography>
+                  <Typography variant="body2">
+                    Monto: {result.transaction.amount != null ? `$${Number(result.transaction.amount).toLocaleString('es-CL')}` : '-'}
+                  </Typography>
+                  <Typography variant="body2">
+                    Fecha: {result.transaction.transaction_date ? new Date(result.transaction.transaction_date).toLocaleString() : '-'}
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
           </Box>
         ) : (
-          <Box textAlign="center">
-            <ErrorOutlineIcon color="error" sx={{ fontSize: 64 }} />
-            <Typography variant="body1" mt={2}>
-              {result?.message || 'Hubo un problema procesando el pago.'}
-            </Typography>
+          <Box
+            sx={{
+              backgroundColor: 'white',
+              borderRadius: 3,
+              p: 3,
+              border: '1px solid rgba(0,0,0,0.06)',
+            }}
+          >
+            <Stack spacing={2} alignItems="center">
+              <Box
+                sx={{
+                  width: 84,
+                  height: 84,
+                  borderRadius: 999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(211, 47, 47, 0.10)',
+                }}
+              >
+                <ErrorOutlineIcon sx={{ fontSize: 56, color: '#d32f2f' }} />
+              </Box>
+              <Typography variant="body1" fontWeight={700} textAlign="center">
+                {result?.message || 'Hubo un problema procesando el pago.'}
+              </Typography>
+            </Stack>
           </Box>
         )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} variant="contained">
+      <DialogActions sx={{ px: 3, py: 2, backgroundColor: '#f8fafc' }}>
+        <Button
+          onClick={handleClose}
+          variant="contained"
+          disabled={loading}
+          sx={{
+            textTransform: 'none',
+            borderRadius: 999,
+            px: 3,
+            backgroundColor: '#2596be',
+            '&:hover': { backgroundColor: '#1e7a9e' },
+          }}
+        >
           Cerrar
         </Button>
       </DialogActions>

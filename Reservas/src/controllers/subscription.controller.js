@@ -160,8 +160,27 @@ export const calculatePrice = async (req, res) => {
 // Suscribir a un plan
 export const subscribe = async (req, res) => {
     try {
-        const { planId, cantidadAdmins, cantidadProfessionals, cantidadAssistants, paymentMethodId } = req.body;
-        const userId = req.user.id;
+        // Bloqueo: no permitir activar suscripciones sin pago.
+        // El flujo correcto es iniciar Webpay en /api/transbank/create-subscription
+        // y activar la suscripción al confirmar el pago.
+        return res.status(400).json({
+            message: "Pago requerido. Para contratar un plan debes iniciar Webpay.",
+            requiresPayment: true,
+            nextAction: {
+                endpoint: "/api/transbank/create-subscription",
+                method: "POST",
+                body: {
+                    planId: "<planId>",
+                    billingCycle: "monthly|yearly",
+                    cantidadAdmins: "(solo Teams)",
+                    cantidadProfessionals: "(solo Teams)",
+                    cantidadAssistants: "(solo Teams)",
+                },
+            },
+        });
+
+        // const { planId, cantidadAdmins, cantidadProfessionals, cantidadAssistants, paymentMethodId } = req.body;
+        // const userId = req.user.id;
 
         const plan = await suscriptionPlan.findById(planId);
         if (!plan || !plan.isActive) {
@@ -276,6 +295,21 @@ export const subscribe = async (req, res) => {
 // Upgrade o downgrade de plan
 export const changePlan = async (req, res) => {
     try {
+        // Bloqueo: no permitir cambios de plan sin pago.
+        // Usa el flujo Webpay /api/transbank/create-subscription y activa al confirmar.
+        return res.status(400).json({
+            message: "Pago requerido. Para cambiar de plan debes iniciar Webpay.",
+            requiresPayment: true,
+            nextAction: {
+                endpoint: "/api/transbank/create-subscription",
+                method: "POST",
+                body: {
+                    planId: "<newPlanId>",
+                    billingCycle: "monthly|yearly",
+                },
+            },
+        });
+
         const { newPlanId } = req.body;
         const userId = req.user.id;
 
@@ -514,6 +548,21 @@ export const checkSubscriptionStatus = async (req, res) => {
 // Renovar suscripción
 export const renewSubscription = async (req, res) => {
     try {
+        // Bloqueo: no permitir renovar sin pago.
+        // Usa el flujo Webpay /api/transbank/create-subscription y activa al confirmar.
+        return res.status(400).json({
+            message: "Pago requerido. Para renovar tu suscripción debes iniciar Webpay.",
+            requiresPayment: true,
+            nextAction: {
+                endpoint: "/api/transbank/create-subscription",
+                method: "POST",
+                body: {
+                    planId: "<planId>",
+                    billingCycle: "monthly|yearly",
+                },
+            },
+        });
+
         const { paymentMethodId } = req.body;
         const userId = req.user.id;
         const user = await User.findById(userId).populate("suscriptionPlan sucursal");

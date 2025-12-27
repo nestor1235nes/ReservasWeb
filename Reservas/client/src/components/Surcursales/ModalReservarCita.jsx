@@ -363,6 +363,12 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
 
         const amount = Number(selectedService.precio || selectedService.price || selectedService.monto || 0);
         if (datosPreseleccionados?.publicFlow) {
+          try {
+            const returnTo = window.location.pathname + window.location.search + window.location.hash;
+            sessionStorage.setItem('webpay:returnTo', returnTo);
+          } catch {
+            // ignore
+          }
           // Iniciar transacción pública sin crear paciente ni reserva todavía
           const payload = {
             amount,
@@ -389,6 +395,12 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           document.body.appendChild(form);
           form.submit();
         } else {
+          try {
+            const returnTo = window.location.pathname + window.location.search + window.location.hash;
+            sessionStorage.setItem('webpay:returnTo', returnTo);
+          } catch {
+            // ignore
+          }
           // Flujo autenticado actual: crear reserva, luego iniciar pago
           const createRes = await createReservaRequest(paciente.rut, reserva);
           const reservaCreada = createRes.data;

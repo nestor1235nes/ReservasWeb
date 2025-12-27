@@ -3,11 +3,18 @@ import { useAlert } from "../../context/AlertContext";
 import { useSucursal } from "../../context/sucursalContext";
 import { Card, CardContent, Typography, TextField, Button, Box, Alert } from "@mui/material";
 import { useNavigate } from "react-router-dom"; 
+import MapboxAddressField from "../ui/MapboxAddressField";
 
 function RegisterEmpresa() {
   const [formData, setFormData] = useState({
     nombre: "",
     direccion: "",
+    mapsProvider: 'mapbox',
+    mapsPlaceId: "",
+    mapsFormattedAddress: "",
+    mapsLat: "",
+    mapsLng: "",
+    mapsUrl: "",
     telefono: "",
     email: "",
     descripcion: "",
@@ -44,6 +51,14 @@ function RegisterEmpresa() {
           const sucursalData = {
             nombre: formData.nombre,
             direccion: formData.direccion,
+            maps: {
+              provider: formData.mapsProvider || 'mapbox',
+              placeId: formData.mapsPlaceId,
+              formattedAddress: formData.mapsFormattedAddress || formData.direccion,
+              lat: formData.mapsLat === '' ? undefined : Number(formData.mapsLat),
+              lng: formData.mapsLng === '' ? undefined : Number(formData.mapsLng),
+              url: formData.mapsUrl,
+            },
             descripcion: formData.descripcion,
             contacto: {
               celulares: [formData.celular],
@@ -85,16 +100,30 @@ function RegisterEmpresa() {
               helperText={formErrors.nombre}
               autoFocus
             />
-            <TextField
+            <MapboxAddressField
               label="Dirección"
-              type="text"
-              name="direccion"
-              fullWidth
-              margin="normal"
               value={formData.direccion}
-              onChange={handleChange}
-              error={!!formErrors.direccion}
-              helperText={formErrors.direccion}
+              onChange={(e) => {
+                setFormData((prev) => ({ ...prev, direccion: e?.target?.value ?? '' }));
+              }}
+              onPlaceSelected={(p) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  direccion: p?.formattedAddress || prev.direccion,
+                  mapsProvider: p?.provider || 'mapbox',
+                  mapsPlaceId: p?.placeId || '',
+                  mapsFormattedAddress: p?.formattedAddress || '',
+                  mapsLat: p?.lat ?? '',
+                  mapsLng: p?.lng ?? '',
+                  mapsUrl: p?.url || '',
+                }));
+              }}
+              textFieldProps={{
+                name: 'direccion',
+                margin: 'normal',
+                error: !!formErrors.direccion,
+                helperText: formErrors.direccion,
+              }}
             />
             <TextField
               label="Teléfono fijo"

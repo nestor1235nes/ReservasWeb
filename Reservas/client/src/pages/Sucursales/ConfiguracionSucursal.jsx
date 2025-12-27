@@ -20,6 +20,7 @@ import { useAlert } from '../../context/AlertContext';
 import FullPageLoader from '../../components/ui/FullPageLoader';
 import axios from '../../api/axios';
 import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
+import MapboxAddressField from '../../components/ui/MapboxAddressField';
 
 const splitCsv = (value) => {
   if (!value) return [];
@@ -58,6 +59,19 @@ export default function ConfiguracionSucursal() {
     brandPrimary: '#2596be',
     brandSecondary: '#21cbe6',
     direccion: '',
+    pendingDireccion: '',
+    mapsProvider: 'mapbox',
+    mapsPlaceId: '',
+    mapsFormattedAddress: '',
+    mapsLat: '',
+    mapsLng: '',
+    mapsUrl: '',
+    pendingMapsProvider: 'mapbox',
+    pendingMapsPlaceId: '',
+    pendingMapsFormattedAddress: '',
+    pendingMapsLat: '',
+    pendingMapsLng: '',
+    pendingMapsUrl: '',
     descripcion: '',
     contactoEmail: '',
     contactoCelulares: '',
@@ -82,7 +96,20 @@ export default function ConfiguracionSucursal() {
       logo: s?.logo || '',
       brandPrimary: s?.publicBrand?.primary || '#2596be',
       brandSecondary: s?.publicBrand?.secondary || '#21cbe6',
-      direccion: s?.direccion || '',
+      direccion: s?.direccion || s?.maps?.formattedAddress || '',
+      pendingDireccion: '',
+      mapsProvider: s?.maps?.provider || 'mapbox',
+      mapsPlaceId: s?.maps?.placeId || '',
+      mapsFormattedAddress: s?.maps?.formattedAddress || '',
+      mapsLat: ((s?.maps?.lat) ?? '') === 0 ? 0 : ((s?.maps?.lat) ?? ''),
+      mapsLng: ((s?.maps?.lng) ?? '') === 0 ? 0 : ((s?.maps?.lng) ?? ''),
+      mapsUrl: s?.maps?.url || '',
+      pendingMapsProvider: 'mapbox',
+      pendingMapsPlaceId: '',
+      pendingMapsFormattedAddress: '',
+      pendingMapsLat: '',
+      pendingMapsLng: '',
+      pendingMapsUrl: '',
       descripcion: s?.descripcion || '',
       contactoEmail: s?.contacto?.email || '',
       contactoCelulares: joinCsv(s?.contacto?.celulares || []),
@@ -112,9 +139,11 @@ export default function ConfiguracionSucursal() {
       }
     };
 
+    // Esperar a que el usuario esté rehidratado para evitar 401/estado vacío.
+    if (!user) return;
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getSucursal]);
+  }, [getSucursal, user]);
 
   const onChange = (key) => (e) => {
     const next = e?.target?.value ?? '';
@@ -122,6 +151,37 @@ export default function ConfiguracionSucursal() {
   };
 
   const buildPayload = () => {
+    const hasPendingSelection = Boolean(
+      (form.pendingMapsPlaceId || '').trim() ||
+      (form.pendingMapsUrl || '').trim() ||
+      (form.pendingMapsFormattedAddress || '').trim() ||
+      form.pendingMapsLat !== '' ||
+      form.pendingMapsLng !== ''
+    );
+
+    const pendingRaw = (form.pendingMapsFormattedAddress || '').trim();
+
+    const currentRaw = (form.direccion || form.mapsFormattedAddress || '').trim();
+    const direccionFinal = (hasPendingSelection ? pendingRaw : currentRaw).trim();
+
+    const mapsPayload = hasPendingSelection
+      ? {
+          provider: form.pendingMapsProvider || 'mapbox',
+          placeId: form.pendingMapsPlaceId,
+          formattedAddress: (form.pendingMapsFormattedAddress || direccionFinal).trim(),
+          lat: form.pendingMapsLat === '' ? undefined : Number(form.pendingMapsLat),
+          lng: form.pendingMapsLng === '' ? undefined : Number(form.pendingMapsLng),
+          url: form.pendingMapsUrl,
+        }
+      : {
+          provider: form.mapsProvider || 'mapbox',
+          placeId: form.mapsPlaceId,
+          formattedAddress: (form.mapsFormattedAddress || direccionFinal).trim(),
+          lat: form.mapsLat === '' ? undefined : Number(form.mapsLat),
+          lng: form.mapsLng === '' ? undefined : Number(form.mapsLng),
+          url: form.mapsUrl,
+        };
+
     return {
       nombre: form.nombre,
       logo: form.logo,
@@ -129,7 +189,8 @@ export default function ConfiguracionSucursal() {
         primary: form.brandPrimary,
         secondary: form.brandSecondary,
       },
-      direccion: form.direccion,
+      direccion: direccionFinal,
+      maps: mapsPayload,
       descripcion: form.descripcion,
       contacto: {
         email: form.contactoEmail,
@@ -412,10 +473,30 @@ export default function ConfiguracionSucursal() {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Dirección"
+                  label="Dirección actual"
                   value={form.direccion}
-                  onChange={onChange('direccion')}
+                  disabled
+                  helperText={form.direccion ? undefined : 'Aún no hay una dirección configurada.'}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <MapboxAddressField
+                  label="Configurar nueva dirección"
+                  value={form.pendingDireccion}
+                  onChange={onChange('pendingDireccion')}
                   disabled={!canEdit || loading || saving}
+                  onPlaceSelected={(p) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      pendingDireccion: p?.formattedAddress || prev.pendingDireccion,
+                      pendingMapsProvider: p?.provider || 'mapbox',
+                      pendingMapsPlaceId: p?.placeId || '',
+                      pendingMapsFormattedAddress: p?.formattedAddress || '',
+                      pendingMapsLat: p?.lat ?? '',
+                      pendingMapsLng: p?.lng ?? '',
+                      pendingMapsUrl: p?.url || '',
+                    }));
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>

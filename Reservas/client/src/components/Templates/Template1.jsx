@@ -11,6 +11,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import Logo from '../../assets/LOGO.png';
+import LocationSection from './LocationSection';
 
 export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate, brand }) {
   const BRAND = {
@@ -98,6 +99,7 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                       </List>
                     </AccordionDetails>
                   </Accordion>
+
                   <Typography fontWeight={500} mb={1}>Selecciona fecha</Typography>
                   <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
                     <DatePicker
@@ -229,6 +231,8 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
             </Grid>
           </CardContent>
         </Card>
+
+        <LocationSection prof={prof} brand={BRAND} />
       </Container>
     </Box>
   );

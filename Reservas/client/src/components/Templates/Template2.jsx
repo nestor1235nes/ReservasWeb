@@ -11,6 +11,7 @@ import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import LocationSection from './LocationSection';
 
 export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate, brand }) {
   const BRAND = {
@@ -98,6 +99,7 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
                   </List>
                 </AccordionDetails>
               </Accordion>
+
               <Box>
                 <Typography fontWeight={700} mb={1}>Selecciona fecha</Typography>
                 <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: '#f8fbff', border: '1px dashed #d7ebf5' }}>
@@ -185,6 +187,8 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
             </Stack>
           </CardContent>
         </Card>
+
+        <LocationSection prof={prof} brand={BRAND} />
       </Container>
     </Box>
   );

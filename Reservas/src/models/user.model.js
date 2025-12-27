@@ -65,6 +65,25 @@ const userSchema = new mongoose.Schema({
     direccion: {
         type: String,
     },
+
+    // Ubicación normalizada de Google Maps (Places)
+    googleMaps: {
+        placeId: { type: String, default: '' },
+        formattedAddress: { type: String, default: '' },
+        lat: { type: Number },
+        lng: { type: Number },
+        url: { type: String, default: '' },
+    },
+
+    // Ubicación normalizada (Mapbox / proveedor genérico)
+    maps: {
+        provider: { type: String, default: '' },
+        placeId: { type: String, default: '' },
+        formattedAddress: { type: String, default: '' },
+        lat: { type: Number },
+        lng: { type: Number },
+        url: { type: String, default: '' },
+    },
     fotoPerfil: {
         type: String,
     },

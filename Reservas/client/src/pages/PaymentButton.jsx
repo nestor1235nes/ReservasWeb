@@ -26,6 +26,13 @@ const PaymentButton = ({ reserva, amount = 50000, onPaymentSuccess }) => {
   const handlePayment = async () => {
     try {
       setLoading(true);
+
+      try {
+        const returnTo = window.location.pathname + window.location.search + window.location.hash;
+        sessionStorage.setItem('webpay:returnTo', returnTo);
+      } catch {
+        // ignore
+      }
       
       const response = await createPaymentRequest(
         reserva._id, 

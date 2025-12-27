@@ -14,6 +14,7 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  Link,
   Stack,
   TextField,
   Typography,
@@ -33,6 +34,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getProfesionalesSucursalRequest, getSucursalesRequest } from '../api/sucursales';
 import { resolveAssetUrl } from '../utils/resolveAssetUrl';
 import TopAppBar from '../components/ui/TopAppBar';
+
+const buildMapboxStaticUrl = ({ token, lat, lng, width = 980, height = 520, zoom = 14, pinColor = '111111' }) => {
+  if (!token) return '';
+  if (lat == null || lng == null) return '';
+
+  const overlay = `pin-s+${pinColor}(${lng},${lat})`;
+  const center = `${lng},${lat},${zoom}`;
+  const size = `${width}x${height}`;
+  return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlay}/${center}/${size}@2x?access_token=${encodeURIComponent(token)}`;
+};
 
 export default function PublicSucursalProfesionalesPage() {
   const theme = useTheme();
@@ -142,6 +153,20 @@ export default function PublicSucursalProfesionalesPage() {
     if (/^https?:\/\//i.test(raw)) return raw;
     return `https://${raw}`;
   };
+
+  const locationData = useMemo(() => {
+    const formattedAddress =
+      sucursal?.maps?.formattedAddress ||
+      sucursal?.direccion ||
+      '';
+    const lat = sucursal?.maps?.lat ?? null;
+    const lng = sucursal?.maps?.lng ?? null;
+    const mapsUrl = sucursal?.maps?.url || '';
+    return { formattedAddress, lat, lng, mapsUrl };
+  }, [sucursal]);
+
+  const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.VITE_MAPBOX_TOKEN;
+  const mapImg = buildMapboxStaticUrl({ token: mapboxToken, lat: locationData.lat, lng: locationData.lng, pinColor: '111111' });
 
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
@@ -514,6 +539,37 @@ export default function PublicSucursalProfesionalesPage() {
             </Stack>
           </CardContent>
         </Card>
+
+        {/* Mapa al final */}
+        {Boolean(locationData.formattedAddress) && Boolean(mapImg) && (
+          <Card sx={{ mt: 2, borderRadius: 3, boxShadow: 2, overflow: 'hidden' }}>
+            <Box
+              component="img"
+              alt="Mapa"
+              src={mapImg}
+              sx={{ width: '100%', height: { xs: 240, sm: 320 }, objectFit: 'cover', display: 'block', bgcolor: '#f8fbff' }}
+            />
+            <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+              <Stack spacing={1}>
+                <Typography fontWeight={900}>¿Cómo llegar?</Typography>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                  <Typography color="text.secondary">{locationData.formattedAddress}</Typography>
+                  {locationData.mapsUrl && (
+                    <Link
+                      href={locationData.mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      underline="hover"
+                      sx={{ color: brand.primary, fontWeight: 800, whiteSpace: 'nowrap' }}
+                    >
+                      Cómo llegar
+                    </Link>
+                  )}
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
       </Container>
     </Box>
   );

@@ -29,6 +29,7 @@ import ModalServicio from '../components/Modales/ModalServicio';
 import MensajesAutomaticos from "../components/MensajesAutomaticos";
 import { useAlert } from "../context/AlertContext";
 import { useSubscription } from "../context/subscriptionContext";
+import MapboxAddressField from "../components/ui/MapboxAddressField";
 import SubscriptionPlansModal from '../components/Modales/SubscriptionPlansModal';
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
@@ -816,28 +817,43 @@ export function PerfilPage() {
   };
 
 
-  // Estado inicial normalizado
-  const [formData, setFormData] = useState({
-    username: user.username || "",
-    celular: user.celular || "",
-    direccion: user.direccion || user.sucursal?.direccion || "",
-    descripcion: user.descripcion || "",
-    especialidad: user.especialidad || "",
-    especialidad_principal: user.especialidad_principal || "",
-    experiencia: user.experiencia || "",
-    cita_presencial: user.cita_presencial || false,
-    cita_virtual: user.cita_virtual || false,
-    cita_domicilio: user.cita_domicilio || false,
-    email: user.email || "",
-    googleEmail: user.googleEmail || "",
-    timetable: normalizeTimetable(user.timetable),
-    adminAtiendePersonas: user.adminAtiendePersonas || false,
-    // Campos WhatsApp / Green API
-    idInstance: user.idInstance || "",
-    apiTokenInstance: user.apiTokenInstance || "",
-    defaultMessage: user.defaultMessage || "",
-    reminderMessage: user.reminderMessage || ""
+  const buildFormData = (u) => ({
+    username: u?.username || "",
+    celular: u?.celular || "",
+    direccion: u?.direccion || u?.maps?.formattedAddress || u?.sucursal?.direccion || u?.sucursal?.maps?.formattedAddress || "",
+    mapsProvider: u?.maps?.provider || u?.sucursal?.maps?.provider || 'mapbox',
+    mapsPlaceId: u?.maps?.placeId || u?.sucursal?.maps?.placeId || "",
+    mapsFormattedAddress: u?.maps?.formattedAddress || u?.sucursal?.maps?.formattedAddress || "",
+    mapsLat: ((u?.maps?.lat ?? u?.sucursal?.maps?.lat) ?? '') === 0 ? 0 : ((u?.maps?.lat ?? u?.sucursal?.maps?.lat) ?? ''),
+    mapsLng: ((u?.maps?.lng ?? u?.sucursal?.maps?.lng) ?? '') === 0 ? 0 : ((u?.maps?.lng ?? u?.sucursal?.maps?.lng) ?? ''),
+    mapsUrl: u?.maps?.url || u?.sucursal?.maps?.url || "",
+    descripcion: u?.descripcion || "",
+    especialidad: u?.especialidad || "",
+    especialidad_principal: u?.especialidad_principal || "",
+    experiencia: u?.experiencia || "",
+    cita_presencial: u?.cita_presencial || false,
+    cita_virtual: u?.cita_virtual || false,
+    cita_domicilio: u?.cita_domicilio || false,
+    email: u?.email || "",
+    googleEmail: u?.googleEmail || "",
+    timetable: normalizeTimetable(u?.timetable),
+    adminAtiendePersonas: u?.adminAtiendePersonas || false,
+    idInstance: u?.idInstance || "",
+    apiTokenInstance: u?.apiTokenInstance || "",
+    defaultMessage: u?.defaultMessage || "",
+    reminderMessage: u?.reminderMessage || ""
   });
+
+  // Estado del formulario (se rehidrata cuando cambia `user`)
+  const [formData, setFormData] = useState(() => buildFormData(user));
+
+  useEffect(() => {
+    if (!user) return;
+    // No pisar cambios mientras está editando
+    if (editProfileMode) return;
+    setFormData(buildFormData(user));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, editProfileMode]);
 
   const timetableOverlaps = findTimetableOverlaps(formData.timetable);
   const overlapsByIndex = timetableOverlaps.reduce((acc, o) => {
@@ -941,13 +957,33 @@ export function PerfilPage() {
         return;
       }
       const isSucursalMember = !!(user?.sucursal?._id || user?.sucursal);
-      const payload = { ...formData };
+      const direccionFinal = (formData.direccion || formData.mapsFormattedAddress || '').trim();
+      const payload = {
+        ...formData,
+        direccion: direccionFinal,
+        maps: {
+          provider: formData.mapsProvider || 'mapbox',
+          placeId: formData.mapsPlaceId,
+          formattedAddress: (formData.mapsFormattedAddress || direccionFinal).trim(),
+          lat: formData.mapsLat === '' ? undefined : Number(formData.mapsLat),
+          lng: formData.mapsLng === '' ? undefined : Number(formData.mapsLng),
+          url: formData.mapsUrl,
+        },
+      };
       if (isSucursalMember) {
         delete payload.idInstance;
         delete payload.apiTokenInstance;
         delete payload.defaultMessage;
         delete payload.reminderMessage;
       }
+
+      // No enviar campos auxiliares del formulario
+      delete payload.mapsPlaceId;
+      delete payload.mapsFormattedAddress;
+      delete payload.mapsLat;
+      delete payload.mapsLng;
+      delete payload.mapsUrl;
+      delete payload.mapsProvider;
 
       await updatePerfil(user.id || user._id, payload);
 
@@ -970,26 +1006,7 @@ export function PerfilPage() {
     }
   };
   const handleCancelProfileClick = () => {
-    setFormData({
-      username: user.username || "",
-      celular: user.celular || "",
-      direccion: user.direccion || user.sucursal?.direccion || "",
-      descripcion: user.descripcion || "",
-      especialidad: user.especialidad || "",
-      especialidad_principal: user.especialidad_principal || "",
-      experiencia: user.experiencia || "",
-      cita_presencial: user.cita_presencial || false,
-      cita_virtual: user.cita_virtual || false,
-      cita_domicilio: user.cita_domicilio || false,
-      email: user.email || "",
-      googleEmail: user.googleEmail || "",
-      timetable: normalizeTimetable(user.timetable),
-      adminAtiendePersonas: user.adminAtiendePersonas || false,
-      idInstance: user.idInstance || "",
-      apiTokenInstance: user.apiTokenInstance || "",
-      defaultMessage: user.defaultMessage || "",
-      reminderMessage: user.reminderMessage || ""
-    });
+    setFormData(buildFormData(user));
     setEditProfileMode(false);
     showAlert('info', 'Cambios descartados.');
   };
@@ -1352,14 +1369,47 @@ export function PerfilPage() {
                   disabled={!editProfileMode}
                 />
                 {!esAsistente && (
-                  <TextField
-                    label="Dirección"
-                    name="direccion"
-                    value={formData.direccion}
-                    onChange={handleChange}
-                    fullWidth
-                    disabled={!editProfileMode}
-                  />
+                  <>
+                    {!editProfileMode ? (
+                      <Box
+                        sx={{
+                          border: '1px solid rgba(0,0,0,0.12)',
+                          borderRadius: 1,
+                          px: 2,
+                          py: 1.5,
+                          bgcolor: 'background.paper',
+                        }}
+                      >
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                          Dirección
+                        </Typography>
+                        <Typography>
+                          {formData.direccion ? formData.direccion : 'Sin dirección configurada'}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <MapboxAddressField
+                        label="Dirección"
+                        value={formData.direccion}
+                        onChange={(e) => {
+                          setFormData((prev) => ({ ...prev, direccion: e?.target?.value ?? '' }));
+                        }}
+                        disabled={false}
+                        onPlaceSelected={(p) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            direccion: p?.formattedAddress || prev.direccion,
+                            mapsProvider: p?.provider || 'mapbox',
+                            mapsPlaceId: p?.placeId || '',
+                            mapsFormattedAddress: p?.formattedAddress || '',
+                            mapsLat: p?.lat ?? '',
+                            mapsLng: p?.lng ?? '',
+                            mapsUrl: p?.url || '',
+                          }));
+                        }}
+                      />
+                    )}
+                  </>
                 )}
                 <TextField
                   label="Correo electrónico"
