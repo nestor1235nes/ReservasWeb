@@ -101,11 +101,11 @@ export default function GestionarAsistentes() {
   };
 
   // Abre el modal de confirmación
-        <Avatar
-          src={asistente.fotoPerfil ? resolveAssetUrl(asistente.fotoPerfil) : undefined}
+  const handleOpenConfirm = (asistenteId, asistenteNombre) => {
+    setConfirmDialog({
       open: true,
       asistenteId,
-      asistenteNombre
+      asistenteNombre,
     });
   };
 
