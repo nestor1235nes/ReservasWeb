@@ -1,13 +1,27 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ASSETS_BASE } from '../config';
 import { Box, IconButton, Dialog, Typography } from '@mui/material';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import axios from '../api/axios';
 
-const MostrarImagenes = ({ imagenes }) => {
+const isAbsoluteUrl = (s) => /^https?:\/\//i.test(String(s || ''));
+const isLegacyLocalPath = (s) => /^\/(imagenesPacientes|uploads)\//.test(String(s || ''));
+const isGcsObjectName = (s) => !isAbsoluteUrl(s) && !isLegacyLocalPath(s) && !String(s || '').startsWith('data:');
+
+const toDisplaySrc = (value) => {
+  const v = String(value || '');
+  if (!v) return '';
+  if (isAbsoluteUrl(v)) return v;
+  if (isLegacyLocalPath(v)) return `${ASSETS_BASE}${v}`;
+  return v; // objeto GCS pendiente de resolver
+};
+
+const MostrarImagenes = ({ imagenes, rut }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [openZoom, setOpenZoom] = useState(false);
+  const [resolved, setResolved] = useState([]);
 
   const handlePrev = () => {
     setCurrentIndex((prevIndex) => (prevIndex === 0 ? imagenes.length - 1 : prevIndex - 1));
@@ -34,6 +48,53 @@ const MostrarImagenes = ({ imagenes }) => {
     );
   }
 
+  const displayList = useMemo(() => {
+    const list = Array.isArray(imagenes) ? imagenes : [];
+    return list.map(toDisplaySrc);
+  }, [imagenes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const list = Array.isArray(imagenes) ? imagenes : [];
+      const needs = list.filter(isGcsObjectName);
+      if (!needs.length) {
+        if (!cancelled) setResolved(displayList);
+        return;
+      }
+
+      if (!rut) {
+        // Sin RUT no podemos autorizar/firmar; degradar a lo que haya
+        if (!cancelled) setResolved(displayList);
+        return;
+      }
+
+      try {
+        const res = await axios.post('/imagenesPacientes/signed-read', { rut, objects: needs });
+        const urls = Array.isArray(res?.data?.urls) ? res.data.urls : [];
+        const map = new Map();
+        needs.forEach((obj, idx) => map.set(String(obj), urls[idx] || ''));
+
+        const next = list.map((item) => {
+          if (!isGcsObjectName(item)) return toDisplaySrc(item);
+          return map.get(String(item)) || '';
+        });
+        if (!cancelled) setResolved(next);
+      } catch {
+        if (!cancelled) setResolved(displayList);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [imagenes, rut, displayList]);
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [imagenes]);
+
   return (
     <Box display="flex" justifyContent="center" alignItems="center" my={2}>
       {imagenes.length > 1 && (
@@ -42,7 +103,7 @@ const MostrarImagenes = ({ imagenes }) => {
         </IconButton>
       )}
       <img
-  src={`${ASSETS_BASE}${imagenes[currentIndex]}`}
+        src={resolved[currentIndex] || displayList[currentIndex] || ''}
         style={{ maxWidth: '100%', maxHeight: '200px', cursor: 'pointer' }}
         onClick={handleZoomOpen}
       />
@@ -52,7 +113,7 @@ const MostrarImagenes = ({ imagenes }) => {
         </IconButton>
       )}
       <Dialog open={openZoom} onClose={handleZoomClose} maxWidth="lg">
-  <img src={`${ASSETS_BASE}${imagenes[currentIndex]}`} style={{ width: '100%', height: 'auto' }} />
+        <img src={resolved[currentIndex] || displayList[currentIndex] || ''} style={{ width: '100%', height: 'auto' }} />
       </Dialog>
     </Box>
   );

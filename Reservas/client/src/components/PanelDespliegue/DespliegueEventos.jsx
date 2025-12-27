@@ -399,32 +399,34 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      
-      // Agregar el RUT del paciente ANTES de agregar los archivos
-      formData.append('rut', event.paciente.rut);
-      // Debug: RUT enviado
-      
-      // Agregar los archivos
-      uploadFiles.forEach((file, index) => {
-        formData.append('files', file);
-        // Debug: Archivo preparado
-      });
+      const rut = event?.paciente?.rut;
+      const filesMeta = uploadFiles.map((f) => ({ name: f?.name || 'imagen', type: f?.type || 'application/octet-stream', size: f?.size || 0 }));
+      const init = await axios.post('/imagenesPacientes/signed-upload', { rut, files: filesMeta });
+      const uploads = init?.data?.uploads;
+      if (!Array.isArray(uploads) || uploads.length !== uploadFiles.length) {
+        throw new Error('No se recibieron URLs de subida');
+      }
 
-      // Debug: FormData preparado para envío
+      await Promise.all(
+        uploads.map((u, idx) =>
+          fetch(u.uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': uploadFiles[idx]?.type || 'application/octet-stream' },
+            body: uploadFiles[idx],
+          }).then(async (r) => {
+            if (!r.ok) {
+              const txt = await r.text().catch(() => '');
+              throw new Error(`Error subiendo imagen (${r.status}): ${txt || 'falló'}`);
+            }
+          })
+        )
+      );
 
-      const response = await axios.post('/imagenesPacientes', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      // Debug: Respuesta del servidor recibida
-
-      if (response.data.urls) {
+      const objects = uploads.map((u) => u.object);
+      if (objects.length) {
         const targetCaseId = imagenesTargetClinicalCaseId;
         if (targetCaseId && String(targetCaseId) !== '__legacy__') {
-          const newCaseImagenes = [...(Array.isArray(archivosImagenes) ? archivosImagenes : []), ...response.data.urls];
+          const newCaseImagenes = [...(Array.isArray(archivosImagenes) ? archivosImagenes : []), ...objects];
           setArchivosImagenes(newCaseImagenes);
           // Actualizar la reserva/caso clínico con las nuevas imágenes
           await updateReserva(event.paciente.rut, {
@@ -433,7 +435,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             profesionalOriginal: event.profesional?._id || event.profesional?.id
           });
         } else {
-          const newImagenes = [...imagenes, ...response.data.urls];
+          const newImagenes = [...imagenes, ...objects];
           setImagenes(newImagenes);
           // Actualizar la reserva (legacy) con las nuevas imágenes
           await updateReserva(event.paciente.rut, {
@@ -901,7 +903,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                           justifyContent: 'center'
                         }}
                       >
-                        <MostrarImagenes key={String(archivosSelectedCaseId || 'none')} imagenes={archivosImagenes} />
+                        <MostrarImagenes key={String(archivosSelectedCaseId || 'none')} imagenes={archivosImagenes} rut={event?.paciente?.rut} />
                       </Box>
                     </Stack>
                   </Paper>

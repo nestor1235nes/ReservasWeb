@@ -31,7 +31,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import ProfesionalBusquedaHoras from '../ProfesionalBusquedaHoras';
 import ArrastraSeleccionaImagenes from '../ArratraSeleccionaImagenes';
-import axios from 'axios';
+import axios from '../../api/axios';
 import { ensureGoogleToken } from '../../googleCalendarConfig';
 // Iconos para el diseño profesional
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -87,6 +87,37 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
   const [cambiarDiaPrimera, setCambiarDiaPrimera] = useState(false);
   const [diaPrimeraCitaOverride, setDiaPrimeraCitaOverride] = useState(dayjs().format('YYYY-MM-DD'));
   const [reservaExistente, setReservaExistente] = useState(null);
+
+  const uploadPacienteImagenes = async (rut, selectedFiles) => {
+    const filesMeta = (selectedFiles || []).map((f) => ({
+      name: f?.name || 'imagen',
+      type: f?.type || 'application/octet-stream',
+      size: f?.size || 0,
+    }));
+
+    const init = await axios.post('/imagenesPacientes/signed-upload', { rut, files: filesMeta });
+    const uploads = init?.data?.uploads;
+    if (!Array.isArray(uploads) || uploads.length !== selectedFiles.length) {
+      throw new Error('No se recibieron URLs de subida');
+    }
+
+    await Promise.all(
+      uploads.map((u, idx) =>
+        fetch(u.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': selectedFiles[idx]?.type || 'application/octet-stream' },
+          body: selectedFiles[idx],
+        }).then(async (r) => {
+          if (!r.ok) {
+            const txt = await r.text().catch(() => '');
+            throw new Error(`Error subiendo imagen (${r.status}): ${txt || 'falló'}`);
+          }
+        })
+      )
+    );
+
+    return uploads.map((u) => u.object);
+  };
 
   useEffect(() => {
     if (user && user.id) {
@@ -340,17 +371,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
   
       // 2. Subir las imágenes solo si hay archivos seleccionados
       if (files.length > 0) {
-        const formData = new FormData();
-        formData.append('rut', patientData.rut);
-        files.forEach((file) => {
-          formData.append('files', file);
-        });
-  
-        const response = await axios.post('/api/imagenesPacientes', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
+        const objects = await uploadPacienteImagenes(patientData.rut, files);
         
         // Solo actualizar reserva si existe una (si se creó por información médica o cita)
         const tieneInformacionMedica = patientData.diagnostico || patientData.anamnesis;
@@ -373,7 +394,7 @@ const AgregarPaciente = ({ open, onClose, data, fetchReservas = () => {} , gapi}
         const necesitaReserva = agendarNuevaCita || tieneInformacionMedica || tieneDatosClinicos;
         
         if (necesitaReserva) {
-          await updateReserva(patientData.rut, { imagenes: response.data.urls, profesional: patientData.profesional });
+          await updateReserva(patientData.rut, { imagenes: objects, profesional: patientData.profesional });
         }
       }
   
