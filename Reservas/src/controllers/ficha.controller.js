@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { FRONTEND_URL } from "../config.js";
 import { resolveWhatsAppCredentialsForUser } from '../libs/whatsappCredentials.js';
+import { programarRecordatorios } from './reminder.controller.js';
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -743,16 +744,22 @@ export const createReserva = async (req, res) => {
             await nuevaReserva.save();
         }
 
-                // Enviar WhatsApp de confirmación de registro si el profesional tiene credenciales Green API
+                // Programar recordatorios automáticos por WhatsApp
                 try {
-                    const profesional = await User.findById(profesionalId);
-                    const pacienteCompleto = await Paciente.findById(paciente._id);
-                    const result = await enviarWhatsAppRegistroCita({ profesional, paciente: pacienteCompleto, reserva: nuevaReserva });
-                    if (!result.ok) {
-                        console.warn('No se pudo enviar WhatsApp de registro de cita:', result);
+                    if (nuevaReserva.siguienteCita && nuevaReserva.hora) {
+                        const resultRecordatorios = await programarRecordatorios(
+                            nuevaReserva._id,
+                            profesionalId,
+                            paciente._id,
+                            nuevaReserva.siguienteCita,
+                            nuevaReserva.hora
+                        );
+                        if (!resultRecordatorios.ok) {
+                            console.warn('No se pudieron programar recordatorios:', resultRecordatorios);
+                        }
                     }
                 } catch (e) {
-                    console.warn('Error enviando WhatsApp de registro (createReserva):', e?.message || e);
+                    console.warn('Error programando recordatorios (createReserva):', e?.message || e);
                 }
 
                 res.status(201).json(nuevaReserva);
@@ -1429,16 +1436,22 @@ export const publicCreateReserva = async (req, res) => {
             await nuevaReserva.save();
         }
 
-                // Enviar WhatsApp de confirmación de registro usando credenciales del profesional (flujo público)
+                // Programar recordatorios automáticos por WhatsApp (flujo público)
                 try {
-                    const profesionalDoc = await User.findById(profesionalId);
-                    const pacienteCompleto = await Paciente.findById(paciente._id);
-                    const result = await enviarWhatsAppRegistroCita({ profesional: profesionalDoc, paciente: pacienteCompleto, reserva: nuevaReserva });
-                    if (!result.ok) {
-                        console.warn('No se pudo enviar WhatsApp de registro de cita (public):', result);
+                    if (nuevaReserva.siguienteCita && nuevaReserva.hora) {
+                        const resultRecordatorios = await programarRecordatorios(
+                            nuevaReserva._id,
+                            profesionalId,
+                            paciente._id,
+                            nuevaReserva.siguienteCita,
+                            nuevaReserva.hora
+                        );
+                        if (!resultRecordatorios.ok) {
+                            console.warn('No se pudieron programar recordatorios (public):', resultRecordatorios);
+                        }
                     }
                 } catch (e) {
-                    console.warn('Error enviando WhatsApp de registro (publicCreateReserva):', e?.message || e);
+                    console.warn('Error programando recordatorios (publicCreateReserva):', e?.message || e);
                 }
 
                 res.status(201).json(nuevaReserva);

@@ -218,6 +218,14 @@ const userSchema = new mongoose.Schema({
         type: String,
     },
 
+    // Lista de espera
+    // Habilita la funcionalidad de lista de espera para este profesional
+    // Solo disponible para planes Standard y Teams
+    waitlistEnabled: {
+        type: Boolean,
+        default: false,
+    },
+
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

@@ -103,8 +103,9 @@ export function CalendarioPage() {
           return hasDx || hasAna || hasSes;
         }));
 
-      // 1. Agregar cita pendiente (siguienteCita) si existe
-      if (reserva.siguienteCita) {
+      // 1. Agregar cita pendiente (siguienteCita) si existe y NO está cancelada
+      const estaCancelada = reserva.confirmStatus === 'cancelled';
+      if (reserva.siguienteCita && !estaCancelada) {
         let localStartDate;
         const [hours, minutes] = reserva.hora.split(":").map(Number);
 

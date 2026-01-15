@@ -16,7 +16,9 @@ import {
   IconButton,
   Typography,
   Alert,
-  Snackbar
+  Snackbar,
+  Switch,
+  Tooltip
 } from '@mui/material';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
@@ -35,12 +37,14 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import VideoCallIcon from '@mui/icons-material/VideoCall';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
+import QueueIcon from '@mui/icons-material/Queue';
 import Rutificador from '../Rutificador';
 import { getPacientePorRutRequest, createPacienteRequest } from '../../api/pacientes';
 import { createReservaRequest, updateReservaRequest } from '../../api/reservas';
 import axios from '../../api/axios';
 import { createPaymentRequest } from '../../api/payment';
 import { getReservasPorRutRequest } from '../../api/reservas';
+import { getWaitlistStatusRequest, joinWaitlistRequest, joinWaitlistPublicRequest } from '../../api/waitlist';
 import dayjs from 'dayjs';
 
 
@@ -81,6 +85,11 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   // Feedback local (similar a HomePageNew)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [pendingModalidadNotice, setPendingModalidadNotice] = useState(null);
+
+  // Lista de espera
+  const [joinWaitlist, setJoinWaitlist] = useState(false);
+  const [waitlistEnabled, setWaitlistEnabled] = useState(false);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
 
   const getServiceAllowedModalidades = (service) => {
     const raw = service?.modalidad;
@@ -130,6 +139,28 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
     if (!open) return;
     setModalidad(datosPreseleccionados?.modalidad || '');
   }, [open, datosPreseleccionados?.modalidad]);
+
+  // Verificar si el profesional tiene lista de espera habilitada
+  useEffect(() => {
+    if (!open) return;
+    const profesionalId = datosPreseleccionados?.profesional?._id;
+    if (!profesionalId) {
+      setWaitlistEnabled(false);
+      return;
+    }
+    
+    const checkWaitlist = async () => {
+      setWaitlistLoading(true);
+      try {
+        const res = await getWaitlistStatusRequest(profesionalId);
+        setWaitlistEnabled(res.data?.enabled || false);
+      } catch (err) {
+        setWaitlistEnabled(false);
+      }
+      setWaitlistLoading(false);
+    };
+    checkWaitlist();
+  }, [open, datosPreseleccionados?.profesional?._id]);
 
   // Mostrar avisos pendientes recién al llegar al paso de Servicios & Pago
   useEffect(() => {
@@ -325,6 +356,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       //    webpay -> crear reserva primero, luego solicitar transacción y redirigir a Webpay
       if (paymentMethod === 'presencial') {
         // Crear reserva normalmente
+        let reservaCreada = null;
         if (datosPreseleccionados?.publicFlow) {
           // Asegurar creación de paciente ahora (diferida)
           if (!pacienteId) {
@@ -332,12 +364,44 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
             pacienteId = pData?._id || pData?.id;
             setPaciente(prev => ({ ...prev, _id: pacienteId }));
           }
-          await axios.post('public/reserva', { ...reserva, rut: paciente.rut });
+          const reservaResp = await axios.post('public/reserva', { ...reserva, rut: paciente.rut });
+          reservaCreada = reservaResp.data;
           onReserva({ ...paciente, _id: pacienteId || '' });
         } else {
-          await createReservaRequest(paciente.rut, reserva);
+          const reservaResp = await createReservaRequest(paciente.rut, reserva);
+          reservaCreada = reservaResp.data;
           onReserva({ ...paciente, _id: pacienteId });
         }
+
+        // Si el usuario optó por unirse a la lista de espera
+        if (joinWaitlist && waitlistEnabled && pacienteId) {
+          try {
+            const reservaId = reservaCreada?._id || reservaCreada?.id;
+            // Usar endpoint público si es flujo público, de lo contrario el autenticado
+            const joinFn = datosPreseleccionados?.publicFlow 
+              ? joinWaitlistPublicRequest 
+              : joinWaitlistRequest;
+            await joinFn(
+              datosPreseleccionados.profesional?._id,
+              pacienteId,
+              reservaId
+            );
+            setSnackbar({ 
+              open: true, 
+              message: '¡Reserva creada! También te uniste a la lista de espera.', 
+              severity: 'success' 
+            });
+          } catch (waitlistErr) {
+            console.error('Error al unirse a lista de espera:', waitlistErr);
+            // No fallar la reserva por esto, solo mostrar aviso
+            setSnackbar({ 
+              open: true, 
+              message: 'Reserva creada, pero no pudimos agregarte a la lista de espera.', 
+              severity: 'warning' 
+            });
+          }
+        }
+
         // No cerrar inmediatamente para que el usuario vea el mensaje
         setTimeout(() => {
           setActiveStep(0);
@@ -347,6 +411,7 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
           setSelectedService(null);
           setSelectedServiceIndex(null);
           setModalidad('');
+          setJoinWaitlist(false);
           setPendingModalidadNotice(null);
           setSnackbar(prev => ({ ...prev, open: false }));
           onClose();
@@ -621,6 +686,36 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                     </Typography>
                   )}
                 </Paper>
+
+                {/* Opción de lista de espera */}
+                {waitlistEnabled && (
+                  <Paper elevation={1} sx={{ p: 2, borderRadius: 2, background: '#fff8e1' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <QueueIcon sx={{ color: '#f9a825' }} />
+                      <Typography fontWeight={600} color="#f9a825">Lista de Espera</Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 1 }}>
+                      Si se cancela una hora antes de la tuya, te notificaremos por WhatsApp para que puedas tomarla.
+                      Tendrás 20 minutos para aceptar la hora liberada.
+                    </Typography>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={joinWaitlist}
+                          onChange={(e) => setJoinWaitlist(e.target.checked)}
+                          color="warning"
+                        />
+                      }
+                      label={
+                        <Tooltip title="Te agregaremos a la lista de espera del profesional">
+                          <Typography variant="body2" fontWeight={500}>
+                            Unirme a la lista de espera
+                          </Typography>
+                        </Tooltip>
+                      }
+                    />
+                  </Paper>
+                )}
               </Stack>
             )}
             {activeStep === 3 && (
@@ -703,6 +798,20 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                             <Typography variant="body2" fontWeight={700}>Monto: {selectedService.precio ? `$${Number(selectedService.precio).toLocaleString()}` : '-'}</Typography>
                             <Typography variant="body2">Método de pago: {paymentMethod === 'webpay' ? 'Webpay' : 'Presencial'}</Typography>
                           </Stack>
+                        </>
+                      )}
+                      {joinWaitlist && waitlistEnabled && (
+                        <>
+                          <Divider sx={{ my: 1 }} />
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <QueueIcon sx={{ color: '#f9a825' }} />
+                            <Typography variant="body2" fontWeight={500} color="#f9a825">
+                              Te unirás a la lista de espera
+                            </Typography>
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary">
+                            Recibirás un WhatsApp si se libera una hora antes de tu cita
+                          </Typography>
                         </>
                       )}
                     </Stack>

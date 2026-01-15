@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import Reserva from '../models/ficha.model.js';
 import { FRONTEND_URL } from '../config.js';
+import { processCancelledAppointment } from './waitlist.controller.js';
+import { cancelarRecordatoriosDeReserva, omitirRecordatoriosPorConfirmacion } from './reminder.controller.js';
 // Email sending disabled: confirmation links are shared via WhatsApp only
 
 const TOKEN_BYTES = 24; // 32 chars aprox en base64url
@@ -63,6 +65,14 @@ export const confirmReserva = async (req, res) => {
     reserva.confirmedAt = new Date();
     reserva.confirmationLog.push({ action: 'confirmed' });
     await reserva.save();
+
+    // Omitir recordatorios pendientes (ej. 24h) ya que confirmó
+    try {
+      await omitirRecordatoriosPorConfirmacion(reserva._id);
+    } catch (omitErr) {
+      console.error('Error omitting reminders:', omitErr);
+    }
+
     res.json({ message: 'Cita confirmada', status: reserva.confirmStatus });
   } catch (err) {
     res.status(500).json({ message: 'Error confirmando cita' });
@@ -78,6 +88,23 @@ export const cancelReservaByToken = async (req, res) => {
     reserva.confirmStatus = 'cancelled';
     reserva.confirmationLog.push({ action: 'cancelled' });
     await reserva.save();
+
+    // Cancelar recordatorios pendientes de esta reserva
+    try {
+      await cancelarRecordatoriosDeReserva(reserva._id);
+    } catch (cancelErr) {
+      console.error('Error cancelling reminders:', cancelErr);
+    }
+
+    // Notificar a la lista de espera sobre la hora liberada
+    try {
+      const waitlistResult = await processCancelledAppointment(reserva);
+      console.log('Waitlist notification result:', waitlistResult);
+    } catch (waitlistErr) {
+      console.error('Error notifying waitlist:', waitlistErr);
+      // No fallar la cancelación si la notificación falla
+    }
+
     res.json({ message: 'Cita cancelada', status: reserva.confirmStatus });
   } catch (err) {
     res.status(500).json({ message: 'Error cancelando cita' });
@@ -141,12 +168,39 @@ export const updateConfirmStatus = async (req, res) => {
     }
     const reserva = await Reserva.findById(id);
     if (!reserva) return res.status(404).json({ message: 'Reserva no encontrada' });
+    
+    const previousStatus = reserva.confirmStatus;
     reserva.confirmStatus = status;
+    
     if (status === 'confirmed') {
       reserva.confirmedAt = new Date();
+      // Omitir recordatorios pendientes ya que confirmó
+      try {
+        await omitirRecordatoriosPorConfirmacion(reserva._id);
+      } catch (omitErr) {
+        console.error('Error omitting reminders (manual):', omitErr);
+      }
     }
     reserva.confirmationLog.push({ action: 'manual_update', meta: { to: status, by: req.user?.id } });
     await reserva.save();
+
+    // Si se cancela la cita, cancelar recordatorios y notificar a la lista de espera
+    if (status === 'cancelled' && previousStatus !== 'cancelled') {
+      // Cancelar recordatorios pendientes
+      try {
+        await cancelarRecordatoriosDeReserva(reserva._id);
+      } catch (cancelErr) {
+        console.error('Error cancelling reminders (manual):', cancelErr);
+      }
+
+      try {
+        const waitlistResult = await processCancelledAppointment(reserva);
+        console.log('Waitlist notification result (manual):', waitlistResult);
+      } catch (waitlistErr) {
+        console.error('Error notifying waitlist (manual):', waitlistErr);
+      }
+    }
+
     res.json({ message: 'Estado actualizado', status: reserva.confirmStatus });
   } catch (err) {
     res.status(500).json({ message: 'Error actualizando estado' });

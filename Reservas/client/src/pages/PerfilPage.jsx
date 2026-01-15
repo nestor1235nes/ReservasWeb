@@ -13,6 +13,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import PlaceIcon from '@mui/icons-material/Place';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
+import QueueIcon from '@mui/icons-material/Queue';
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -834,6 +835,7 @@ export function PerfilPage() {
     cita_presencial: u?.cita_presencial || false,
     cita_virtual: u?.cita_virtual || false,
     cita_domicilio: u?.cita_domicilio || false,
+    waitlistEnabled: u?.waitlistEnabled || false,
     email: u?.email || "",
     googleEmail: u?.googleEmail || "",
     timetable: normalizeTimetable(u?.timetable),
@@ -1572,6 +1574,45 @@ export function PerfilPage() {
               {!canUseTelemedicina && (
                 <Typography variant="caption" color="textSecondary">
                   La videoconsulta está disponible en el Plan Avanzado y Teams.
+                </Typography>
+              )}
+
+              {/* Lista de espera */}
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle1" gutterBottom>Lista de Espera</Typography>
+              <FormControlLabel
+                control={
+                  <MuiSwitch
+                    checked={!!formData.waitlistEnabled}
+                    onChange={e =>
+                      setFormData({ ...formData, waitlistEnabled: e.target.checked })
+                    }
+                    disabled={!editProfileMode || !canUseOverbooking}
+                    color="warning"
+                  />
+                }
+                label={
+                  <Box display="flex" alignItems="center">
+                    <QueueIcon sx={{ mr: 1, color: formData.waitlistEnabled ? '#f9a825' : 'grey.500' }} />
+                    Habilitar lista de espera
+                    <Tooltip 
+                      title="Cuando un paciente cancela, se notificará automáticamente al primer paciente en la lista de espera para que tome esa hora. Disponible en Plan Avanzado y Teams." 
+                      arrow
+                    >
+                      <HelpOutlineIcon fontSize="small" sx={{ ml: 1, color: 'grey.600', cursor: 'pointer' }} />
+                    </Tooltip>
+                  </Box>
+                }
+              />
+              {!canUseOverbooking && (
+                <Typography variant="caption" color="textSecondary" display="block">
+                  La lista de espera está disponible en el Plan Avanzado y Teams.
+                </Typography>
+              )}
+              {formData.waitlistEnabled && canUseOverbooking && (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                  Los pacientes podrán unirse a tu lista de espera al reservar. Si se cancela una cita, 
+                  se enviará un WhatsApp al primer paciente de la lista con un link para aceptar la hora (válido por 20 minutos).
                 </Typography>
               )}
             </CardContent>

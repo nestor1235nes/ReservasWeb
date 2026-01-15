@@ -22,6 +22,8 @@ import dailyRoutes from './routes/daily.routes.js';
 import confirmationRoutes from './routes/confirmation.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import subscriptionRoutes from './routes/subscription.routes.js'; 
+import waitlistRoutes from './routes/waitlist.routes.js';
+import reminderRoutes from './routes/reminder.routes.js';
 
 const app = express();
 
@@ -114,6 +116,8 @@ app.use('/api/daily', dailyRoutes);
 app.use('/api/', confirmationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/waitlist', waitlistRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 // Archivos estáticos de uploads
 // Asegurar que existan las carpetas de subida

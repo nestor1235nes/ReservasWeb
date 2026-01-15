@@ -38,6 +38,7 @@ import { SubscriptionProvider } from "./context/subscriptionContext.jsx";
 import AdminPlansPage from "./pages/AdminPlansPage.jsx";
 import PublicSucursalProfesionalesPage from "./pages/PublicSucursalProfesionalesPage.jsx";
 import EnlaceSucursal from "./pages/Sucursales/EnlaceSucursal.jsx";
+import WaitlistOfferPage from "./pages/WaitlistOfferPage.jsx";
 
 
 const theme = createTheme({
@@ -70,6 +71,7 @@ function AppContent() {
     'p',
     'sucursal-publica',
     'confirmacion',
+    'lista-espera',
     'telemedicina',
     'payment',
     'calendario',
@@ -94,6 +96,7 @@ function AppContent() {
     location.pathname === "/register" ||
     location.pathname === "/front-users" ||
     location.pathname.startsWith("/confirmacion/") ||
+    location.pathname.startsWith("/lista-espera/") ||
     location.pathname.startsWith("/telemedicina/join") ||
     location.pathname.startsWith("/sucursal-publica/") ||
     location.pathname.startsWith("/p/") ||
@@ -189,6 +192,8 @@ function AppContent() {
                           <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
                           {/* Ruta pública para confirmación de citas */}
                           <Route path="/confirmacion/:token" element={<ConfirmationPage />} />
+                          {/* Ruta pública para aceptar hora de lista de espera */}
+                          <Route path="/lista-espera/aceptar/:token" element={<WaitlistOfferPage />} />
                           
                         </Routes>
                       </Box>
