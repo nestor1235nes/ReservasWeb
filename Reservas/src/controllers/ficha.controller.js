@@ -433,7 +433,32 @@ export const getReservas = async (req, res) => {
 
         // Enviar fechas tal cual (ISO de Mongo) para evitar desfaces por UTC; el frontend hará el parseo local
 
-    res.json(reservas);
+        // Dedupe defensivo: si por histórico existen varias Reservas para el mismo paciente+profesional,
+        // devolver solo la más reciente (la app maneja una relación paciente-profesional por reserva).
+        const deduped = (() => {
+            const sorted = [...reservas].sort((a, b) => {
+                const ta = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+                const tb = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+                return tb - ta;
+            });
+            const seen = new Set();
+            const out = [];
+            for (const r of sorted) {
+                const pacienteId = (r?.paciente?._id || r?.paciente || '').toString();
+                const profesionalId = (r?.profesional?._id || r?.profesional || '').toString();
+                const key = `${pacienteId}::${profesionalId}`;
+                if (!pacienteId || !profesionalId) {
+                    out.push(r);
+                    continue;
+                }
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push(r);
+            }
+            return out;
+        })();
+
+        res.json(deduped);
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -587,29 +612,29 @@ export const createReserva = async (req, res) => {
             ? undefined
             : (requiresPayment ? 'not_initiated' : 'waived');
 
-        // Si ya existe una reserva para este paciente y profesional en la misma fecha y hora, actualizar en lugar de crear
-        let reservaExistente = null;
-        if (siguienteCitaNorm && horaValue) {
-            reservaExistente = await Reserva.findOne({
-                paciente: paciente._id,
-                profesional: profesionalId,
-                siguienteCita: siguienteCitaNorm,
-                hora: horaValue
-            });
-        }
+        // Upsert por relación paciente+profesional (evita duplicados en calendario).
+        // Si existe, se re-agenda actualizando siguienteCita/hora.
+        let reservaExistente = await Reserva.findOne({
+            paciente: paciente._id,
+            profesional: profesionalId,
+        }).sort({ updatedAt: -1, createdAt: -1 });
 
-        // Validar cupo por hora (sobrecupo) solo cuando se va a crear una reserva nueva.
-        if (!reservaExistente && siguienteCitaNorm && horaValue) {
+        // Validar cupo por hora (sobrecupo) tanto para creación como para re-agendamiento.
+        if (siguienteCitaNorm && horaValue) {
             const range = buildLocalDayRange(siguienteCitaNorm);
             if (range) {
                 const profesionalDoc = await User.findById(profesionalId);
                 const capacity = getSlotCapacityFor(profesionalDoc, range.start, horaValue);
-                const currentCount = await Reserva.countDocuments({
+                const countQuery = {
                     profesional: profesionalId,
                     siguienteCita: { $gte: range.start, $lte: range.end },
                     hora: horaValue,
                     confirmStatus: { $ne: 'cancelled' },
-                });
+                };
+                if (reservaExistente?._id) {
+                    countQuery._id = { $ne: reservaExistente._id };
+                }
+                const currentCount = await Reserva.countDocuments(countQuery);
 
                 if (currentCount >= capacity) {
                     return res.status(409).json({ message: `No hay cupos disponibles para la hora ${horaValue}.` });
@@ -619,6 +644,9 @@ export const createReserva = async (req, res) => {
 
         let nuevaReserva;
         if (reservaExistente) {
+            // Re-agendar (si viene)
+            if (siguienteCitaNorm) reservaExistente.siguienteCita = siguienteCitaNorm;
+            if (horaValue) reservaExistente.hora = horaValue;
             reservaExistente.mensajePaciente = req.body.mensajePaciente || reservaExistente.mensajePaciente;
             reservaExistente.diagnostico = req.body.diagnostico || reservaExistente.diagnostico;
             reservaExistente.anamnesis = req.body.anamnesis || reservaExistente.anamnesis;
@@ -626,6 +654,9 @@ export const createReserva = async (req, res) => {
             reservaExistente.eventId = req.body.eventId || reservaExistente.eventId;
             reservaExistente.modalidad = req.body.modalidad || reservaExistente.modalidad || 'Presencial';
             reservaExistente.servicio = req.body.servicio || reservaExistente.servicio || 'Consulta';
+            if (sucursalId) {
+                reservaExistente.sucursal = sucursalId;
+            }
             if (requiresPayment !== undefined) {
                 reservaExistente.requiresPayment = requiresPayment;
                 reservaExistente.paymentStatus = paymentStatusFromRequires;
@@ -1194,7 +1225,28 @@ export const getReservasPorRut = async (req, res) => {
 // Nueva función: obtener reservas del profesional para exportación ICS
 export const getReservasParaExportacion = async (req, res) => {
   try {
-    const userId = req.user.id;
+        // Dedupe defensivo por paciente+profesional (conservar la más reciente)
+        const sorted = [...reservas].sort((a, b) => {
+            const ta = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+            const tb = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+            return tb - ta;
+        });
+        const seen = new Set();
+        const out = [];
+        for (const r of sorted) {
+            const pacienteId = (r?.paciente?._id || r?.paciente || '').toString();
+            const profesionalId = (r?.profesional?._id || r?.profesional || '').toString();
+            const key = `${pacienteId}::${profesionalId}`;
+            if (!pacienteId || !profesionalId) {
+                out.push(r);
+                continue;
+            }
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(r);
+        }
+
+        return res.json(out);
     const user = await User.findById(userId);
 
     let reservas = [];
@@ -1372,28 +1424,27 @@ export const publicCreateReserva = async (req, res) => {
         const siguienteCitaNorm = normalizeDateField(siguienteCita);
         const horaValue = normalizeHora(hora);
 
-        // Deduplicar en flujo público también
-        let reservaExistente = null;
-        if (siguienteCitaNorm && horaValue) {
-            reservaExistente = await Reserva.findOne({
-                paciente: paciente._id,
-                profesional: profesionalId,
-                siguienteCita: siguienteCitaNorm,
-                hora: horaValue
-            });
-        }
+        // Upsert por relación paciente+profesional (flujo público): si ya existe, se re-agenda.
+        let reservaExistente = await Reserva.findOne({
+            paciente: paciente._id,
+            profesional: profesionalId,
+        }).sort({ updatedAt: -1, createdAt: -1 });
 
-        // Validar cupo por hora (sobrecupo) solo cuando se va a crear una reserva nueva.
-        if (!reservaExistente && siguienteCitaNorm && horaValue) {
+        // Validar cupo por hora (sobrecupo) tanto para creación como re-agendamiento.
+        if (siguienteCitaNorm && horaValue) {
             const range = buildLocalDayRange(siguienteCitaNorm);
             if (range) {
                 const capacity = getSlotCapacityFor(profesional, range.start, horaValue);
-                const currentCount = await Reserva.countDocuments({
+                const countQuery = {
                     profesional: profesionalId,
                     siguienteCita: { $gte: range.start, $lte: range.end },
                     hora: horaValue,
                     confirmStatus: { $ne: 'cancelled' },
-                });
+                };
+                if (reservaExistente?._id) {
+                    countQuery._id = { $ne: reservaExistente._id };
+                }
+                const currentCount = await Reserva.countDocuments(countQuery);
                 if (currentCount >= capacity) {
                     return res.status(409).json({ message: `No hay cupos disponibles para la hora ${horaValue}.` });
                 }
@@ -1402,6 +1453,8 @@ export const publicCreateReserva = async (req, res) => {
 
         let nuevaReserva;
         if (reservaExistente) {
+            if (siguienteCitaNorm) reservaExistente.siguienteCita = siguienteCitaNorm;
+            if (horaValue) reservaExistente.hora = horaValue;
             reservaExistente.mensajePaciente = mensajePaciente || reservaExistente.mensajePaciente;
             reservaExistente.diagnostico = diagnostico || reservaExistente.diagnostico;
             reservaExistente.anamnesis = anamnesis || reservaExistente.anamnesis;
@@ -1409,6 +1462,9 @@ export const publicCreateReserva = async (req, res) => {
             reservaExistente.eventId = eventId || reservaExistente.eventId;
             reservaExistente.modalidad = modalidad || reservaExistente.modalidad || 'Presencial';
             reservaExistente.servicio = servicio || reservaExistente.servicio || 'Consulta';
+            if (sucursalId) {
+                reservaExistente.sucursal = sucursalId;
+            }
             if (diaPrimeraCitaValue && !reservaExistente.diaPrimeraCita) {
                 reservaExistente.diaPrimeraCita = diaPrimeraCitaValue;
             }

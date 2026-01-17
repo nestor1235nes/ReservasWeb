@@ -9,4 +9,4 @@ export const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 export const CLIENT_ID = process.env.CLIENT_ID || "738093538653-biv296rpnonvgfgpsg5033ediogqg5nd.apps.googleusercontent.com";
 
 // Daily.co API key (store in env for production). Do NOT commit secrets to source control.
-export const DAILY_API_KEY = process.env.DAILY_API_KEY || "";
+export const DAILY_API_KEY = process.env.DAILY_API_KEY || "19cd1936a0d5cb810630a0637372e6d695ea4ec2954599e3e8290ca31cb15fcc";

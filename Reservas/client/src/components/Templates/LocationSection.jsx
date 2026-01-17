@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Card, CardContent, Link, Typography } from '@mui/material';
+import { Box, Card, CardContent, Link, Stack, Typography } from '@mui/material';
 
 const buildMapboxStaticUrl = ({ token, lat, lng, width = 980, height = 520, zoom = 14, pinColor = '111111' }) => {
   if (!token) return '';
@@ -17,7 +17,7 @@ const buildDirectionsUrl = ({ mapsUrl }) => {
   return mapsUrl || '';
 };
 
-export default function LocationSection({ prof, brand }) {
+export default function LocationSection({ prof, brand, showMap = true }) {
   const data = useMemo(() => {
     const suc = prof?.sucursal;
 
@@ -37,7 +37,8 @@ export default function LocationSection({ prof, brand }) {
 
     const directionsUrl = buildDirectionsUrl({ mapsUrl });
 
-    return { placeId, formattedAddress, lat, lng, mapsUrl, directionsUrl };
+    const title = suc?.nombre || prof?.username || '';
+    return { title, placeId, formattedAddress, lat, lng, mapsUrl, directionsUrl };
   }, [prof]);
 
   const BRAND = {
@@ -45,14 +46,15 @@ export default function LocationSection({ prof, brand }) {
     secondary: brand?.secondary || '#21cbe6',
   };
 
-  if (!data.formattedAddress) return null;
+  // Renderizar si tenemos dirección o al menos un link/mapa.
+  if (!data.formattedAddress && !data.mapsUrl && (data.lat == null || data.lng == null)) return null;
 
   const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.VITE_MAPBOX_TOKEN;
   const mapImg = buildMapboxStaticUrl({ token, lat: data.lat, lng: data.lng, pinColor: '111111' });
 
   return (
     <Card elevation={0} sx={{ mt: 2, border: '1px solid #e3f2fd', borderRadius: 2, overflow: 'hidden', boxShadow: '0 8px 16px rgba(37,150,190,0.06)' }}>
-      {mapImg && (
+      {showMap && mapImg && (
         <Box
           component="img"
           alt="Mapa"
@@ -62,23 +64,45 @@ export default function LocationSection({ prof, brand }) {
       )}
 
       <CardContent sx={{ py: 2 }}>
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Typography sx={{ color: 'text.primary' }}>
-            {data.formattedAddress}
-          </Typography>
-
-          {data.directionsUrl && (
-            <Link
-              href={data.directionsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              underline="hover"
-              sx={{ color: BRAND.primary, fontWeight: 600, whiteSpace: 'nowrap' }}
-            >
-              Cómo llegar
-            </Link>
+        <Stack spacing={0.75}>
+          {data.title && (
+            <Typography fontWeight={900} sx={{ lineHeight: 1.2 }}>
+              Ubicación
+            </Typography>
           )}
-        </Box>
+
+          {data.formattedAddress && (
+            <Typography sx={{ color: 'text.primary' }}>
+              {data.formattedAddress}
+            </Typography>
+          )}
+
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            {data.directionsUrl && (
+              <Link
+                href={data.directionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+                sx={{ color: BRAND.primary, fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
+                Cómo llegar
+              </Link>
+            )}
+
+            {data.mapsUrl && (
+              <Link
+                href={data.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+                sx={{ color: BRAND.secondary, fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
+                Abrir en mapas
+              </Link>
+            )}
+          </Box>
+        </Stack>
       </CardContent>
     </Card>
   );

@@ -63,7 +63,7 @@ export default function FrontUsers() {
 	const [prof, setProf] = useState(null);
 	const [feriados, setFeriados] = useState([]);
 	const [blockedDays, setBlockedDays] = useState([]);
-	const [seleccion, setSeleccion] = useState({ fecha: null, horasDisponibles: [], horaSeleccionada: undefined, modalidad: undefined });
+	const [seleccion, setSeleccion] = useState({ fecha: null, horasDisponibles: [], horaSeleccionada: undefined });
 	const [modalReservaOpen, setModalReservaOpen] = useState(false);
 	const [datosPreseleccionados, setDatosPreseleccionados] = useState({});
 	const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -195,7 +195,7 @@ export default function FrontUsers() {
 				profesional: prof,
 				fecha: seleccion.fecha,
 				hora: seleccion.horaSeleccionada,
-				modalidad: seleccion.modalidad,
+				// modalidad se elige dentro del modal al seleccionar el servicio
 				publicFlow: true,
 			});
 			setModalReservaOpen(true);
@@ -215,7 +215,7 @@ export default function FrontUsers() {
 
 	const handleReservaFinalizada = async (paciente, error = null) => {
 		setModalReservaOpen(false);
-		setSeleccion({ fecha: null, horasDisponibles: [], horaSeleccionada: undefined, modalidad: undefined });
+		setSeleccion({ fecha: null, horasDisponibles: [], horaSeleccionada: undefined });
 		setSnackbar({ open: true, message: error ? 'No se pudo crear la reserva. Intenta nuevamente.' : '¡Reserva realizada con éxito!', severity: error ? 'error' : 'success' });
 	};
 
@@ -236,7 +236,6 @@ export default function FrontUsers() {
 							seleccion={seleccion}
 							onFechaChange={handleFechaChange}
 							onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
-							onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
 							onReservar={handleAbrirReserva}
 							shouldDisableDate={shouldDisableDate}
 							minDate={dayjs().startOf('day')}
@@ -257,7 +256,6 @@ export default function FrontUsers() {
 							seleccion={seleccion}
 							onFechaChange={handleFechaChange}
 							onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
-							onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
 							onReservar={handleAbrirReserva}
 							shouldDisableDate={shouldDisableDate}
 							minDate={dayjs().startOf('day')}
@@ -278,7 +276,6 @@ export default function FrontUsers() {
 						seleccion={seleccion}
 						onFechaChange={handleFechaChange}
 						onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
-						onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
 						onReservar={handleAbrirReserva}
 						shouldDisableDate={shouldDisableDate}
 						minDate={dayjs().startOf('day')}
@@ -303,7 +300,6 @@ export default function FrontUsers() {
 						seleccion={seleccion}
 						onFechaChange={handleFechaChange}
 						onHoraSelect={(hora) => setSeleccion(prev => ({ ...prev, horaSeleccionada: hora }))}
-						onModalidadSelect={(mod) => setSeleccion(prev => ({ ...prev, modalidad: mod }))}
 						onReservar={handleAbrirReserva}
 						shouldDisableDate={shouldDisableDate}
 						minDate={dayjs().startOf('day')}

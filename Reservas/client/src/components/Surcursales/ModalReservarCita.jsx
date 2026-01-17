@@ -18,7 +18,8 @@ import {
   Alert,
   Snackbar,
   Switch,
-  Tooltip
+  Tooltip,
+  Chip
 } from '@mui/material';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
@@ -91,27 +92,76 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
   const [waitlistEnabled, setWaitlistEnabled] = useState(false);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
 
+  const normalizeModalidadToken = (token) => {
+    if (!token) return '';
+    const t = String(token).trim().toLowerCase();
+    if (!t) return '';
+    if (t.includes('presen')) return 'Presencial';
+    if (t.includes('tele') || t.includes('video') || t.includes('virtual') || t.includes('online')) return 'Telemedicina';
+    if (t.includes('domic')) return 'Domicilio';
+    return '';
+  };
+
+  const uniqueModalidades = (arr) => {
+    const set = new Set((arr || []).filter(Boolean));
+    const order = ['Presencial', 'Telemedicina', 'Domicilio'];
+    return [...set].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  };
+
+  const getProfessionalAllowedModalidades = () => {
+    const prof = datosPreseleccionados?.profesional;
+    const out = [];
+    if (prof?.cita_presencial) out.push('Presencial');
+    if (prof?.cita_virtual) out.push('Telemedicina');
+    if (prof?.cita_domicilio) out.push('Domicilio');
+    return uniqueModalidades(out);
+  };
+
   const getServiceAllowedModalidades = (service) => {
     const raw = service?.modalidad;
     if (!raw) return [];
-    if (Array.isArray(raw)) return raw.filter(Boolean);
-    if (typeof raw === 'string') {
-      const allowed = [];
-      if (raw.includes('Presencial')) allowed.push('Presencial');
-      if (raw.includes('Telemedicina')) allowed.push('Telemedicina');
-      if (raw.includes('Domicilio')) allowed.push('Domicilio');
-      return allowed;
+
+    if (Array.isArray(raw)) {
+      return uniqueModalidades(raw.map(normalizeModalidadToken).filter(Boolean));
     }
+
+    if (typeof raw === 'string') {
+      // Soportar: "Presencial", "Presencial/Telemedicina", "Presencial y Telemedicina", etc.
+      const parts = raw
+        .split(/,|\||\/|;|\s+y\s+/i)
+        .map((p) => normalizeModalidadToken(p))
+        .filter(Boolean);
+
+      // Si no se pudo tokenizar por separadores, intentar por inclusiones
+      if (parts.length > 0) return uniqueModalidades(parts);
+
+      const allowed = [];
+      const l = raw.toLowerCase();
+      if (l.includes('presen')) allowed.push('Presencial');
+      if (l.includes('tele') || l.includes('video') || l.includes('virtual') || l.includes('online')) allowed.push('Telemedicina');
+      if (l.includes('domic')) allowed.push('Domicilio');
+      return uniqueModalidades(allowed);
+    }
+
     return [];
   };
 
-  const ensureModalidadCompatibleWithService = (service, desiredModalidad = null, opts = { showNotice: true }) => {
-    const allowed = getServiceAllowedModalidades(service);
-    if (allowed.length === 0) return;
+  const getAllowedModalidadesForSelection = (service) => {
+    const byService = getServiceAllowedModalidades(service);
+    if (byService.length > 0) return byService;
 
+    const byProfessional = getProfessionalAllowedModalidades();
+    if (byProfessional.length > 0) return byProfessional;
+
+    // Fallback conservador
+    return ['Presencial'];
+  };
+
+  const ensureModalidadCompatibleWithService = (service, desiredModalidad = null, opts = { showNotice: true }) => {
+    const allowed = getAllowedModalidadesForSelection(service);
     const currentModalidad = desiredModalidad ?? modalidad;
 
-    // Si el servicio solo tiene una modalidad, se fuerza a esa.
+    // Si el servicio (o fallback por profesional) solo tiene una modalidad, se fuerza.
     if (allowed.length === 1) {
       const only = allowed[0];
       if (currentModalidad && currentModalidad !== only) {
@@ -128,10 +178,9 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       return;
     }
 
-    // Si el servicio permite ambas y no hay modalidad aún, mantener la preseleccionada si existe.
-    if (!currentModalidad && allowed.length > 0) {
-      setModalidad(allowed[0]);
-    }
+    // Si tiene múltiples modalidades: NO autoseleccionar, a menos que venga una preselección válida.
+    if (currentModalidad && allowed.includes(currentModalidad)) return;
+    setModalidad('');
   };
 
   // Guardar modalidad preseleccionada (del paso anterior) en estado local
@@ -291,10 +340,21 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
       }
       setLoading(false);
     }
-    // Paso de servicios: siempre requerir selección de servicio para avanzar
-    if (activeStep === 2 && !selectedService) {
-      setError('Seleccione un servicio para continuar');
-      return;
+    // Paso de servicios: requerir servicio y modalidad (si aplica)
+    if (activeStep === 2) {
+      if (!selectedService) {
+        setError('Seleccione un servicio para continuar');
+        return;
+      }
+
+      const allowed = getAllowedModalidadesForSelection(selectedService);
+      if (allowed.length === 1 && !modalidad) {
+        setModalidad(allowed[0]);
+      }
+      if (allowed.length > 1 && !modalidad) {
+        setError('Seleccione la modalidad de atención');
+        return;
+      }
     }
 
     setActiveStep((prev) => prev + 1);
@@ -659,6 +719,88 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                   <Alert severity="warning" variant="outlined">
                     {error}
                   </Alert>
+                )}
+
+                {selectedService && (
+                  <Paper elevation={1} sx={{ p: 2, borderRadius: 2, background: '#fff' }}>
+                    <Stack spacing={1}>
+                      <Typography fontWeight={700} color="#2596be">Modalidad de atención</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Se define según el servicio seleccionado.
+                      </Typography>
+
+                      {(() => {
+                        const allowed = getAllowedModalidadesForSelection(selectedService);
+
+                        if (allowed.length === 1) {
+                          return (
+                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                              <Chip
+                                label={allowed[0]}
+                                sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: '#2596be', fontWeight: 800 }}
+                              />
+                              <Typography variant="caption" color="text.secondary">
+                                Este servicio solo se atiende en esa modalidad.
+                              </Typography>
+                            </Stack>
+                          );
+                        }
+
+                        return (
+                          <RadioGroup
+                            value={modalidad}
+                            onChange={(e) => {
+                              setModalidad(e.target.value);
+                              setError('');
+                            }}
+                          >
+                            {allowed.includes('Presencial') && (
+                              <FormControlLabel
+                                value="Presencial"
+                                control={<Radio />}
+                                label={
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <PersonPinCircleIcon sx={{ color: '#2596be' }} />
+                                    <Typography>Presencial</Typography>
+                                  </Stack>
+                                }
+                              />
+                            )}
+                            {allowed.includes('Telemedicina') && (
+                              <FormControlLabel
+                                value="Telemedicina"
+                                control={<Radio />}
+                                label={
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <VideoCallIcon sx={{ color: '#21cbe6' }} />
+                                    <Typography>Telemedicina</Typography>
+                                  </Stack>
+                                }
+                              />
+                            )}
+                            {allowed.includes('Domicilio') && (
+                              <FormControlLabel
+                                value="Domicilio"
+                                control={<Radio />}
+                                label={
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <HomeWorkIcon sx={{ color: '#2596be' }} />
+                                    <Typography>Domicilio</Typography>
+                                  </Stack>
+                                }
+                              />
+                            )}
+                          </RadioGroup>
+                        );
+                      })()}
+
+                      {error && error.toLowerCase().includes('modalidad') && (
+                        <Alert severity="warning" variant="outlined">
+                          {error}
+                        </Alert>
+                      )}
+                    </Stack>
+                  </Paper>
                 )}
 
                 

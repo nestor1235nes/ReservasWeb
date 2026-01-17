@@ -1549,6 +1549,18 @@ export function PerfilPage() {
               <FormControlLabel
                 control={
                   <MuiSwitch
+                    checked={!!formData.cita_domicilio}
+                    onChange={e =>
+                      setFormData({ ...formData, cita_domicilio: e.target.checked })
+                    }
+                    disabled={!editProfileMode}
+                  />
+                }
+                label={<><HomeWorkIcon sx={{ mr: 1 }} />Domicilio</>}
+              />
+              <FormControlLabel
+                control={
+                  <MuiSwitch
                     checked={!!formData.cita_virtual}
                     onChange={e =>
                       setFormData({ ...formData, cita_virtual: e.target.checked })
@@ -1559,22 +1571,13 @@ export function PerfilPage() {
                 label={<><VideoCameraFrontIcon sx={{ mr: 1 }} />Telemedicina</>}
                 disabled={!editProfileMode || !canUseTelemedicina}
               />
-              <FormControlLabel
-                control={
-                  <MuiSwitch
-                    checked={!!formData.cita_domicilio}
-                    onChange={e =>
-                      setFormData({ ...formData, cita_domicilio: e.target.checked })
-                    }
-                    disabled={!editProfileMode}
-                  />
-                }
-                label={<><HomeWorkIcon sx={{ mr: 1 }} />Domicilio</>}
-              />
+              
               {!canUseTelemedicina && (
+                <Box>
                 <Typography variant="caption" color="textSecondary">
                   La videoconsulta está disponible en el Plan Avanzado y Teams.
                 </Typography>
+                </Box>
               )}
 
               {/* Lista de espera */}
@@ -1901,8 +1904,8 @@ export function PerfilPage() {
                           icon={(() => {
                             const m = (servicio?.modalidad || '').toString();
                             const hasPres = m.includes('Presencial');
-                            const hasTele = m.includes('Telemedicina');
                             const hasDom = m.includes('Domicilio');
+                            const hasTele = m.includes('Telemedicina');
                             const count = [hasPres, hasTele, hasDom].filter(Boolean).length;
                             if (count >= 2) return <EditIcon />;
                             if (hasPres) return <PlaceIcon />;

@@ -1,24 +1,60 @@
-import React from 'react';
-import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar, Accordion, AccordionSummary, AccordionDetails, Divider, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import React, { useMemo } from 'react';
+import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar, Divider, Chip } from '@mui/material';
 import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
-import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
-import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import Logo from '../../assets/LOGO.png';
 import LocationSection from './LocationSection';
+import ExpandableText from './ExpandableText';
 
-export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect, onModalidadSelect, onReservar, shouldDisableDate, minDate, brand }) {
+const DAYS_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+const getUniqueDays = (timetable) => {
+  const set = new Set();
+  (timetable || []).forEach((b) => (b?.days || []).forEach((d) => d && set.add(d)));
+  return [...set].sort((a, b) => DAYS_ORDER.indexOf(a) - DAYS_ORDER.indexOf(b));
+};
+
+const getModalidades = (prof) => {
+  const items = [];
+  if (prof?.cita_presencial) items.push({ key: 'Presencial', icon: <PersonPinCircleIcon fontSize="small" /> });
+  if (prof?.cita_virtual) items.push({ key: 'Telemedicina', icon: <VideoCameraFrontIcon fontSize="small" /> });
+  if (prof?.cita_domicilio) items.push({ key: 'Domicilio', icon: <HomeWorkIcon fontSize="small" /> });
+  return items;
+};
+
+const formatBlockTime = (block) => {
+  const from = block?.fromTime;
+  const to = block?.toTime;
+  if (from && to) {
+    const bf = block?.breakFrom;
+    const bt = block?.breakTo;
+    const hasBreak = bf && bt;
+    return hasBreak ? `${from}–${to} (colación ${bf}–${bt})` : `${from}–${to}`;
+  }
+  const times = Array.isArray(block?.times) ? block.times : [];
+  if (times.length > 0) return `${times[0]}–${times[times.length - 1]}`;
+  return '';
+};
+
+export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect, onReservar, shouldDisableDate, minDate, brand }) {
   const BRAND = {
     primary: brand?.primary || '#2596be',
     secondary: brand?.secondary || '#21cbe6',
   };
-  const isReady = Boolean(seleccion.fecha && seleccion.horaSeleccionada && seleccion.modalidad);
+  const dias = useMemo(() => getUniqueDays(prof?.timetable), [prof]);
+  const services = Array.isArray(prof?.servicios) ? prof.servicios : [];
+  const isReady = Boolean(seleccion.fecha && seleccion.horaSeleccionada);
+
+  const stats = useMemo(() => {
+    const out = [];
+    if (services.length > 0) out.push({ label: `${services.length} servicio${services.length === 1 ? '' : 's'}` });
+    if (dias.length > 0) out.push({ label: `${dias.length} día${dias.length === 1 ? '' : 's'} activo${dias.length === 1 ? '' : 's'}` });
+    if (prof?.sucursal?.nombre) out.push({ label: prof.sucursal.nombre });
+    return out;
+  }, [services.length, dias.length, prof?.sucursal?.nombre]);
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={0} sx={{ background: 'transparent', color: 'inherit', borderBottom: '1px solid #e3f2fd', backdropFilter: 'blur(8px)' }}>
@@ -44,70 +80,198 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="md" sx={{ py: { xs: 3, md: 6 }, px: { xs: 2, md: 3 } }}>
-        <Card sx={{ border: '2px solid #e3f2fd', borderRadius: 3, overflow: 'hidden' }}>
-          <CardContent>
-            <Grid container>
-              <Grid item xs={12} md={4} sx={{ borderRight: { md: '1px solid #eee' }, background: `linear-gradient(90deg, ${BRAND.primary} 60%, ${BRAND.secondary} 100%)` }}>
-                <Box p={2} display="flex" flexDirection="column" alignItems="center">
-                  <Avatar src={prof.fotoPerfil ? resolveAssetUrl(prof.fotoPerfil) : undefined} sx={{ width: 80, height: 80, mb: 1 }} />
-                  <Typography fontWeight={600} color='white'>{prof.username}</Typography>
-                  <Typography color="white" fontSize={14}>{prof.especialidad}</Typography>
-                  <Box display="flex" alignItems="center" mt={1} fontSize={13}>
-                    <Typography color="white">{prof.sucursal?.nombre || 'Independiente'}</Typography>
-                  </Box>
-                  <Box display="flex" alignItems="center" mt={1} fontSize={13}>
-                    <Typography color="white">{prof.celular || 'Sin datos'}</Typography>
-                  </Box>
+      <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 }, px: { xs: 2, md: 3 } }}>
+        <Card
+          elevation={0}
+          sx={{
+            border: '1px solid #dff1ff',
+            borderRadius: 4,
+            overflow: 'hidden',
+            boxShadow: '0 18px 50px rgba(37,150,190,0.10)',
+            bgcolor: 'white',
+          }}
+        >
+
+          {/* Cover + Avatar centrado */}
+          <Box
+            sx={{
+              position: 'relative',
+              height: { xs: 150, sm: 190 },
+              background: `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})`,
+            }}
+          >
+            <Avatar
+              src={prof.fotoPerfil ? resolveAssetUrl(prof.fotoPerfil) : undefined}
+              sx={{
+                position: 'absolute',
+                left: '50%',
+                bottom: { xs: -52, sm: -58 },
+                transform: 'translateX(-50%)',
+                width: { xs: 104, sm: 116 },
+                height: { xs: 104, sm: 116 },
+                border: '5px solid #fff',
+                boxShadow: '0 10px 28px rgba(0,0,0,0.16)',
+                bgcolor: 'white',
+              }}
+            />
+          </Box>
+
+          {/* Info + acciones */}
+          <CardContent sx={{ pt: { xs: 7.5, sm: 8.5 }, pb: 2.25 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={6}>
+                <Box sx={{ textAlign: { xs: 'center', md: 'left' } }}>
+                  <Typography variant="h5" fontWeight={900} sx={{ lineHeight: 1.15 }}>
+                    {prof.username}
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ mt: 0.25 }}>
+                    {prof.especialidad || 'Profesional'}
+                  </Typography>
                 </Box>
               </Grid>
-              <Grid item xs={12} md={8}>
-                <Box p={2}>
-                  <Accordion elevation={0} sx={{ mb: 1.5, border: '1px solid #e3f2fd', borderRadius: 2, boxShadow: '0 8px 16px rgba(37,150,190,0.06)' }}>
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Typography sx={{ background: `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})`, backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }} fontWeight={800}>
-                        ¿Cómo agendar?
-                      </Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <List dense>
-                        <ListItem>
-                          <ListItemIcon>
-                            <CalendarMonthIcon sx={{ color: BRAND.primary }} />
-                          </ListItemIcon>
-                          <ListItemText primary="Selecciona la fecha de tu cita" />
-                        </ListItem>
-                        <ListItem>
-                          <ListItemIcon>
-                            <AccessTimeIcon sx={{ color: BRAND.primary }} />
-                          </ListItemIcon>
-                          <ListItemText primary="Elige una hora disponible" />
-                        </ListItem>
-                        <ListItem>
-                          <ListItemIcon>
-                            <VideoCameraFrontIcon sx={{ color: BRAND.primary }} />
-                          </ListItemIcon>
-                          <ListItemText primary="Selecciona la modalidad: Presencial, Telemedicina o Domicilio" />
-                        </ListItem>
-                        <Divider sx={{ my: 0.5 }} />
-                        <ListItem>
-                          <ListItemIcon>
-                            <CheckCircleOutlineIcon sx={{ color: BRAND.secondary }} />
-                          </ListItemIcon>
-                          <ListItemText primary="Presiona 'Reservar cita' para confirmar" />
-                        </ListItem>
-                      </List>
-                    </AccordionDetails>
-                  </Accordion>
+              <Grid item xs={12} md={6}>
+                <Stack direction="row" spacing={1} justifyContent={{ xs: 'center', md: 'flex-end' }} flexWrap="wrap" useFlexGap>
+                  {stats.slice(0, 4).map((s, i) => (
+                    <Chip
+                      key={i}
+                      size="small"
+                      label={s.label}
+                      sx={{
+                        bgcolor: '#f1fbff',
+                        border: '1px solid #dff1ff',
+                        fontWeight: 800,
+                        px: 0.5,
+                      }}
+                    />
+                  ))}
+                </Stack>
+              </Grid>
 
-                  <Typography fontWeight={500} mb={1}>Selecciona fecha</Typography>
+              <Grid item xs={12}>
+                <Stack direction="row" spacing={1} justifyContent={{ xs: 'center', md: 'flex-start' }} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      const el = document.getElementById('booking-card');
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    sx={{
+                      background: `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})`,
+                      fontWeight: 900,
+                      textTransform: 'none',
+                      borderRadius: 999,
+                      px: 3,
+                      boxShadow: '0 10px 22px rgba(37,150,190,0.22)',
+                      '&:hover': { background: `linear-gradient(135deg, ${BRAND.secondary}, ${BRAND.primary})` },
+                    }}
+                  >
+                    Reservar
+                  </Button>
+                  {prof?.celular && (
+                    <Button
+                      variant="outlined"
+                      href={`https://wa.me/${String(prof.celular).replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        borderColor: BRAND.primary,
+                        color: BRAND.primary,
+                        fontWeight: 900,
+                        textTransform: 'none',
+                        borderRadius: 999,
+                        px: 3,
+                        bgcolor: 'rgba(255,255,255,0.9)',
+                      }}
+                    >
+                      WhatsApp
+                    </Button>
+                  )}
+                </Stack>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Grid container spacing={2.5} sx={{ mt: 2 }}>
+          <Grid item xs={12} md={5}>
+            <Stack spacing={2}>
+              <Card elevation={0} sx={{ border: '1px solid #dff1ff', borderRadius: 4, boxShadow: '0 14px 34px rgba(37,150,190,0.08)' }}>
+                <CardContent>
+                  <Typography fontWeight={900} sx={{ color: BRAND.primary }}>
+                    Introducción
+                  </Typography>
+                  <Divider sx={{ my: 1 }} />
+                  <ExpandableText
+                    text={prof?.descripcion || 'Sin descripción.'}
+                    lines={4}
+                    minCharsForToggle={240}
+                    typographyProps={{ color: 'text.secondary' }}
+                  />
+                  {prof?.experiencia && (
+                    <Box sx={{ mt: 1 }}>
+                      <ExpandableText
+                        text={prof.experiencia}
+                        lines={3}
+                        minCharsForToggle={220}
+                        typographyProps={{ color: 'text.secondary' }}
+                      />
+                    </Box>
+                  )}
+                  {dias.length > 0 && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Atención: {dias.join(' · ')}
+                    </Typography>
+                  )}
+                </CardContent>
+              </Card>
+
+              {services.length > 0 && (
+                <Card elevation={0} sx={{ border: '1px solid #dff1ff', borderRadius: 4, boxShadow: '0 14px 34px rgba(37,150,190,0.08)' }}>
+                  <CardContent>
+                    <Typography fontWeight={900} sx={{ color: BRAND.primary }}>
+                      Servicios
+                    </Typography>
+                    <Divider sx={{ my: 1 }} />
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {services.slice(0, 10).map((s, idx) => (
+                        <Chip
+                          key={`${s.tipo || 'servicio'}-${idx}`}
+                          label={`${s.tipo || 'Servicio'}${s.precio ? ` · $${Number(s.precio).toLocaleString()}` : ''}`}
+                          sx={{ bgcolor: '#f1fbff', border: '1px solid #dff1ff', fontWeight: 700 }}
+                        />
+                      ))}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )}
+
+              <LocationSection prof={prof} brand={BRAND} />
+            </Stack>
+          </Grid>
+
+          <Grid item xs={12} md={7}>
+            <Stack spacing={2}>
+              <Card
+                id="booking-card"
+                elevation={0}
+                sx={{ border: '1px solid #dff1ff', borderRadius: 4, boxShadow: '0 18px 50px rgba(37,150,190,0.12)' }}
+              >
+                <CardContent>
+                  <Typography variant="h6" fontWeight={900} sx={{ color: BRAND.primary }}>
+                    Agendar cita
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Selecciona fecha y hora. La modalidad se elige al seleccionar el servicio.
+                  </Typography>
+                  <Divider sx={{ my: 1.5 }} />
+
+                  <Typography fontWeight={800} mb={1}>Fecha</Typography>
                   <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
                     <DatePicker
                       label="Fecha"
                       value={seleccion.fecha || null}
                       onChange={(v) => {
                         const valid = v && typeof v.isValid === 'function' && v.isValid();
-                        // Normalizar a fecha local YYYY-MM-DD para evitar desfases
                         onFechaChange(valid ? v.startOf('day') : null);
                       }}
                       shouldDisableDate={shouldDisableDate}
@@ -117,26 +281,29 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                   </LocalizationProvider>
 
                   <Box mt={2}>
-                    <Typography fontWeight={500} mb={1}><strong>Horas disponibles para la fecha seleccionada</strong></Typography>
+                    <Typography fontWeight={800} mb={1}>Horas</Typography>
                     <Box display="flex" gap={1} flexWrap="wrap">
                       {(seleccion.horasDisponibles || []).length === 0 && (
                         <Typography color="text.secondary" fontSize={14}>Selecciona una fecha</Typography>
                       )}
-                      {(seleccion.horasDisponibles || []).map(hora => (
+                      {(seleccion.horasDisponibles || []).map((hora) => (
                         <Button
                           key={hora}
                           variant={seleccion.horaSeleccionada === hora ? 'contained' : 'outlined'}
                           size="small"
                           startIcon={<AccessTimeIcon />}
                           sx={{
+                            borderRadius: 999,
                             color: seleccion.horaSeleccionada === hora ? 'white' : BRAND.primary,
-                            bgcolor: seleccion.horaSeleccionada === hora ? BRAND.primary : 'transparent',
-                            borderColor: BRAND.primary,
-                            fontWeight: seleccion.horaSeleccionada === hora ? 700 : 400,
-                            boxShadow: seleccion.horaSeleccionada === hora ? 2 : 0,
+                            bgcolor: seleccion.horaSeleccionada === hora ? BRAND.primary : 'rgba(241,251,255,0.8)',
+                            borderColor: 'rgba(37,150,190,0.45)',
                             flexBasis: { xs: 'calc(50% - 8px)', sm: 'auto' },
                             flexGrow: { xs: 1, sm: 0 },
                             minWidth: { xs: 'unset', sm: 'auto' },
+                            '&:hover': {
+                              bgcolor: seleccion.horaSeleccionada === hora ? BRAND.primary : 'rgba(223,241,255,0.95)',
+                              borderColor: BRAND.primary,
+                            },
                           }}
                           onClick={() => onHoraSelect(hora)}
                         >
@@ -146,69 +313,17 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                     </Box>
                   </Box>
 
-                  <Box mt={2} display="flex" gap={1} alignItems="stretch" flexDirection={{ xs: 'column', sm: 'row' }}>
-                    <Typography fontWeight={500} mb={1} sx={{ mr: { sm: 1 } }}><strong>Modalidad de atención: </strong></Typography>
-                    <Button
-                      startIcon={<PersonPinCircleIcon />}
-                      variant={seleccion.modalidad === 'Presencial' ? 'contained' : 'outlined'}
-                      size="small"
-                      sx={{
-                        width: { xs: '100%', sm: 'auto' },
-                        color: seleccion.modalidad === 'Presencial' ? 'white' : (prof.cita_presencial ? BRAND.primary : 'grey.500'),
-                        bgcolor: seleccion.modalidad === 'Presencial' ? BRAND.primary : 'transparent',
-                        borderColor: prof.cita_presencial ? BRAND.primary : 'grey.400',
-                        opacity: prof.cita_presencial ? 1 : 0.5,
-                        pointerEvents: prof.cita_presencial ? 'auto' : 'none',
-                        fontWeight: seleccion.modalidad === 'Presencial' ? 700 : 400,
-                      }}
-                      onClick={() => { if (prof.cita_presencial) onModalidadSelect('Presencial'); }}
-                    >
-                      Presencial
-                    </Button>
-                    <Button
-                      startIcon={<VideoCameraFrontIcon />}
-                      variant={seleccion.modalidad === 'Telemedicina' ? 'contained' : 'outlined'}
-                      size="small"
-                      sx={{
-                        width: { xs: '100%', sm: 'auto' },
-                        color: seleccion.modalidad === 'Telemedicina' ? 'white' : (prof.cita_virtual ? BRAND.secondary : 'grey.500'),
-                        bgcolor: seleccion.modalidad === 'Telemedicina' ? BRAND.secondary : 'transparent',
-                        borderColor: prof.cita_virtual ? BRAND.secondary : 'grey.400',
-                        opacity: prof.cita_virtual ? 1 : 0.5,
-                        pointerEvents: prof.cita_virtual ? 'auto' : 'none',
-                        fontWeight: seleccion.modalidad === 'Telemedicina' ? 700 : 400,
-                      }}
-                      onClick={() => { if (prof.cita_virtual) onModalidadSelect('Telemedicina'); }}
-                    >
-                      Telemedicina
-                    </Button>
-                    <Button
-                      startIcon={<HomeWorkIcon />}
-                      variant={seleccion.modalidad === 'Domicilio' ? 'contained' : 'outlined'}
-                      size="small"
-                      sx={{
-                        width: { xs: '100%', sm: 'auto' },
-                        color: seleccion.modalidad === 'Domicilio' ? 'white' : (prof.cita_domicilio ? BRAND.primary : 'grey.500'),
-                        bgcolor: seleccion.modalidad === 'Domicilio' ? BRAND.primary : 'transparent',
-                        borderColor: prof.cita_domicilio ? BRAND.primary : 'grey.400',
-                        opacity: prof.cita_domicilio ? 1 : 0.5,
-                        pointerEvents: prof.cita_domicilio ? 'auto' : 'none',
-                        fontWeight: seleccion.modalidad === 'Domicilio' ? 700 : 400,
-                      }}
-                      onClick={() => { if (prof.cita_domicilio) onModalidadSelect('Domicilio'); }}
-                    >
-                      Domicilio
-                    </Button>
-                  </Box>
-
                   <Button
                     sx={{
                       mt: 2,
+                      py: 1.2,
                       background: isReady
                         ? `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.secondary})`
                         : 'grey.400',
                       color: 'white',
-                      boxShadow: isReady ? '0 8px 16px rgba(37,150,190,0.3)' : 'none',
+                      borderRadius: 999,
+                      fontWeight: 900,
+                      textTransform: 'none',
                       '&:hover': {
                         background: isReady
                           ? `linear-gradient(135deg, ${BRAND.secondary}, ${BRAND.primary})`
@@ -217,22 +332,35 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                       '&.Mui-disabled': {
                         background: 'grey.400',
                         color: 'white',
-                        opacity: 0.7,
+                        opacity: 0.75,
                       },
                     }}
                     fullWidth
                     disabled={!isReady}
                     onClick={onReservar}
                   >
-                    Reservar cita
+                    Continuar
                   </Button>
-                </Box>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
 
-        <LocationSection prof={prof} brand={BRAND} />
+              {/* “Publicaciones” (cards tipo timeline) */}
+              <Card elevation={0} sx={{ border: '1px solid #dff1ff', borderRadius: 4, boxShadow: '0 14px 34px rgba(37,150,190,0.08)' }}>
+                <CardContent>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                    <CalendarMonthIcon sx={{ color: BRAND.primary }} />
+                    <Typography fontWeight={900} sx={{ color: BRAND.primary }}>
+                      Cómo funciona
+                    </Typography>
+                  </Stack>
+                  <Typography color="text.secondary">
+                    1) Elige fecha y hora · 2) Selecciona el servicio · 3) Si el servicio tiene más de una modalidad, podrás elegirla · 4) Confirma.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Stack>
+          </Grid>
+        </Grid>
       </Container>
     </Box>
   );
