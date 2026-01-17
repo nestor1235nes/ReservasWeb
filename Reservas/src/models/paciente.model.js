@@ -34,6 +34,47 @@ const comportamientoSchema = new mongoose.Schema({
 
 }, { _id: false });
 
+const alergiaSchema = new mongoose.Schema({
+    nombre: { type: String, trim: true, default: '' },
+    severidad: { type: String, enum: ['alta', 'media', 'baja'], default: 'baja' },
+}, { _id: false });
+
+const medicamentoActivoSchema = new mongoose.Schema({
+    nombre: { type: String, trim: true, default: '' },
+    dosis: { type: String, trim: true, default: '' },
+    frecuencia: { type: String, trim: true, default: '' },
+}, { _id: false });
+
+const contactoEmergenciaSchema = new mongoose.Schema({
+    nombre: { type: String, trim: true, default: '' },
+    relacion: { type: String, trim: true, default: '' },
+    telefono: { type: String, trim: true, default: '' },
+}, { _id: false });
+
+const signosVitalesSchema = new mongoose.Schema({
+    fecha: { type: Date, default: Date.now },
+    presionArterial: { type: String, trim: true, default: '' },
+    frecuenciaCardiaca: { type: String, trim: true, default: '' },
+    pesoKg: { type: String, trim: true, default: '' },
+    tallaCm: { type: String, trim: true, default: '' },
+    temperaturaC: { type: String, trim: true, default: '' },
+    saturacionO2: { type: String, trim: true, default: '' },
+    glucosaMgDl: { type: String, trim: true, default: '' },
+}, { _id: false });
+
+const documentoSchema = new mongoose.Schema({
+    nombre: { type: String, trim: true, default: '' },
+    url: { type: String, trim: true, default: '' },
+    createdAt: { type: Date, default: Date.now },
+}, { _id: false });
+
+const notaClinicaSchema = new mongoose.Schema({
+    fecha: { type: Date, default: Date.now },
+    autor: { type: String, trim: true, default: '' },
+    titulo: { type: String, trim: true, default: '' },
+    contenido: { type: String, trim: true, default: '' },
+}, { _id: false });
+
 const PacienteSchema = new mongoose.Schema({
     nombre: {
         type: String,
@@ -54,6 +95,9 @@ const PacienteSchema = new mongoose.Schema({
     },
     edad: {
         type: String,
+    },
+    fechaNacimiento: {
+        type: Date,
     },
     email: {
         type: String,
@@ -79,6 +123,55 @@ const PacienteSchema = new mongoose.Schema({
     diaPrimeraCita: {
         type: Date,
         default: Date.now,
+    },
+
+    // --- Datos personales ampliados (para portal del paciente) ---
+    codigoPaciente: {
+        type: String,
+        trim: true,
+    },
+    fotoPerfil: {
+        type: String,
+        trim: true,
+    },
+    sexo: {
+        type: String,
+        enum: ['Masculino', 'Femenino', 'Otro', 'No especifica'],
+        default: 'No especifica',
+    },
+    tipoSangre: {
+        type: String,
+        trim: true,
+        default: '',
+    },
+    prevision: {
+        type: String,
+        trim: true,
+        default: '',
+    },
+    alergias: {
+        type: [alergiaSchema],
+        default: [],
+    },
+    medicamentosActivos: {
+        type: [medicamentoActivoSchema],
+        default: [],
+    },
+    contactoEmergencia: {
+        type: contactoEmergenciaSchema,
+        default: () => ({}),
+    },
+    signosVitales: {
+        type: [signosVitalesSchema],
+        default: [],
+    },
+    documentos: {
+        type: [documentoSchema],
+        default: [],
+    },
+    notasClinicas: {
+        type: [notaClinicaSchema],
+        default: [],
     },
 
     // Datos de comportamiento

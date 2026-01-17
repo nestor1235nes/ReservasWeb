@@ -20,6 +20,10 @@ export const auth = (req, res, next) => {
       if (error) {
         return res.status(401).json({ message: "Token is not valid" });
       }
+        // Evitar que tokens de pacientes funcionen como auth de profesionales
+        if (user?.type === 'patient') {
+          return res.status(401).json({ message: "Token is not valid" });
+        }
       req.user = user;
       next();
     });

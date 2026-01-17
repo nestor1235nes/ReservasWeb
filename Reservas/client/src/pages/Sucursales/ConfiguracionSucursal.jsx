@@ -80,8 +80,6 @@ export default function ConfiguracionSucursal() {
     contactoFacebook: '',
     contactoTwitter: '',
     contactoLinkedin: '',
-    idInstance: '',
-    apiTokenInstance: '',
     defaultMessage: '',
     reminderMessage: '',
   });
@@ -118,8 +116,6 @@ export default function ConfiguracionSucursal() {
       contactoFacebook: s?.contacto?.facebook || '',
       contactoTwitter: s?.contacto?.twitter || '',
       contactoLinkedin: s?.contacto?.linkedin || '',
-      idInstance: s?.idInstance || '',
-      apiTokenInstance: s?.apiTokenInstance || '',
       defaultMessage: s?.defaultMessage || '',
       reminderMessage: s?.reminderMessage || '',
     });
@@ -201,8 +197,6 @@ export default function ConfiguracionSucursal() {
         twitter: form.contactoTwitter,
         linkedin: form.contactoLinkedin,
       },
-      idInstance: form.idInstance,
-      apiTokenInstance: form.apiTokenInstance,
       defaultMessage: form.defaultMessage,
       reminderMessage: form.reminderMessage,
     };
@@ -651,24 +645,6 @@ export default function ConfiguracionSucursal() {
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="ID Instance"
-                  value={form.idInstance}
-                  onChange={onChange('idInstance')}
-                  disabled={!canEdit || loading || saving}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="API Token Instance"
-                  value={form.apiTokenInstance}
-                  onChange={onChange('apiTokenInstance')}
-                  disabled={!canEdit || loading || saving}
-                />
-              </Grid>
               <Grid item xs={12}>
                 <TextField
                   fullWidth

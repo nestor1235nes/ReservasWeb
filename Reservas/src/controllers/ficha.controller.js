@@ -269,7 +269,14 @@ Además, se le recordará su cita agendada 24 horas antes. Gracias por su prefer
 
 export const getPacientePorRut = async (req, res) => {
     try {
-        const paciente = await Paciente.findOne({ rut: req.params.rut });
+        const rutRaw = (req.params.rut || '').toString().trim().replace(/\./g, '');
+        const safe = rutRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rutQuery = new RegExp(`^${safe}$`, 'i');
+        const paciente = await Paciente.findOne({ rut: rutQuery })
+            .populate({
+                path: 'profesionales',
+                select: 'username email fotoPerfil especialidad especialidad_principal',
+            });
         res.json(paciente);
     } catch (error) {
         res.status(404).json({ message: error.message });
@@ -1210,12 +1217,17 @@ export const getPacientesUsuario = async (req, res) => {
 // Nueva función: obtener todas las reservas de un paciente por RUT
 export const getReservasPorRut = async (req, res) => {
   try {
-    const paciente = await Paciente.findOne({ rut: req.params.rut });
+        const rutRaw = (req.params.rut || '').toString().trim().replace(/\./g, '');
+        const safe = rutRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rutQuery = new RegExp(`^${safe}$`, 'i');
+        const paciente = await Paciente.findOne({ rut: rutQuery });
     if (!paciente) {
             // Si no existe el paciente, devolver lista vacía para no romper flujos públicos
             return res.status(200).json([]);
     }
-    const reservas = await Reserva.find({ paciente: paciente._id }).populate('paciente').populate('profesional');
+        const reservas = await Reserva.find({ paciente: paciente._id })
+                .populate({ path: 'paciente', select: 'nombre rut' })
+                .populate({ path: 'profesional', select: 'username email fotoPerfil especialidad especialidad_principal' });
     res.json(reservas);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -1513,5 +1525,115 @@ export const publicCreateReserva = async (req, res) => {
                 res.status(201).json(nuevaReserva);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// Actualizar datos del paciente desde portal público (por RUT)
+// Nota: por ahora el "login" es solo por RUT, así que este endpoint NO es seguro para producción.
+// En el siguiente paso se recomienda protegerlo con OTP (WhatsApp/email) o token firmado.
+export const publicUpdatePacientePorRut = async (req, res) => {
+    try {
+        const rutRaw = (req.params.rut || '').toString().trim().replace(/\./g, '');
+        if (!rutRaw) return res.status(400).json({ message: 'RUT requerido' });
+        const safe = rutRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rutQuery = new RegExp(`^${safe}$`, 'i');
+
+        const allowed = new Set([
+            'nombre',
+            'telefono',
+            'direccion',
+            'edad',
+            'fechaNacimiento',
+            'email',
+            'sexo',
+            'tipoSangre',
+            'prevision',
+            'fotoPerfil',
+            'alergias',
+            'medicamentosActivos',
+            'contactoEmergencia',
+        ]);
+
+        const updates = {};
+        for (const [k, v] of Object.entries(req.body || {})) {
+            if (!allowed.has(k)) continue;
+            updates[k] = v;
+        }
+
+        if (typeof updates.telefono === 'string' || typeof updates.telefono === 'number') {
+            updates.telefono = normalizarTelefono(updates.telefono);
+        }
+
+        // Fecha de nacimiento: validar y (si aplica) recalcular edad
+        if (Object.prototype.hasOwnProperty.call(updates, 'fechaNacimiento')) {
+            const raw = updates.fechaNacimiento;
+            if (!raw) {
+                updates.fechaNacimiento = null;
+            } else {
+                const d = new Date(raw);
+                if (Number.isNaN(d.getTime())) {
+                    delete updates.fechaNacimiento;
+                } else {
+                    const now = new Date();
+                    if (d > now) {
+                        delete updates.fechaNacimiento;
+                    } else {
+                        updates.fechaNacimiento = d;
+                        // edad en años (mantener compatibilidad con el campo legacy "edad")
+                        const msPerYear = 365.2425 * 24 * 60 * 60 * 1000;
+                        const years = Math.floor((now.getTime() - d.getTime()) / msPerYear);
+                        if (Number.isFinite(years) && years >= 0 && years <= 130) {
+                            updates.edad = String(years);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sanitizar arreglos esperados
+        if (Array.isArray(updates.alergias)) {
+            updates.alergias = updates.alergias
+                .slice(0, 30)
+                .map(a => ({
+                    nombre: (a?.nombre || '').toString().trim(),
+                    severidad: ['alta', 'media', 'baja'].includes((a?.severidad || '').toString().toLowerCase())
+                        ? (a.severidad || '').toString().toLowerCase()
+                        : 'baja'
+                }))
+                .filter(a => a.nombre);
+        }
+
+        if (Array.isArray(updates.medicamentosActivos)) {
+            updates.medicamentosActivos = updates.medicamentosActivos
+                .slice(0, 50)
+                .map(m => ({
+                    nombre: (m?.nombre || '').toString().trim(),
+                    dosis: (m?.dosis || '').toString().trim(),
+                    frecuencia: (m?.frecuencia || '').toString().trim(),
+                }))
+                .filter(m => m.nombre);
+        }
+
+        if (updates.contactoEmergencia && typeof updates.contactoEmergencia === 'object') {
+            updates.contactoEmergencia = {
+                nombre: (updates.contactoEmergencia?.nombre || '').toString().trim(),
+                relacion: (updates.contactoEmergencia?.relacion || '').toString().trim(),
+                telefono: normalizarTelefono(updates.contactoEmergencia?.telefono || ''),
+            };
+        }
+
+        const paciente = await Paciente.findOneAndUpdate(
+            { rut: rutQuery },
+            { $set: updates },
+            { new: true }
+        ).populate({
+            path: 'profesionales',
+            select: 'username email fotoPerfil especialidad especialidad_principal',
+        });
+
+        if (!paciente) return res.status(404).json({ message: 'Paciente no encontrado' });
+        return res.json(paciente);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
     }
 };

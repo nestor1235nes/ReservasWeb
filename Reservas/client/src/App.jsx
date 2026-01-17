@@ -22,7 +22,7 @@ import RegisterPage from "./pages/RegisterPage";
 import PatientsPage from "./pages/PatientsPage";
 import GraphicsPage from "./pages/GraphicsPage";
 import PaymentConfirmPage from "./pages/PaymentConfirmPage";
-import { ProtectedRoute } from "./routes";
+import { ProtectedRoute, PatientProtectedRoute } from "./routes";
 import { PerfilPage } from "./pages/PerfilPage";
 import GestionarAsistentes from "./pages/Sucursales/GestionarAsistentes";
 import GestionarProfesionales from "./pages/Sucursales/GestionarProfesionales";
@@ -36,9 +36,12 @@ import LinkPage from "./pages/LinkPage";
 import TemplateBuilderPage from "./pages/TemplateBuilderPage";
 import { SubscriptionProvider } from "./context/subscriptionContext.jsx";
 import AdminPlansPage from "./pages/AdminPlansPage.jsx";
+import AdminWhatsAppPage from "./pages/AdminWhatsAppPage.jsx";
 import PublicSucursalProfesionalesPage from "./pages/PublicSucursalProfesionalesPage.jsx";
 import EnlaceSucursal from "./pages/Sucursales/EnlaceSucursal.jsx";
 import WaitlistOfferPage from "./pages/WaitlistOfferPage.jsx";
+import PacienteLoginPage from "./pages/PacienteLoginPage.jsx";
+import PacientePortalPage from "./pages/PacientePortalPageFixed.jsx";
 
 
 const theme = createTheme({
@@ -74,6 +77,7 @@ function AppContent() {
     'lista-espera',
     'telemedicina',
     'payment',
+    'paciente',
     'calendario',
     'hoy',
     'perfil',
@@ -95,6 +99,7 @@ function AppContent() {
     location.pathname === "/login" ||
     location.pathname === "/register" ||
     location.pathname === "/front-users" ||
+    location.pathname.startsWith("/paciente/") ||
     location.pathname.startsWith("/confirmacion/") ||
     location.pathname.startsWith("/lista-espera/") ||
     location.pathname.startsWith("/telemedicina/join") ||
@@ -165,17 +170,22 @@ function AppContent() {
                         <Routes>
                           <Route path="/" element={<HomePageNew />} />
                           <Route path="/login" element={<LoginPage />} />
+                          <Route path="/paciente/login" element={<PacienteLoginPage />} />
                           <Route path="/register" element={<RegisterPage />} />
                           <Route path="/front-users" element={<FrontUsers />} />
                           <Route path="/p/:slug" element={<FrontUsers />} />
                           <Route path="/sucursal-publica/:sucursalKey" element={<PublicSucursalProfesionalesPage />} />
                           {/* Ruta pública corta (sin prefijo) para sucursal por slug o id */}
                           <Route path="/:sucursalKey" element={<PublicSucursalProfesionalesPage />} />
+                          <Route element={<PatientProtectedRoute />}>
+                            <Route path="/paciente/portal" element={<PacientePortalPage />} />
+                          </Route>
                           <Route element={<ProtectedRoute />}>
                             <Route path="/calendario" element={<CalendarioPage />} />
                             <Route path="/hoy" element={<TodayPage />} />
                             <Route path="/perfil" element={<PerfilPage />} />
                             <Route path="/admin/planes" element={<AdminPlansPage />} />
+                            <Route path="/admin/whatsapp" element={<AdminWhatsAppPage />} />
                             <Route path="/pacientes" element={<PatientsPage />} />
                             <Route path="/mi-enlace" element={<LinkPage />} />
                             <Route path="/mi-empresa/enlace" element={<EnlaceSucursal />} />

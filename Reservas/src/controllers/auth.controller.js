@@ -167,8 +167,6 @@ export const register = async (req, res) => {
       cita_domicilio,
       servicios,
       notifications,
-      idInstance, 
-      apiTokenInstance, 
       defaultMessage, 
       reminderMessage,
       direccion,
@@ -219,8 +217,6 @@ export const register = async (req, res) => {
       cita_domicilio: cita_domicilio || false,
       servicios: servicios || [],
       notifications: notifications || [],
-      idInstance,
-      apiTokenInstance,
       defaultMessage,
       reminderMessage,
       direccion,
@@ -260,8 +256,6 @@ export const register = async (req, res) => {
       cita_domicilio: userSaved.cita_domicilio,
       servicios: userSaved.servicios,
       notifications: userSaved.notifications,
-      idInstance: userSaved.idInstance,
-      apiTokenInstance: userSaved.apiTokenInstance,
       defaultMessage: userSaved.defaultMessage,
       reminderMessage: userSaved.reminderMessage,
       direccion: userSaved.direccion,
@@ -359,8 +353,6 @@ export const login = async (req, res) => {
       cita_domicilio: userFound.cita_domicilio,
       servicios: userFound.servicios,
       notifications: userFound.notifications,
-      idInstance: userFound.idInstance,
-      apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
       direccion: userFound.direccion,
@@ -407,8 +399,6 @@ export const verifyToken = async (req, res) => {
       cita_domicilio: userFound.cita_domicilio,
       servicios: userFound.servicios,
       notifications: userFound.notifications,
-      idInstance: userFound.idInstance,
-      apiTokenInstance: userFound.apiTokenInstance,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
       direccion: userFound.direccion,
@@ -464,11 +454,13 @@ export const updatePerfil = async (req, res) => {
     const current = await User.findById(req.params.id);
     if (!current) return res.status(404).json({ message: 'User not found' });
 
+    // Desde ahora las credenciales GreenAPI son globales (plataforma) y no se editan por usuario.
+    delete req.body.idInstance;
+    delete req.body.apiTokenInstance;
+
     // Si el usuario pertenece a una sucursal, las credenciales de WhatsApp se toman siempre desde la sucursal.
     // Bloqueamos la modificación de estas claves a nivel de perfil para evitar configuraciones inconsistentes.
     if (current.sucursal) {
-      delete req.body.idInstance;
-      delete req.body.apiTokenInstance;
       delete req.body.defaultMessage;
       delete req.body.reminderMessage;
     }

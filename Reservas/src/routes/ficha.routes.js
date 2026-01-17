@@ -7,13 +7,15 @@ import {
     updatePaciente,
     getPacientePorRut,
     getPacientesUsuario,
-    publicCreatePaciente
+    publicCreatePaciente,
+    publicUpdatePacientePorRut
 } from "../controllers/ficha.controller.js";
 import { auth } from "../middlewares/auth.middleware.js";
+import { portalRutAuth } from "../middlewares/portalRutAuth.middleware.js";
 
 const router = Router();
 
-router.get("/ficha/rut/:rut/", getPacientePorRut);
+router.get("/ficha/rut/:rut/", portalRutAuth('rut'), getPacientePorRut);
 router.get("/ficha", auth, getPacientes);
 router.get("/ficha/:id", getPaciente);
 router.post("/ficha", auth, createPaciente);
@@ -23,5 +25,6 @@ router.get("/pacientes-usuario", auth, getPacientesUsuario);
 
 // Rutas públicas para flujo de reservas desde enlace (sin autenticación)
 router.post("/public/ficha", publicCreatePaciente);
+router.put("/public/ficha/rut/:rut", portalRutAuth('rut'), publicUpdatePacientePorRut);
 
 export default router;

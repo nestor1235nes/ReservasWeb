@@ -29,9 +29,9 @@ export const ReservaProvider = ({ children }) => {
     }
   }
 
-  const getReservasPorRut = async (rut) => {
+  const getReservasPorRut = async (rut, token) => {
     try {
-      const response = await getReservasPorRutRequest(rut);
+      const response = await getReservasPorRutRequest(rut, token);
       return response.data;
     } catch (error) {
       console.error(error);

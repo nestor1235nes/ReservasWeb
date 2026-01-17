@@ -9,3 +9,10 @@ export const ProtectedRoute = () => {
   if (!isAuthenticated && !loading) return <Navigate to="/login" replace />;
   return <Outlet />;
 };
+
+// Guard simple para vistas del paciente (por ahora login solo por RUT).
+export const PatientProtectedRoute = () => {
+  const rut = typeof window !== 'undefined' ? localStorage.getItem('patient_rut') : null;
+  if (!rut) return <Navigate to="/paciente/login" replace />;
+  return <Outlet />;
+};

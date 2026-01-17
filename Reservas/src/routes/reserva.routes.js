@@ -14,12 +14,13 @@ import {
 } from "../controllers/ficha.controller.js";
 import { obtenerPacientesSinSesiones, getFeriados } from "../controllers/funciones.controller.js";
 import { auth } from "../middlewares/auth.middleware.js"; // Importa el middleware de autenticación
+import { portalRutAuth } from "../middlewares/portalRutAuth.middleware.js";
 
 const router = Router();
 
 // Rutas más específicas primero para evitar conflictos en algunos entornos
-router.get("/reserva/:rut/todas", getReservasPorRut); // Obtener todas las reservas por RUT (pública)
-router.get("/reserva/todas/:rut", getReservasPorRut); // Alias alternativo por compatibilidad
+router.get("/reserva/:rut/todas", portalRutAuth('rut'), getReservasPorRut); // Obtener todas las reservas por RUT (portal paciente / profesional)
+router.get("/reserva/todas/:rut", portalRutAuth('rut'), getReservasPorRut); // Alias alternativo por compatibilidad
 
 router.get("/reserva", auth, getReservas); // Aplica el middleware de autenticación
 router.get("/reserva/:rut", auth, getReserva); // Aplica el middleware de autenticación

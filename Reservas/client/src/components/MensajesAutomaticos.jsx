@@ -45,8 +45,6 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
   const [error, setError] = useState(null);
   const [sucursalData, setSucursalData] = useState(null);
   const [localData, setLocalData] = useState({
-    idInstance: '',
-    apiTokenInstance: '',
     reminderMessage: ''
   });
   const activeFieldRef = useRef(null);
@@ -79,18 +77,14 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
   useEffect(() => {
     if (useSucursalConfig) {
       setLocalData({
-        idInstance: sucursalData?.idInstance || '',
-        apiTokenInstance: sucursalData?.apiTokenInstance || '',
         reminderMessage: sucursalData?.reminderMessage || ''
       });
       return;
     }
     setLocalData({
-      idInstance: formData.idInstance || '',
-      apiTokenInstance: formData.apiTokenInstance || '',
       reminderMessage: formData.reminderMessage || ''
     });
-  }, [useSucursalConfig, sucursalData?.idInstance, sucursalData?.apiTokenInstance, sucursalData?.reminderMessage, formData.idInstance, formData.apiTokenInstance, formData.reminderMessage]);
+  }, [useSucursalConfig, sucursalData?.reminderMessage, formData.reminderMessage]);
 
   const propagate = (name, value) => {
     // notificar al padre (PerfilPage) para mantener un solo origen de verdad
@@ -138,14 +132,10 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     // revertir a props
     if (useSucursalConfig) {
       setLocalData({
-        idInstance: sucursalData?.idInstance || '',
-        apiTokenInstance: sucursalData?.apiTokenInstance || '',
         reminderMessage: sucursalData?.reminderMessage || ''
       });
     } else {
       setLocalData({
-        idInstance: formData.idInstance || '',
-        apiTokenInstance: formData.apiTokenInstance || '',
         reminderMessage: formData.reminderMessage || ''
       });
     }
@@ -154,26 +144,18 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
 
   const handleSave = async () => {
     setError(null);
-    const { idInstance, apiTokenInstance } = localData;
     // Guardamos exactamente lo que escribe el usuario; el sufijo se agregará dinámicamente en el envío si corresponde
     const reminderMessage = localData.reminderMessage;
-    const mensajesConfigurados = (reminderMessage && reminderMessage.trim() !== '');
-    if (mensajesConfigurados && (!idInstance || !apiTokenInstance)) {
-      setError('Debes ingresar ID Instance y API Token para guardar mensajes.');
-      return;
-    }
     try {
       setSaving(true);
       if (useSucursalConfig) {
         const sid = sucursalData?._id || user?.sucursal?._id || user?.sucursal;
         if (!sid) throw new Error('missing_sucursal_id');
-        await updateSucursal(sid, { idInstance, apiTokenInstance, reminderMessage });
+        await updateSucursal(sid, { reminderMessage });
         const refreshed = await getSucursal();
         setSucursalData(refreshed);
       } else {
         await updatePerfil(user.id || user._id, {
-          idInstance,
-          apiTokenInstance,
           reminderMessage
         });
       }
@@ -184,8 +166,6 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
       setSaving(false);
     }
   };
-
-  const credsMissing = !localData.idInstance || !localData.apiTokenInstance;
 
   // Normaliza teléfono a formato 569XXXXXXXX
   const normalizarTelefono = (telefono) => {
@@ -352,25 +332,9 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
         <CardContent>
           <Stack spacing={2}>
             {error && <Alert severity="error">{error}</Alert>}
-            <Typography variant="subtitle1" fontWeight={600}>Credenciales</Typography>
-            <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
-              <TextField
-                label="ID Instance"
-                name="idInstance"
-                value={localData.idInstance}
-                onChange={handleFieldChange}
-                fullWidth
-                disabled={!editing}
-              />
-              <TextField
-                label="API Token Instance"
-                name="apiTokenInstance"
-                value={localData.apiTokenInstance}
-                onChange={handleFieldChange}
-                fullWidth
-                disabled={!editing}
-              />
-            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              El envío de WhatsApp se realiza desde un único número de la plataforma. Las credenciales GreenAPI las gestiona el administrador.
+            </Typography>
             <Divider />
             <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
               <Typography variant="subtitle1" fontWeight={600}>Plantillas de Mensajes</Typography>
@@ -423,11 +387,6 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
                   )}
                 </Typography>
               </Paper>
-            )}
-            {credsMissing && (
-              <Typography variant="body2" color="warning.main">
-                Ingresa tus credenciales de Green API para habilitar el envío automático.
-              </Typography>
             )}
           </Stack>
         </CardContent>

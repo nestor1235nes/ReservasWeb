@@ -102,6 +102,10 @@ export const actualizarSucursal = async (req, res) => {
         if (!existing) return res.status(404).json({ message: "Sucursal no encontrada" });
 
         const payload = { ...(req.body || {}) };
+
+        // Desde ahora las credenciales GreenAPI son globales (plataforma) y no se editan por sucursal.
+        delete payload.idInstance;
+        delete payload.apiTokenInstance;
         // Mantener slug estable: solo generarlo si aún no existe
         if (!existing.slug) {
             payload.slug = await buildUniqueSucursalSlug({ base: payload.nombre || existing.nombre, currentId: id });

@@ -81,7 +81,7 @@ function normalizarTelefono(telefono) {
 }
 
 const sendWhatsAppMessage = async (reservasLiberadas, messageTemplate, user, options = {}) => {
-    // Las credenciales ahora las usa el backend desde el perfil del usuario
+    // Las credenciales las usa el backend desde la configuración global de la plataforma
 
     let sent = 0;
     const failures = [];

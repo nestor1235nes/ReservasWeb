@@ -590,7 +590,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   showAlert('success', msg);
                 } else {
                   const detail = report?.details?.[0]?.reason || 'desconocido';
-                  showAlert('warning', `No se pudo enviar WhatsApp (motivo: ${detail}). Revisa credenciales y formato de teléfono (569XXXXXXXX).`);
+                  showAlert('warning', `No se pudo enviar WhatsApp (motivo: ${detail}). Revisa la configuración de WhatsApp de la plataforma y el formato de teléfono (569XXXXXXXX).`);
                   if (report?.details) console.warn('Detalles envío WhatsApp:', report.details);
                 }
               } else {

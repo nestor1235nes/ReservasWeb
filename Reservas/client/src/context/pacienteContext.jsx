@@ -4,7 +4,8 @@ import { getPacientePorRutRequest,
   getPacientesRequest, 
   updatePacienteRequest, 
   createPacienteRequest,
-  getPacientesUsuarioRequest
+  getPacientesUsuarioRequest,
+  updatePacientePublicPorRutRequest
  } from "../api/pacientes";
 import { getPacientesSucursalRequest } from "../api/sucursales";
 
@@ -18,9 +19,9 @@ export const usePaciente = () => {
 
 export const PacienteProvider = ({ children }) => {
   
-  const getPacientePorRut = async (rut) => {
+  const getPacientePorRut = async (rut, token) => {
     try {
-      const response = await getPacientePorRutRequest(rut);
+      const response = await getPacientePorRutRequest(rut, token);
       return response.data;
     } catch (error) {
       console.error(error);
@@ -66,6 +67,17 @@ export const PacienteProvider = ({ children }) => {
     }
   }
 
+  // Actualización pública para portal del paciente (por RUT)
+  const updatePacientePublicPorRut = async (rut, data, token) => {
+    try {
+      const response = await updatePacientePublicPorRutRequest(rut, data, token);
+      return response.data;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+
   const getPacientesUsuario = async () => {
     try {
       const response = await getPacientesUsuarioRequest();
@@ -92,7 +104,8 @@ export const PacienteProvider = ({ children }) => {
       updatePaciente, 
       getPacientePorRut,
       getPacientesUsuario,
-      getPacientesSucursal
+      getPacientesSucursal,
+      updatePacientePublicPorRut
        }}>
       {children}
     </PacienteContext.Provider>

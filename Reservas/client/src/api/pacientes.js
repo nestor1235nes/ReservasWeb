@@ -1,6 +1,10 @@
 import axios from "./axios";
 
-export const getPacientePorRutRequest = async (rut) => axios.get(`ficha/rut/${rut}`);
+export const getPacientePorRutRequest = async (rut, token) =>
+	axios.get(`ficha/rut/${rut}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+
+export const updatePacientePublicPorRutRequest = async (rut, data, token) =>
+	axios.put(`public/ficha/rut/${rut}`, data, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
 export const getPacientesRequest = async () => axios.get(`ficha/`);
 export const getPacienteRequest = async (id) => axios.get(`ficha/${id}`);
 export const createPacienteRequest = async (paciente) => axios.post(`ficha`, paciente);
