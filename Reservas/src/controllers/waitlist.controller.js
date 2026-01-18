@@ -4,8 +4,10 @@ import Waitlist from '../models/waitlist.model.js';
 import Reserva from '../models/ficha.model.js';
 import Paciente from '../models/paciente.model.js';
 import User from '../models/user.model.js';
+import Sucursal from '../models/sucursal.model.js';
 import { FRONTEND_URL } from '../config.js';
 import { resolveWhatsAppCredentialsForUser } from '../libs/whatsappCredentials.js';
+import { DEFAULT_MESSAGE_TEMPLATES, mergeTemplates, renderMessageTemplate } from '../libs/messageTemplates.js';
 
 // Constantes
 const OFFER_TOKEN_BYTES = 24;
@@ -105,17 +107,31 @@ async function enviarWhatsAppOfertaHora({ profesional, paciente, waitlistEntry, 
         const baseUrl = (process.env.FRONTEND_BASE_URL || FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
         const acceptLink = `${baseUrl}/lista-espera/aceptar/${ofertaToken}`;
 
-        const message = `🎉 ¡Buenas noticias, ${nombre}!
+        let sucursal = null;
+        if (profesional?.sucursal) {
+            try {
+                sucursal = await Sucursal.findById(profesional.sucursal).lean();
+            } catch {
+                sucursal = null;
+            }
+        }
 
-Se ha liberado una hora con ${profesionalNombre} para el ${fecha} a las ${hora}.
+        const templates = mergeTemplates({
+            defaults: DEFAULT_MESSAGE_TEMPLATES,
+            userTemplates: profesional?.messageTemplates,
+            sucursalTemplates: sucursal?.messageTemplates,
+        });
 
-Como estás en la lista de espera, tienes la prioridad para tomar esta hora.
-
-⏰ *Tienes 20 minutos para aceptar esta hora.*
-
-👉 Acepta aquí: ${acceptLink}
-
-Si no respondes a tiempo, la hora será ofrecida al siguiente paciente en la lista.`;
+        const template = templates?.waitlist?.offer || DEFAULT_MESSAGE_TEMPLATES.waitlist.offer;
+        const message = renderMessageTemplate(template, {
+            nombre,
+            profesional: profesionalNombre,
+            fecha,
+            hora,
+            enlaceOferta: acceptLink,
+            minutosVigencia: OFFER_TOKEN_TTL_MINUTES,
+            sucursal: sucursal?.nombre || '',
+        });
 
         const url = `https://api.green-api.com/waInstance${creds.idInstance}/sendMessage/${creds.apiTokenInstance}`;
         const data = { chatId: `${phone}@c.us`, message };

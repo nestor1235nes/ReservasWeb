@@ -401,6 +401,7 @@ export const verifyToken = async (req, res) => {
       notifications: userFound.notifications,
       defaultMessage: userFound.defaultMessage,
       reminderMessage: userFound.reminderMessage,
+      messageTemplates: userFound.messageTemplates,
       direccion: userFound.direccion,
       googleMaps: userFound.googleMaps,
       maps: userFound.maps,
@@ -451,8 +452,23 @@ export const updatePerfil = async (req, res) => {
       req.body.especialidad_principal = req.body.especialidad_principal.toUpperCase();
     }
 
-    const current = await User.findById(req.params.id);
+    const current = await User.findById(req.params.id).populate('suscriptionPlan');
     if (!current) return res.status(404).json({ message: 'User not found' });
+
+    const isTryingToEditMessages =
+      Object.prototype.hasOwnProperty.call(req.body, 'defaultMessage') ||
+      Object.prototype.hasOwnProperty.call(req.body, 'reminderMessage') ||
+      Object.prototype.hasOwnProperty.call(req.body, 'messageTemplates');
+
+    // Restricción por plan: en plan Basic no se permite editar mensajes automáticos.
+    const hasActiveSubscription = !!current?.suscriptionEndDate && current.suscriptionEndDate > new Date();
+    const planName = current?.suscriptionPlan?.name || null;
+    const isBasicActive = hasActiveSubscription && planName === 'Basic';
+    if (isBasicActive && isTryingToEditMessages) {
+      return res.status(403).json({
+        message: 'La edición de mensajes automáticos está disponible desde Plan Standard y Teams.',
+      });
+    }
 
     // Desde ahora las credenciales GreenAPI son globales (plataforma) y no se editan por usuario.
     delete req.body.idInstance;
@@ -463,6 +479,7 @@ export const updatePerfil = async (req, res) => {
     if (current.sucursal) {
       delete req.body.defaultMessage;
       delete req.body.reminderMessage;
+      delete req.body.messageTemplates;
     }
 
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('sucursal');

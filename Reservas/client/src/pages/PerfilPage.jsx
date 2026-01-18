@@ -803,9 +803,9 @@ export function PerfilPage() {
   const canSeePlanChip = !loadingSubscription && (!isSucursalScope || esAdminSucursal);
   const canUseOverbooking = planLevel === 'advanced' || planLevel === 'teams';
 
-  const isSucursalMember = !!(user?.sucursal?._id || user?.sucursal);
-  // Regla UX: solo admin de sucursal o profesional independiente ven "Mensajes".
-  const canSeeMensajesTab = !esAsistente && (!isSucursalMember || esAdminSucursal);
+  // Regla UX: si el plan activo es Teams (scope SUCURSAL), la edición de mensajes vive en
+  // "Mi empresa > Configuración" (solo admins). En perfil solo se ve para planes individuales.
+  const canSeeMensajesTab = !esAsistente && !isSucursalScope;
 
   useEffect(() => {
     if (tab === 4 && !canSeeMensajesTab) setTab(0);
@@ -843,7 +843,8 @@ export function PerfilPage() {
     idInstance: u?.idInstance || "",
     apiTokenInstance: u?.apiTokenInstance || "",
     defaultMessage: u?.defaultMessage || "",
-    reminderMessage: u?.reminderMessage || ""
+    reminderMessage: u?.reminderMessage || "",
+    messageTemplates: u?.messageTemplates || {},
   });
 
   // Estado del formulario (se rehidrata cuando cambia `user`)
@@ -2017,8 +2018,6 @@ export function PerfilPage() {
         <MensajesAutomaticos
           formData={formData}
           onChange={handleChange}
-          editProfileMode={editProfileMode}
-          isMobile={isMobile}
         />
       )}
 

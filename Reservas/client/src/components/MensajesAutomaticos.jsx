@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Card, CardHeader, CardContent, Stack, Typography, TextField, Divider, Paper, Button, Chip, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Snackbar } from '@mui/material';
+import { Box, Card, CardHeader, CardContent, Stack, Typography, TextField, Divider, Paper, Button, Chip, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Tabs, Tab } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -7,57 +7,112 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import { useAuth } from '../context/authContext';
 import { useSucursal } from '../context/sucursalContext';
+import { useSubscription } from '../context/subscriptionContext';
 import api from '../api/axios';
 
 const PLACEHOLDERS = [
   { key: 'nombre', desc: 'Nombre del paciente' },
+  { key: 'dia', desc: 'Día de la semana (ej: lunes)' },
   { key: 'fecha', desc: 'Fecha de la cita (ej: 25/09/2025)' },
   { key: 'hora', desc: 'Hora de la cita (ej: 15:30)' },
   { key: 'servicio', desc: 'Nombre del servicio o motivo' },
   { key: 'profesional', desc: 'Nombre del profesional' },
   { key: 'sucursal', desc: 'Nombre de la sucursal (si aplica)' },
   { key: 'enlaceConfirmacion', desc: 'URL única para confirmar la cita' },
+  { key: 'enlaceOferta', desc: 'URL única para aceptar hora de lista de espera' },
+  { key: 'minutosVigencia', desc: 'Minutos disponibles para aceptar una oferta' },
 ];
 
-// Reemplazos de ejemplo para vista previa sin acceder a datos reales
+// Reemplazos de ejemplo para construir mensajes de prueba sin acceder a datos reales
 const previewSample = {
   nombre: 'Juan Pérez',
+  dia: 'jueves',
   fecha: '25/09/2025',
   hora: '15:30',
   servicio: 'Consulta General',
   profesional: 'Dra. Gómez',
   sucursal: 'Centro Salud Central',
-  enlaceConfirmacion: 'https://midominio.cl/confirmacion/ABC123'
+  enlaceConfirmacion: 'https://midominio.cl/confirmacion/ABC123',
+  enlaceOferta: 'https://midominio.cl/lista-espera/aceptar/ABC123',
+  minutosVigencia: '20',
 };
 
-const applyPreview = (template) => {
-  if (!template) return 'Sin mensaje configurado';
-  return template.replace(/\{(\w+)\}/g, (_, key) => previewSample[key] || `{${key}}`);
+// Defaults deben reflejar exactamente lo que el backend enviará si no hay overrides guardados.
+const DEFAULT_TEMPLATES = {
+  reminders: {
+    registroInformativo:
+      `Hola {nombre}, su cita ha sido registrada exitosamente para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+      `Se le enviará un recordatorio 48 horas antes de su cita para confirmar su asistencia.\n\n` +
+      `Gracias por su preferencia.`,
+    registroConfirmacion:
+      `Hola {nombre}, su cita ha sido registrada para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+      `Por favor, confirme su asistencia a través del siguiente enlace:\n` +
+      `{enlaceConfirmacion}\n\n` +
+      `Gracias por su preferencia.`,
+    recordatorio48h:
+      `Hola {nombre}, le recordamos que tiene una cita programada para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+      `Por favor, confirme su asistencia a través del siguiente enlace:\n` +
+      `{enlaceConfirmacion}\n\n` +
+      `Si no puede asistir, le agradecemos cancelar su cita para liberar el espacio a otro paciente.`,
+    recordatorio24h:
+      `Hola {nombre}, le recordamos que MAÑANA tiene una cita a las {hora} con {profesional}.\n\n` +
+      `Su cita aún no ha sido confirmada. Por favor, confirme su asistencia:\n` +
+      `{enlaceConfirmacion}\n\n` +
+      `Si no puede asistir, le agradecemos cancelar su cita.`,
+  },
+  waitlist: {
+    offer:
+      `🎉 ¡Buenas noticias, {nombre}!\n\n` +
+      `Se ha liberado una hora con {profesional} para el {fecha} a las {hora}.\n\n` +
+      `Como estás en la lista de espera, tienes la prioridad para tomar esta hora.\n\n` +
+      `⏰ *Tienes {minutosVigencia} minutos para aceptar esta hora.*\n\n` +
+      `👉 Acepta aquí: {enlaceOferta}\n\n` +
+      `Si no respondes a tiempo, la hora será ofrecida al siguiente paciente en la lista.`,
+  },
 };
 
 // Eliminado: ya no se añade ninguna línea automática de confirmación.
 
-const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, reservaDemo }) => {
+const MensajesAutomaticos = ({ formData, onChange }) => {
   const { updatePerfil, user, esAdminSucursal } = useAuth();
   const { getSucursal, updateSucursal } = useSucursal();
+  const { isBasic } = useSubscription();
   const [editing, setEditing] = useState(false); // edición local
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [sucursalData, setSucursalData] = useState(null);
   const [localData, setLocalData] = useState({
-    reminderMessage: ''
+    defaultMessage: '',
+    messageTemplates: {
+      reminders: {
+        registroInformativo: '',
+        registroConfirmacion: '',
+        recordatorio48h: '',
+        recordatorio24h: '',
+      },
+      waitlist: {
+        offer: '',
+      },
+    },
   });
   const activeFieldRef = useRef(null);
-  const [activeField, setActiveField] = useState('reminderMessage'); // solo reminderMessage
+  const [activeField, setActiveField] = useState('messageTemplates.reminders.registroInformativo');
   const [helpOpen, setHelpOpen] = useState(false);
   const [testSending, setTestSending] = useState(false);
   const [testSnack, setTestSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [tab, setTab] = useState('reminders');
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testPhone, setTestPhone] = useState('');
   const [testPhoneError, setTestPhoneError] = useState('');
 
   const isSucursalMember = !!(user?.sucursal?._id || user?.sucursal);
   const useSucursalConfig = isSucursalMember && !!esAdminSucursal;
+  const canEditMessages = !isBasic;
+  const editingEnabled = editing && canEditMessages;
+
+  useEffect(() => {
+    if (!canEditMessages && editing) setEditing(false);
+  }, [canEditMessages, editing]);
 
   // Cargar sucursal si corresponde (admin de sucursal)
   useEffect(() => {
@@ -75,16 +130,28 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
 
   // Sync con props inicial y cuando cambia la fuente
   useEffect(() => {
-    if (useSucursalConfig) {
-      setLocalData({
-        reminderMessage: sucursalData?.reminderMessage || ''
-      });
-      return;
-    }
+    const source = useSucursalConfig ? sucursalData : formData;
     setLocalData({
-      reminderMessage: formData.reminderMessage || ''
+      defaultMessage: source?.defaultMessage || '',
+      messageTemplates: {
+        reminders: {
+          registroInformativo: source?.messageTemplates?.reminders?.registroInformativo || DEFAULT_TEMPLATES.reminders.registroInformativo,
+          registroConfirmacion: source?.messageTemplates?.reminders?.registroConfirmacion || DEFAULT_TEMPLATES.reminders.registroConfirmacion,
+          recordatorio48h: source?.messageTemplates?.reminders?.recordatorio48h || DEFAULT_TEMPLATES.reminders.recordatorio48h,
+          recordatorio24h: source?.messageTemplates?.reminders?.recordatorio24h || DEFAULT_TEMPLATES.reminders.recordatorio24h,
+        },
+        waitlist: {
+          offer: source?.messageTemplates?.waitlist?.offer || DEFAULT_TEMPLATES.waitlist.offer,
+        },
+      },
     });
-  }, [useSucursalConfig, sucursalData?.reminderMessage, formData.reminderMessage]);
+  }, [
+    useSucursalConfig,
+    sucursalData?.defaultMessage,
+    sucursalData?.messageTemplates,
+    formData?.defaultMessage,
+    formData?.messageTemplates,
+  ]);
 
   const propagate = (name, value) => {
     // notificar al padre (PerfilPage) para mantener un solo origen de verdad
@@ -93,22 +160,59 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     }
   };
 
+  const getByPath = (obj, path) => {
+    const parts = String(path || '').split('.');
+    let cur = obj;
+    for (const p of parts) {
+      if (!cur || typeof cur !== 'object') return undefined;
+      cur = cur[p];
+    }
+    return cur;
+  };
+
+  const setByPath = (obj, path, value) => {
+    const parts = String(path || '').split('.');
+    const out = { ...(obj || {}) };
+    let cur = out;
+    for (let i = 0; i < parts.length; i++) {
+      const key = parts[i];
+      if (i === parts.length - 1) {
+        cur[key] = value;
+      } else {
+        cur[key] = { ...(cur[key] || {}) };
+        cur = cur[key];
+      }
+    }
+    return out;
+  };
+
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
-    setLocalData(prev => ({ ...prev, [name]: value }));
-    propagate(name, value);
+    setLocalData(prev => {
+      const next = setByPath(prev, name, value);
+      if (name.startsWith('messageTemplates')) {
+        propagate('messageTemplates', next.messageTemplates);
+      } else {
+        propagate(name, value);
+      }
+      return next;
+    });
   };
 
   const handlePlaceholderInsert = (placeholder) => {
     const key = `{${placeholder}}`;
-    const field = activeField || 'reminderMessage';
+    const field = activeField || 'messageTemplates.reminders.registroInformativo';
     setLocalData(prev => {
-      const current = prev[field] || '';
+      const current = getByPath(prev, field) || '';
       const selectionStart = activeFieldRef.current?.selectionStart ?? current.length;
       const selectionEnd = activeFieldRef.current?.selectionEnd ?? current.length;
       const newValue = current.slice(0, selectionStart) + key + current.slice(selectionEnd);
-      const updated = { ...prev, [field]: newValue };
-      propagate(field, newValue);
+      const updated = setByPath(prev, field, newValue);
+      if (field.startsWith('messageTemplates')) {
+        propagate('messageTemplates', updated.messageTemplates);
+      } else {
+        propagate(field, newValue);
+      }
       return updated;
     });
     // Restaurar foco
@@ -121,8 +225,120 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     }, 0);
   };
 
+  const isActiveFieldInTab = (field, tabKey) => {
+    if (!field) return false;
+    if (tabKey === 'liberar') return field === 'defaultMessage';
+    if (tabKey === 'waitlist') return field.startsWith('messageTemplates.waitlist');
+    return field.startsWith('messageTemplates.reminders');
+  };
+
+  useEffect(() => {
+    if (isActiveFieldInTab(activeField, tab)) return;
+    if (tab === 'liberar') setActiveField('defaultMessage');
+    else if (tab === 'waitlist') setActiveField('messageTemplates.waitlist.offer');
+    else setActiveField('messageTemplates.reminders.registroInformativo');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const copyToClipboard = async (text, successMsg) => {
+    try {
+      if (!text || !String(text).trim()) {
+        setTestSnack({ open: true, message: 'No hay contenido para copiar.', severity: 'warning' });
+        return;
+      }
+      await navigator.clipboard.writeText(String(text));
+      setTestSnack({ open: true, message: successMsg || 'Copiado al portapapeles.', severity: 'success' });
+    } catch (e) {
+      setTestSnack({ open: true, message: 'No se pudo copiar. Revisa permisos del navegador.', severity: 'error' });
+    }
+  };
+
+  const TemplateCard = ({
+    title,
+    subtitle,
+    name,
+    value,
+    minRows = 4,
+    placeholder,
+  }) => {
+    const isActive = activeField === name;
+    return (
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          borderRadius: 2,
+          borderColor: isActive ? '#21cbe6' : 'rgba(148, 163, 184, 0.55)',
+          boxShadow: isActive ? '0 6px 16px rgba(33,203,230,0.12)' : 'none',
+          transition: 'all 160ms ease',
+        }}
+      >
+        <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={2}>
+          <Box>
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+              <Typography variant="subtitle1" fontWeight={800}>
+                {title}
+              </Typography>
+              {isActive && <Chip size="small" label="Activa" color="primary" variant="outlined" />}
+              {!editingEnabled && <Chip size="small" label="Solo lectura" variant="outlined" />}
+            </Stack>
+            {subtitle && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Tooltip title="Copiar plantilla">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => copyToClipboard(value, 'Plantilla copiada.')}
+                  disabled={!value || !String(value).trim()}
+                >
+                  <ContentPasteIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
+        </Box>
+
+        <TextField
+          inputRef={isActive ? activeFieldRef : null}
+          onFocus={() => setActiveField(name)}
+          name={name}
+          value={value}
+          onChange={handleFieldChange}
+          fullWidth
+          multiline
+          minRows={minRows}
+          disabled={!editingEnabled}
+          placeholder={placeholder}
+          sx={{ mt: 1 }}
+        />
+
+        <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 0.75 }}>
+          <Typography variant="caption" color="text.secondary">
+            Haz clic en placeholders para insertarlos.
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {(value || '').length} caracteres
+          </Typography>
+        </Box>
+      </Paper>
+    );
+  };
+
   const startEdit = () => {
     setError(null);
+    if (!canEditMessages) {
+      setTestSnack({
+        open: true,
+        message: 'La edición de mensajes está disponible desde Plan Standard y Teams.',
+        severity: 'info',
+      });
+      return;
+    }
     setEditing(true);
   };
 
@@ -130,38 +346,45 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     setError(null);
     setEditing(false);
     // revertir a props
-    if (useSucursalConfig) {
-      setLocalData({
-        reminderMessage: sucursalData?.reminderMessage || ''
-      });
-    } else {
-      setLocalData({
-        reminderMessage: formData.reminderMessage || ''
-      });
-    }
+    const source = useSucursalConfig ? sucursalData : formData;
+    setLocalData({
+      defaultMessage: source?.defaultMessage || '',
+      messageTemplates: {
+        reminders: {
+          registroInformativo: source?.messageTemplates?.reminders?.registroInformativo || DEFAULT_TEMPLATES.reminders.registroInformativo,
+          registroConfirmacion: source?.messageTemplates?.reminders?.registroConfirmacion || DEFAULT_TEMPLATES.reminders.registroConfirmacion,
+          recordatorio48h: source?.messageTemplates?.reminders?.recordatorio48h || DEFAULT_TEMPLATES.reminders.recordatorio48h,
+          recordatorio24h: source?.messageTemplates?.reminders?.recordatorio24h || DEFAULT_TEMPLATES.reminders.recordatorio24h,
+        },
+        waitlist: {
+          offer: source?.messageTemplates?.waitlist?.offer || DEFAULT_TEMPLATES.waitlist.offer,
+        },
+      },
+    });
   };
 
 
   const handleSave = async () => {
     setError(null);
-    // Guardamos exactamente lo que escribe el usuario; el sufijo se agregará dinámicamente en el envío si corresponde
-    const reminderMessage = localData.reminderMessage;
+    const payload = {
+      defaultMessage: localData.defaultMessage,
+      messageTemplates: localData.messageTemplates,
+    };
     try {
       setSaving(true);
       if (useSucursalConfig) {
         const sid = sucursalData?._id || user?.sucursal?._id || user?.sucursal;
         if (!sid) throw new Error('missing_sucursal_id');
-        await updateSucursal(sid, { reminderMessage });
+        await updateSucursal(sid, payload);
         const refreshed = await getSucursal();
         setSucursalData(refreshed);
       } else {
-        await updatePerfil(user.id || user._id, {
-          reminderMessage
-        });
+        await updatePerfil(user.id || user._id, payload);
       }
       setEditing(false);
     } catch (e) {
-      setError('Error al guardar cambios.');
+      const msg = e?.response?.data?.message;
+      setError(msg || 'Error al guardar cambios.');
     } finally {
       setSaving(false);
     }
@@ -184,35 +407,23 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
     if (!template) return '';
     // Vista previa sin añadir líneas automáticas; solo normaliza placeholder de enlace si lo incluyes
     const t = String(template).replace(/\{enlaceconfirmacion\}/gi, '{enlaceConfirmacion}');
-    const randomNames = ['Dr. Rodrigo Soto', 'Dra. Camila Vargas', 'Dr. Martín Rivas', 'Dra. Paula Díaz'];
-    const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
-    const inDays = Math.floor(Math.random() * 14) + 1;
-    const date = new Date();
-    date.setDate(date.getDate() + inDays);
-    const dd = String(date.getDate()).padStart(2, '0');
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const yyyy = date.getFullYear();
-    const randomFecha = `${dd}/${mm}/${yyyy}`;
-    const randomHora = `${String(9 + Math.floor(Math.random() * 9)).padStart(2, '0')}:${['00','15','30','45'][Math.floor(Math.random()*4)]}`;
-    const map = {
-      '{nombre}': user?.username || 'Profesional',
-      '{fecha}': randomFecha,
-      '{hora}': randomHora,
-      '{servicio}': 'Consulta de prueba',
-      '{profesional}': randomName,
-      '{sucursal}': user?.sucursal?.nombre || '',
-      '{enlaceConfirmacion}': 'https://example.com/confirmacion/TEST'
-    };
-    let out = t;
-    Object.entries(map).forEach(([k,v]) => { out = out.replaceAll(k, v); });
-    return out;
+    return t.replace(/\{(\w+)\}/g, (_, key) => previewSample[key] || `{${key}}`);
   };
 
   // Abre diálogo para ingresar número al que enviar la prueba
   const handleTestSend = () => {
     setError(null);
-    if (!localData.reminderMessage || !localData.reminderMessage.trim()) {
-      setTestSnack({ open: true, message: 'Configura tu mensaje de recordatorio antes de probar.', severity: 'warning' });
+    if (!canEditMessages) {
+      setTestSnack({
+        open: true,
+        message: 'Disponible desde Plan Standard y Teams.',
+        severity: 'info',
+      });
+      return;
+    }
+    const currentTemplate = getByPath(localData, activeField) || '';
+    if (!currentTemplate || !String(currentTemplate).trim()) {
+      setTestSnack({ open: true, message: 'Selecciona una plantilla con contenido antes de probar.', severity: 'warning' });
       return;
     }
     // Prefill con el celular del usuario si existe (solo como sugerencia, NO se envía automáticamente)
@@ -231,7 +442,8 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
       return;
     }
     const phoneNumber = normalizarTelefono(digits);
-    const message = buildTestMessage(localData.reminderMessage);
+    const currentTemplate = getByPath(localData, activeField) || '';
+    const message = buildTestMessage(currentTemplate);
     try {
       setTestSending(true);
       const resp = await api.post('/notifications/whatsapp', { phoneNumber, message });
@@ -252,8 +464,12 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
 
   return (
     <Box mt={2}>
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: 3, borderRadius: 3, overflow: 'hidden' }}>
         <CardHeader
+          sx={{
+            background: 'linear-gradient(135deg, rgba(37,150,190,0.12), rgba(33,203,230,0.10))',
+            borderBottom: '1px solid rgba(148, 163, 184, 0.35)',
+          }}
           title={
             <Box display="flex" alignItems="center" gap={1}>
               <Typography variant="h5" fontWeight={600}>
@@ -280,7 +496,7 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
                       '&:hover': { background: 'linear-gradient(135deg, #21cbe6, #2596be)' }
                     }}
                     onClick={handleSave}
-                    disabled={saving}
+                    disabled={saving || !canEditMessages}
                   >
                     Guardar
                   </Button>
@@ -299,32 +515,41 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
                   </Button>
                 </>
               ) : (
-                <Button
-                  startIcon={<EditIcon />}
-                  variant="contained"
-                  sx={{
-                    background: 'linear-gradient(135deg, #2596be, #21cbe6)',
-                    color: 'white',
-                    boxShadow: '0 4px 10px rgba(37,150,190,0.3)',
-                    '&:hover': { background: 'linear-gradient(135deg, #21cbe6, #2596be)' }
-                  }}
-                  onClick={startEdit}
-                >
-                  Editar
-                </Button>
+                <Tooltip title={canEditMessages ? '' : 'Disponible desde Plan Standard y Teams.'} disableHoverListener={canEditMessages}>
+                  <span>
+                    <Button
+                      startIcon={<EditIcon />}
+                      variant="contained"
+                      sx={{
+                        background: 'linear-gradient(135deg, #2596be, #21cbe6)',
+                        color: 'white',
+                        boxShadow: '0 4px 10px rgba(37,150,190,0.3)',
+                        '&:hover': { background: 'linear-gradient(135deg, #21cbe6, #2596be)' }
+                      }}
+                      onClick={startEdit}
+                      disabled={!canEditMessages}
+                    >
+                      Editar
+                    </Button>
+                  </span>
+                </Tooltip>
               )}
-              <Button
-                variant="outlined"
-                onClick={handleTestSend}
-                disabled={testSending}
-                sx={{
-                  borderColor: '#2596be',
-                  color: '#2596be',
-                  '&:hover': { borderColor: '#21cbe6', color: '#21cbe6' }
-                }}
-              >
-                {testSending ? 'Enviando…' : 'Probar mensaje'}
-              </Button>
+              <Tooltip title={canEditMessages ? '' : 'Disponible desde Plan Standard y Teams.'} disableHoverListener={canEditMessages}>
+                <span>
+                  <Button
+                    variant="outlined"
+                    onClick={handleTestSend}
+                    disabled={testSending || !canEditMessages}
+                    sx={{
+                      borderColor: '#2596be',
+                      color: '#2596be',
+                      '&:hover': { borderColor: '#21cbe6', color: '#21cbe6' }
+                    }}
+                  >
+                    {testSending ? 'Enviando…' : 'Probar mensaje'}
+                  </Button>
+                </span>
+              </Tooltip>
             </Box>
           }
           subheader="Configura y personaliza los mensajes que se enviarán a tus pacientes."
@@ -332,62 +557,156 @@ const MensajesAutomaticos = ({ formData, onChange, editProfileMode, isMobile, re
         <CardContent>
           <Stack spacing={2}>
             {error && <Alert severity="error">{error}</Alert>}
-            <Typography variant="body2" color="text.secondary">
-              El envío de WhatsApp se realiza desde un único número de la plataforma. Las credenciales GreenAPI las gestiona el administrador.
-            </Typography>
-            <Divider />
-            <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-              <Typography variant="subtitle1" fontWeight={600}>Plantillas de Mensajes</Typography>
-              <Box display="flex" gap={1} flexWrap="wrap">
-                {PLACEHOLDERS.map(p => (
-                  <Chip
-                    key={p.key}
-                    size="small"
-                    label={`{${p.key}}`}
-                    onClick={() => editing && handlePlaceholderInsert(p.key)}
-                    color="primary"
-                    variant="outlined"
-                    sx={{ cursor: editing ? 'pointer' : 'default' }}
-                  />
-                ))}
-              </Box>
-            </Box>
-            <Typography variant="body2" color="text.secondary">
-              Haz clic en un placeholder para insertarlo en el mensaje activo. Se reemplazará automáticamente al enviar.
-            </Typography>
-            <TextField
-              inputRef={activeField === 'reminderMessage' ? activeFieldRef : null}
-              onFocus={() => setActiveField('reminderMessage')}
-              label="Mensaje de Recordatorio"
-              name="reminderMessage"
-              value={localData.reminderMessage}
-              onChange={handleFieldChange}
-              fullWidth
-              multiline
-              minRows={3}
-              disabled={!editing}
-              placeholder="Ej: Estimado {nombre}, le recordamos su cita de {servicio} el {fecha} a las {hora}. Incluye {enlaceConfirmacion} si quieres añadir el link."
-            />
-            {/* Nota eliminada: ya no se añade ninguna línea automática */}
-            <Divider />
-            <Typography variant="subtitle1" fontWeight={600}>Vista Previa (Ejemplo)</Typography>
-            <Paper variant="outlined" sx={{ p:2, background:'#f9f9f9' }}>
-              <Typography variant="caption" color="text.secondary">Recordatorio</Typography>
-              <Typography variant="body2" sx={{ whiteSpace:'pre-line' }}>
-                {applyPreview(localData.reminderMessage)}
-              </Typography>
-            </Paper>
-            {reservaDemo && (
-              <Paper variant="outlined" sx={{ p:2, background:'#f1f8e9' }}>
-                <Typography variant="caption" color="text.secondary">Vista con datos de ejemplo de una reserva</Typography>
-                <Typography variant="body2" sx={{ whiteSpace:'pre-line', mt:1 }}>
-                  {applyPreview(
-                    (localData.reminderMessage || '')
-                      .replace('{enlaceConfirmacion}', 'https://midominio.cl/confirmacion/DEMO123')
-                  )}
-                </Typography>
-              </Paper>
+            {!canEditMessages && (
+              <Alert severity="info">
+                La personalización de mensajes automáticos está disponible desde Plan Standard y Teams.
+              </Alert>
             )}
+            <Typography variant="body2" color="text.secondary">
+              El envío de WhatsApp se realiza desde un único número de la plataforma.
+            </Typography>
+            <Divider />
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '360px 1fr' },
+                gap: 2,
+                alignItems: 'start',
+              }}
+            >
+              {/* Columna izquierda: herramientas */}
+              <Stack spacing={2}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    borderColor: 'rgba(148, 163, 184, 0.55)',
+                    background: 'rgba(255,255,255,0.75)',
+                    backdropFilter: 'blur(8px)',
+                  }}
+                >
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                    <Typography variant="subtitle1" fontWeight={800}>Herramientas</Typography>
+                    
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                    Selecciona una pestaña y edita sus plantillas. Los placeholders se reemplazan automáticamente al enviar.
+                  </Typography>
+
+                  <Divider sx={{ my: 1.5 }} />
+
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
+                    Placeholders
+                  </Typography>
+
+                  <Box display="flex" gap={1} flexWrap="wrap">
+                    {PLACEHOLDERS.map(p => (
+                      <Chip
+                        key={p.key}
+                        size="small"
+                        label={`{${p.key}}`}
+                        onClick={() => editingEnabled && handlePlaceholderInsert(p.key)}
+                        onDoubleClick={() => copyToClipboard(`{${p.key}}`, 'Placeholder copiado.')}
+                        color="primary"
+                        variant="outlined"
+                        sx={{ cursor: editingEnabled ? 'pointer' : 'default' }}
+                      />
+                    ))}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                    Tip: doble clic en un placeholder para copiarlo.
+                  </Typography>
+
+                  <Divider sx={{ my: 1.5 }} />
+
+                  
+                </Paper>
+              </Stack>
+
+              {/* Columna derecha: editor */}
+              <Stack spacing={2}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 2,
+                    borderColor: 'rgba(148, 163, 184, 0.55)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Tabs
+                    value={tab}
+                    onChange={(_, v) => setTab(v)}
+                    variant="scrollable"
+                    scrollButtons
+                    allowScrollButtonsMobile
+                    sx={{
+                      background: 'linear-gradient(135deg, rgba(37,150,190,0.10), rgba(33,203,230,0.08))',
+                      borderBottom: '1px solid rgba(148, 163, 184, 0.35)',
+                      px: 1,
+                    }}
+                  >
+                    
+                    <Tab value="reminders" label="Recordatorios" />
+                    <Tab value="waitlist" label="Lista de espera" />
+                    <Tab value="liberar" label="Liberar horas" />
+                  </Tabs>
+
+                  <Box sx={{ p: 2 }}>
+                    {tab === 'liberar' && (
+                      <TemplateCard
+                        title="Mensaje al liberar horas"
+                        subtitle="Se usa cuando notificas pacientes al liberar/bloquear horas (si aplica)."
+                        name="defaultMessage"
+                        value={localData.defaultMessage}
+                        minRows={4}
+                        placeholder="Escribe tu mensaje..."
+                      />
+                    )}
+
+                    {tab === 'reminders' && (
+                      <Stack spacing={2}>
+                        <TemplateCard
+                          title="Registro informativo (más de 24h)"
+                          subtitle="Se envía cuando la cita queda registrada con más de 24h de anticipación."
+                          name="messageTemplates.reminders.registroInformativo"
+                          value={localData.messageTemplates.reminders.registroInformativo}
+                        />
+                        <TemplateCard
+                          title="Registro con confirmación (menos de 24h)"
+                          subtitle="Se envía cuando la cita es pronto y requiere confirmación inmediata."
+                          name="messageTemplates.reminders.registroConfirmacion"
+                          value={localData.messageTemplates.reminders.registroConfirmacion}
+                        />
+                        <TemplateCard
+                          title="Recordatorio 48h (con confirmación)"
+                          subtitle="Se envía 48h antes cuando aún no hay confirmación."
+                          name="messageTemplates.reminders.recordatorio48h"
+                          value={localData.messageTemplates.reminders.recordatorio48h}
+                        />
+                        <TemplateCard
+                          title="Recordatorio 24h (si no confirmó)"
+                          subtitle="Se envía 24h antes si la cita sigue sin confirmación."
+                          name="messageTemplates.reminders.recordatorio24h"
+                          value={localData.messageTemplates.reminders.recordatorio24h}
+                        />
+                      </Stack>
+                    )}
+
+                    {tab === 'waitlist' && (
+                      <TemplateCard
+                        title="Oferta de hora liberada"
+                        subtitle="Se envía al primer paciente de lista de espera cuando se libera una hora."
+                        name="messageTemplates.waitlist.offer"
+                        value={localData.messageTemplates.waitlist.offer}
+                        minRows={6}
+                      />
+                    )}
+                  </Box>
+                </Paper>
+              </Stack>
+            </Box>
           </Stack>
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { DEFAULT_MESSAGE_TEMPLATES } from '../libs/messageTemplates.js';
 
 const contactoSchema = new mongoose.Schema({
     celulares: {
@@ -114,6 +115,19 @@ const SucursalSchema = new mongoose.Schema({
     reminderMessage: {
         type: String,
         default: "Estimado {nombre}, le recordarmos que mañana {fecha} a las {hora} tiene una hora agendada. Por favor de no poder asistir contáctese con nosotros o bien reagende su cita en nuestro sitio web https://agendavitalink.vercel.app/"
+    },
+
+    // Plantillas unificadas de mensajes (aplican a todos los miembros de la sucursal)
+    messageTemplates: {
+        reminders: {
+            registroInformativo: { type: String, default: DEFAULT_MESSAGE_TEMPLATES.reminders.registroInformativo },
+            registroConfirmacion: { type: String, default: DEFAULT_MESSAGE_TEMPLATES.reminders.registroConfirmacion },
+            recordatorio48h: { type: String, default: DEFAULT_MESSAGE_TEMPLATES.reminders.recordatorio48h },
+            recordatorio24h: { type: String, default: DEFAULT_MESSAGE_TEMPLATES.reminders.recordatorio24h },
+        },
+        waitlist: {
+            offer: { type: String, default: DEFAULT_MESSAGE_TEMPLATES.waitlist.offer },
+        },
     },
 
     // Suscripción

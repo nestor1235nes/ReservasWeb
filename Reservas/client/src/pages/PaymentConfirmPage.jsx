@@ -92,7 +92,19 @@ const PaymentConfirmPage = () => {
           setResult(res.data);
           setLoading(false);
           setOpen(true);
-          try { await loadSubscriptionCurrent(); } catch {}
+          // Si fue un pago de suscripción, refrescar estado con reintentos (evita que el UI quede desactualizado)
+          if (isSubscriptionPayment(res.data)) {
+            try {
+              const max = 6;
+              for (let i = 0; i < max; i += 1) {
+                const current = await loadSubscriptionCurrent();
+                if (current?.hasSubscription && current?.isActive) break;
+                await new Promise(r => setTimeout(r, 800));
+              }
+            } catch {
+              // ignore
+            }
+          }
           return;
         }
 
@@ -116,7 +128,18 @@ const PaymentConfirmPage = () => {
                 setResult(retryRes.data);
                 setLoading(false);
                 setOpen(true);
-                try { await loadSubscriptionCurrent(); } catch {}
+                if (isSubscriptionPayment(retryRes.data)) {
+                  try {
+                    const max = 6;
+                    for (let i = 0; i < max; i += 1) {
+                      const current = await loadSubscriptionCurrent();
+                      if (current?.hasSubscription && current?.isActive) break;
+                      await new Promise(r => setTimeout(r, 800));
+                    }
+                  } catch {
+                    // ignore
+                  }
+                }
                 return;
               }
               const rId = retryRes.data?.reserva?._id;
@@ -156,7 +179,18 @@ const PaymentConfirmPage = () => {
               setResult(retryRes.data);
               setLoading(false);
               setOpen(true);
-              try { await loadSubscriptionCurrent(); } catch {}
+              if (isSubscriptionPayment(retryRes.data)) {
+                try {
+                  const max = 6;
+                  for (let i = 0; i < max; i += 1) {
+                    const current = await loadSubscriptionCurrent();
+                    if (current?.hasSubscription && current?.isActive) break;
+                    await new Promise(r => setTimeout(r, 800));
+                  }
+                } catch {
+                  // ignore
+                }
+              }
               return;
             }
             const rId = retryRes.data?.reserva?._id;

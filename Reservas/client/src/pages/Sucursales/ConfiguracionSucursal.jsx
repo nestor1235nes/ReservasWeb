@@ -21,6 +21,8 @@ import FullPageLoader from '../../components/ui/FullPageLoader';
 import axios from '../../api/axios';
 import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import MapboxAddressField from '../../components/ui/MapboxAddressField';
+import MensajesAutomaticos from '../../components/MensajesAutomaticos';
+import { useSubscription } from '../../context/subscriptionContext';
 
 const splitCsv = (value) => {
   if (!value) return [];
@@ -42,6 +44,8 @@ export default function ConfiguracionSucursal() {
   const { user, esAdminSucursal } = useAuth();
   const { getSucursal, updateSucursal } = useSucursal();
   const showAlert = useAlert();
+  const { scope: subscriptionScope } = useSubscription();
+  const isSucursalScope = subscriptionScope === 'SUCURSAL';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,8 +84,6 @@ export default function ConfiguracionSucursal() {
     contactoFacebook: '',
     contactoTwitter: '',
     contactoLinkedin: '',
-    defaultMessage: '',
-    reminderMessage: '',
   });
 
   const canEdit = useMemo(() => {
@@ -116,8 +118,6 @@ export default function ConfiguracionSucursal() {
       contactoFacebook: s?.contacto?.facebook || '',
       contactoTwitter: s?.contacto?.twitter || '',
       contactoLinkedin: s?.contacto?.linkedin || '',
-      defaultMessage: s?.defaultMessage || '',
-      reminderMessage: s?.reminderMessage || '',
     });
   };
 
@@ -197,8 +197,6 @@ export default function ConfiguracionSucursal() {
         twitter: form.contactoTwitter,
         linkedin: form.contactoLinkedin,
       },
-      defaultMessage: form.defaultMessage,
-      reminderMessage: form.reminderMessage,
     };
   };
 
@@ -638,38 +636,25 @@ export default function ConfiguracionSucursal() {
           </CardContent>
         </Card>
 
-        <Card variant="outlined" sx={{ borderRadius: 3 }}>
-          <CardContent>
-            <Typography fontWeight={700} sx={{ mb: 1, color:"#2596be" }}>
-              WhatsApp
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  label="Mensaje por defecto"
-                  value={form.defaultMessage}
-                  onChange={onChange('defaultMessage')}
-                  disabled={!canEdit || loading || saving}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  label="Mensaje de recordatorio"
-                  value={form.reminderMessage}
-                  onChange={onChange('reminderMessage')}
-                  disabled={!canEdit || loading || saving}
-                />
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
+        {canEdit && isSucursalScope && (
+          <Box sx={{ mt: 3 }}>
+            <MensajesAutomaticos formData={{}} />
+          </Box>
+        )}
+
+        {canEdit && !isSucursalScope && (
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Typography fontWeight={700} sx={{ mb: 1, color: "#2596be" }}>
+                WhatsApp
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="body2" color="text.secondary">
+                La personalización de mensajes automáticos para equipos se gestiona cuando el plan activo es Teams.
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
       </Box>
     </Box>
   );

@@ -39,7 +39,7 @@ async function resolvePlatformCreds() {
 }
 
 function buildOtpMessage({ otp }) {
-  const brand = String(process.env.PATIENT_OTP_BRAND || 'Agenda').trim();
+  const brand = String(process.env.PATIENT_OTP_BRAND || 'Agenda Vitalink').trim();
   return `${brand}: tu código de acceso es ${otp}. Válido por ${OTP_TTL_MINUTES} minutos. No lo compartas.`;
 }
 

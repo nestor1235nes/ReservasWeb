@@ -28,9 +28,12 @@ export function SubscriptionProvider({ children }) {
     try {
       setLoading(true);
       const res = await getCurrentSubscriptionRequest();
-      setCurrent(res.data || null);
+      const data = res.data || null;
+      setCurrent(data);
+      return data;
     } catch {
       setCurrent(null);
+      return null;
     } finally {
       setLoading(false);
     }

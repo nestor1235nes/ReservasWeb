@@ -4,8 +4,10 @@ import ScheduledReminder from '../models/scheduledReminder.model.js';
 import Reserva from '../models/ficha.model.js';
 import User from '../models/user.model.js';
 import Paciente from '../models/paciente.model.js';
+import Sucursal from '../models/sucursal.model.js';
 import { FRONTEND_URL } from '../config.js';
 import { resolveWhatsAppCredentialsForUser } from '../libs/whatsappCredentials.js';
+import { DEFAULT_MESSAGE_TEMPLATES, mergeTemplates, renderMessageTemplate } from '../libs/messageTemplates.js';
 
 // Constantes para tokens de confirmación
 const TOKEN_BYTES = 24;
@@ -128,47 +130,18 @@ async function enviarWhatsApp(profesional, telefono, mensaje) {
 /**
  * Construir mensaje según el tipo de recordatorio
  */
-function construirMensaje(tipo, datos) {
-    const { nombrePaciente, nombreProfesional, fecha, hora, dia, confirmLink } = datos;
-    
+function resolveReminderTemplateKey(tipo) {
     switch (tipo) {
         case 'registro_informativo':
-            // Cita registrada, faltan más de 24h - solo informativo
-            return `Hola ${nombrePaciente}, su cita ha sido registrada exitosamente para el ${dia} ${fecha} a las ${hora} con ${nombreProfesional}.
-
-Se le enviará un recordatorio 48 horas antes de su cita para confirmar su asistencia.
-
-Gracias por su preferencia.`.trim();
-
+            return 'registroInformativo';
         case 'registro_confirmacion':
-            // Cita registrada, faltan menos de 24h - con link de confirmación
-            return `Hola ${nombrePaciente}, su cita ha sido registrada para el ${dia} ${fecha} a las ${hora} con ${nombreProfesional}.
-
-Por favor, confirme su asistencia a través del siguiente enlace:
-${confirmLink}
-
-Gracias por su preferencia.`.trim();
-
+            return 'registroConfirmacion';
         case 'recordatorio_48h':
-            // Recordatorio 48 horas antes - con link de confirmación
-            return `Hola ${nombrePaciente}, le recordamos que tiene una cita programada para el ${dia} ${fecha} a las ${hora} con ${nombreProfesional}.
-
-Por favor, confirme su asistencia a través del siguiente enlace:
-${confirmLink}
-
-Si no puede asistir, le agradecemos cancelar su cita para liberar el espacio a otro paciente.`.trim();
-
+            return 'recordatorio48h';
         case 'recordatorio_24h':
-            // Recordatorio 24 horas antes (si no confirmó) - con link de confirmación
-            return `Hola ${nombrePaciente}, le recordamos que MAÑANA tiene una cita a las ${hora} con ${nombreProfesional}.
-
-Su cita aún no ha sido confirmada. Por favor, confirme su asistencia:
-${confirmLink}
-
-Si no puede asistir, le agradecemos cancelar su cita.`.trim();
-
+            return 'recordatorio24h';
         default:
-            return '';
+            return null;
     }
 }
 
@@ -312,14 +285,35 @@ async function procesarRecordatorio(reminder) {
             confirmLink = await ensureConfirmationToken(reserva);
         }
         
-        // Construir mensaje
-        const mensaje = construirMensaje(reminder.tipo, {
-            nombrePaciente: paciente.nombre || 'Paciente',
-            nombreProfesional: profesional.username || 'su profesional',
+        // Resolver plantillas efectivas (defaults < usuario < sucursal)
+        let sucursal = null;
+        const sucursalId = reserva?.sucursal || profesional?.sucursal;
+        if (sucursalId) {
+            try {
+                sucursal = await Sucursal.findById(sucursalId).lean();
+            } catch {
+                sucursal = null;
+            }
+        }
+
+        const templates = mergeTemplates({
+            defaults: DEFAULT_MESSAGE_TEMPLATES,
+            userTemplates: profesional?.messageTemplates,
+            sucursalTemplates: sucursal?.messageTemplates,
+        });
+
+        const key = resolveReminderTemplateKey(reminder.tipo);
+        const template = key ? (templates?.reminders?.[key] || '') : '';
+
+        const mensaje = renderMessageTemplate(template, {
+            nombre: paciente.nombre || 'Paciente',
+            profesional: profesional.username || 'su profesional',
             fecha: formatFecha(reminder.fechaCita),
             hora: reminder.horaCita,
             dia: getNombreDia(reminder.fechaCita),
-            confirmLink
+            enlaceConfirmacion: confirmLink || '',
+            servicio: reserva?.servicio || '',
+            sucursal: sucursal?.nombre || '',
         });
         
         // Enviar WhatsApp

@@ -98,10 +98,24 @@ export const actualizarSucursal = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const existing = await Sucursal.findById(id);
+        const existing = await Sucursal.findById(id).populate('suscriptionPlan');
         if (!existing) return res.status(404).json({ message: "Sucursal no encontrada" });
 
         const payload = { ...(req.body || {}) };
+
+        const isTryingToEditMessages =
+            Object.prototype.hasOwnProperty.call(payload, 'defaultMessage') ||
+            Object.prototype.hasOwnProperty.call(payload, 'messageTemplates');
+
+        // Restricción por plan: en plan Basic no se permite editar mensajes automáticos.
+        const hasActiveSubscription = !!existing?.suscriptionEndDate && existing.suscriptionEndDate > new Date();
+        const planName = existing?.suscriptionPlan?.name || null;
+        const isBasicActive = hasActiveSubscription && planName === 'Basic';
+        if (isBasicActive && isTryingToEditMessages) {
+            return res.status(403).json({
+                message: 'La edición de mensajes automáticos está disponible desde Plan Standard y Teams.',
+            });
+        }
 
         // Desde ahora las credenciales GreenAPI son globales (plataforma) y no se editan por sucursal.
         delete payload.idInstance;
