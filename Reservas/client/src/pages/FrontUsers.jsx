@@ -143,6 +143,11 @@ export default function FrontUsers() {
 		}
 	};
 
+	const getPlanFeatures = (plan) => {
+		if (!Array.isArray(plan?.features)) return [];
+		return plan.features.map((f) => (typeof f === 'string' ? f.trim() : '')).filter(Boolean);
+	};
+
 	const features = [
 		{ icon: <CalendarTodayIcon />, title: 'Gestión de Agenda', description: 'Sincroniza tu calendario y libera horas en un clic.' },
 		{ icon: <MessageIcon />, title: 'Recordatorios automáticos', description: 'Reduce el ausentismo con avisos por WhatsApp.' },
@@ -532,7 +537,8 @@ export default function FrontUsers() {
 
 					<Grid container spacing={2} alignItems="stretch">
 						{/* Básico */}
-						<Grid item xs={12} md={4}>
+						{basicPlan && (
+							<Grid item xs={12} md={4}>
 							<Card
 								elevation={0}
 								sx={{
@@ -562,15 +568,15 @@ export default function FrontUsers() {
 										</Typography>
 										<Divider />
 										<Stack spacing={1.2}>
-											<PlanFeature>Agenda digital y personal de citas</PlanFeature>
-											<PlanFeature>Perfil profesional público</PlanFeature>
-											<PlanFeature>Comparte tu enlace de reservas</PlanFeature>
-											<PlanFeature>Recordatorios automáticos por WhatsApp ilimitado</PlanFeature>
-											<PlanFeature>Gestión de citas</PlanFeature>
-											<PlanFeature>Descarga de informes en PDF</PlanFeature>
-											<PlanFeature>Reportes y métricas de mi negocio (Básicas)</PlanFeature>
-											<PlanFeature>Historial clínico</PlanFeature>
-											
+											{getPlanFeatures(basicPlan).length > 0 ? (
+												getPlanFeatures(basicPlan).map((f) => (
+													<PlanFeature key={f}>{f}</PlanFeature>
+												))
+											) : (
+												<Typography variant="body2" color="text.secondary">
+													Características no configuradas aún.
+												</Typography>
+											)}
 										</Stack>
 										<Box sx={{ flexGrow: 1 }} />
 										<Button component={RouterLink} to="/register" fullWidth variant="contained" sx={{ mt: 2, backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>
@@ -579,10 +585,12 @@ export default function FrontUsers() {
 									</Stack>
 								</CardContent>
 							</Card>
-						</Grid>
+							</Grid>
+						)}
 
 						{/* Avanzado */}
-						<Grid item xs={12} md={4}>
+						{standardPlan && (
+							<Grid item xs={12} md={4}>
 							<Card
 								elevation={0}
 								sx={{
@@ -627,13 +635,15 @@ export default function FrontUsers() {
 										</Typography>
 										<Divider />
 										<Stack spacing={1.2}>
-											<PlanFeature>Todo lo del plan Básico</PlanFeature>
-											<PlanFeature>Sube imágenes de exámenes</PlanFeature>
-											<PlanFeature>Sincronización con Google Calendar</PlanFeature>
-											<PlanFeature>Modalidades de atención: presencial y videoconsulta</PlanFeature>
-											<PlanFeature>Pagos en línea</PlanFeature>
-											<PlanFeature>Reportes y métricas de mi negocio (Avanzadas)</PlanFeature>
-											<PlanFeature>Bloqueo de horarios</PlanFeature>
+											{getPlanFeatures(standardPlan).length > 0 ? (
+												getPlanFeatures(standardPlan).map((f) => (
+													<PlanFeature key={f}>{f}</PlanFeature>
+												))
+											) : (
+												<Typography variant="body2" color="text.secondary">
+													Características no configuradas aún.
+												</Typography>
+											)}
 										</Stack>
 										<Box sx={{ flexGrow: 1 }} />
 										<Button component={RouterLink} to="/register" fullWidth variant="contained" sx={{ mt: 2, backgroundColor: primary, '&:hover': { backgroundColor: '#1e7fa0' } }}>
@@ -642,10 +652,12 @@ export default function FrontUsers() {
 									</Stack>
 								</CardContent>
 							</Card>
-						</Grid>
+							</Grid>
+						)}
 
 						{/* Empresas / Clínicas / Equipos */}
-						<Grid item xs={12} md={4}>
+						{teamsPlan && (
+							<Grid item xs={12} md={4}>
 							<Card
 								elevation={0}
 								sx={{
@@ -677,11 +689,15 @@ export default function FrontUsers() {
 										<Divider />
 
 										<Stack spacing={1.2}>
-											<PlanFeature>Cubre todas las funcionalidades</PlanFeature>
-											<PlanFeature>Sucursales y agendas por profesional</PlanFeature>
-											<PlanFeature>Roles y permisos (asistente/profesional/admin)</PlanFeature>
-											<PlanFeature>Panel de métricas por sucursal/equipo</PlanFeature>
-											<PlanFeature>Notificaciones y confirmaciones centralizadas</PlanFeature>
+											{getPlanFeatures(teamsPlan).length > 0 ? (
+												getPlanFeatures(teamsPlan).map((f) => (
+													<PlanFeature key={f}>{f}</PlanFeature>
+												))
+											) : (
+												<Typography variant="body2" color="text.secondary">
+													Características no configuradas aún.
+												</Typography>
+											)}
 										</Stack>
 
 										<Grid container spacing={1.5} sx={{ mt: 0.25 }}>
@@ -755,8 +771,17 @@ export default function FrontUsers() {
 									</Stack>
 								</CardContent>
 							</Card>
-						</Grid>
+							</Grid>
+						)}
 					</Grid>
+
+					{!basicPlan && !standardPlan && !teamsPlan && (
+						<Box mt={3} textAlign="center">
+							<Typography variant="body2" color="text.secondary">
+								No hay planes activos configurados aún.
+							</Typography>
+						</Box>
+					)}
 				</Container>
 			</Box>
 
