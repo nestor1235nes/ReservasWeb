@@ -8,6 +8,14 @@ import { OAuth2Client } from 'google-auth-library';
 
 const client = new OAuth2Client(CLIENT_ID);
 
+const sanitizeUser = (userDoc) => {
+  if (!userDoc) return null;
+  const u = userDoc.toObject ? userDoc.toObject() : userDoc;
+  // Nunca exponer password hash
+  delete u.password;
+  return u;
+};
+
 const timeToMinutes = (hhmm) => {
   if (!hhmm || typeof hhmm !== 'string') return null;
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
@@ -753,6 +761,83 @@ export const getBySlug = async (req, res) => {
     ]);
     if (!user) return res.status(404).json({ message: 'No encontrado' });
     res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Perfil del usuario autenticado (mobile-friendly)
+export const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .populate({ path: 'sucursal', populate: { path: 'suscriptionPlan' } })
+      .populate('suscriptionPlan');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(sanitizeUser(user));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateMe = async (req, res) => {
+  try {
+    const id = req.user.id;
+
+    if (req.body.timetable) {
+      const overlaps = findTimetableOverlaps(req.body.timetable);
+      if (overlaps.length > 0) {
+        const first = overlaps[0];
+        return res.status(400).json({
+          message: [
+            `Hay solapamiento de horarios en ${first.day} entre Bloque ${first.aIndex + 1} y Bloque ${first.bIndex + 1} (${minutesToTime(first.start)}–${minutesToTime(first.end)}). Ajusta las horas para que no se crucen.`,
+          ],
+        });
+      }
+    }
+
+    if (req.body.celular) {
+      req.body.celular = normalizarTelefono(req.body.celular);
+    }
+    if (req.body.especialidad) {
+      req.body.especialidad = req.body.especialidad.toUpperCase();
+    }
+    if (req.body.especialidad_principal) {
+      req.body.especialidad_principal = req.body.especialidad_principal.toUpperCase();
+    }
+
+    const current = await User.findById(id).populate('suscriptionPlan');
+    if (!current) return res.status(404).json({ message: 'User not found' });
+
+    const isTryingToEditMessages =
+      Object.prototype.hasOwnProperty.call(req.body, 'defaultMessage') ||
+      Object.prototype.hasOwnProperty.call(req.body, 'reminderMessage') ||
+      Object.prototype.hasOwnProperty.call(req.body, 'messageTemplates');
+
+    const hasActiveSubscription = !!current?.suscriptionEndDate && current.suscriptionEndDate > new Date();
+    const planName = current?.suscriptionPlan?.name || null;
+    const isBasicActive = hasActiveSubscription && planName === 'Basic';
+    if (isBasicActive && isTryingToEditMessages) {
+      return res.status(403).json({
+        message: 'La edición de mensajes automáticos está disponible desde Plan Standard y Teams.',
+      });
+    }
+
+    // Credenciales GreenAPI globales (no editables por usuario)
+    delete req.body.idInstance;
+    delete req.body.apiTokenInstance;
+
+    // Si pertenece a una sucursal, bloqueamos edición de mensajes automáticos por usuario
+    if (current.sucursal) {
+      delete req.body.defaultMessage;
+      delete req.body.reminderMessage;
+      delete req.body.messageTemplates;
+    }
+
+    const updated = await User.findByIdAndUpdate(id, req.body, { new: true })
+      .populate('sucursal')
+      .populate('suscriptionPlan');
+
+    res.json(sanitizeUser(updated));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

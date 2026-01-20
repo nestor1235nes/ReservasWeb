@@ -34,7 +34,9 @@ import {
   FormControlLabel,
   Popper,
   Paper,
+  useMediaQuery,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -248,6 +250,9 @@ function ExpandableRich({ html, empty = '—', collapsedMaxHeight = 160, minText
 
 export default function PacientePortalPageFixed() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const { getPacientePorRut, updatePacientePublicPorRut } = usePaciente();
   const { getReservasPorRut } = useReserva();
   const showAlert = useAlert();
@@ -727,59 +732,80 @@ export default function PacientePortalPageFixed() {
 
       <Box sx={{ width: '100%', maxWidth: 1100, alignSelf: 'center', flex: 1, p: { xs: 1.5, sm: 3 } }}>
         <Card sx={{ mb: 2, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, overflow: 'hidden', ...HOVER_CARD_SX }}>
-          <Box sx={{ p: 2, color: 'white', background: BRAND_GRADIENT }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Avatar sx={{ width: 52, height: 52, bgcolor: 'rgba(255,255,255,0.25)', fontWeight: 900 }}>
+          <Box sx={{ p: { xs: 1.5, sm: 2 }, color: 'white', background: BRAND_GRADIENT }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1.5, sm: 2 }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
+              <Stack direction="row" spacing={{ xs: 1.5, sm: 2 }} alignItems="center" sx={{ width: { xs: '100%', sm: 'auto' } }}>
+                <Avatar sx={{ width: { xs: 44, sm: 52 }, height: { xs: 44, sm: 52 }, bgcolor: 'rgba(255,255,255,0.25)', fontWeight: 900, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                   {(paciente?.nombre || 'P').trim().slice(0, 1).toUpperCase()}
                 </Avatar>
-                <Box>
-                  <Typography variant="h6" fontWeight={900}>{paciente?.nombre || 'Paciente'}</Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.95 }}>
-                    RUT: {rut || '—'} {paciente?.email ? `· ${paciente.email}` : ''}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight={900} noWrap>{paciente?.nombre || 'Paciente'}</Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.95, fontSize: { xs: '0.75rem', sm: '0.875rem' } }} noWrap>
+                    RUT: {rut || '—'} {!isMobile && paciente?.email ? `· ${paciente.email}` : ''}
                   </Typography>
+                  {isMobile && paciente?.email && (
+                    <Typography variant="caption" sx={{ opacity: 0.85 }} noWrap>{paciente.email}</Typography>
+                  )}
                 </Box>
               </Stack>
 
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Button variant="outlined" onClick={openEdit} startIcon={<EditIcon />} sx={{ borderColor: 'rgba(255,255,255,0.7)', color: 'white', fontWeight: 900 }}>
-                  Editar
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-end', sm: 'flex-start' } }}>
+                <Button 
+                  variant="outlined" 
+                  onClick={openEdit} 
+                  startIcon={!isMobile && <EditIcon />} 
+                  size={isMobile ? 'small' : 'medium'}
+                  sx={{ borderColor: 'rgba(255,255,255,0.7)', color: 'white', fontWeight: 900, minWidth: { xs: 'auto', sm: 100 } }}
+                >
+                  {isMobile ? <EditIcon fontSize="small" /> : 'Editar'}
                 </Button>
-                <Button variant="contained" onClick={handleLogout} startIcon={<LogoutIcon />} sx={{ background: 'rgba(255,255,255,0.16)', fontWeight: 900 }}>
-                  Salir
+                <Button 
+                  variant="contained" 
+                  onClick={handleLogout} 
+                  startIcon={!isMobile && <LogoutIcon />}
+                  size={isMobile ? 'small' : 'medium'} 
+                  sx={{ background: 'rgba(255,255,255,0.16)', fontWeight: 900, minWidth: { xs: 'auto', sm: 100 } }}
+                >
+                  {isMobile ? <LogoutIcon fontSize="small" /> : 'Salir'}
                 </Button>
               </Stack>
             </Stack>
           </Box>
 
-          <Box sx={{ px: 2, py: 1.5 }}>
+          <Box sx={{ px: { xs: 1, sm: 2 }, py: { xs: 1, sm: 1.5 }, overflowX: 'auto' }}>
             <Tabs
               value={tab}
               onChange={(_e, v) => setTab(v)}
               variant="scrollable"
-              scrollButtons
+              scrollButtons="auto"
               allowScrollButtonsMobile
               TabIndicatorProps={{ sx: { display: 'none' } }}
-              sx={{ minHeight: 44, '& .MuiTabs-flexContainer': { gap: 0.5 } }}
+              sx={{ 
+                minHeight: { xs: 38, sm: 44 }, 
+                '& .MuiTabs-flexContainer': { gap: { xs: 0.25, sm: 0.5 } },
+                '& .MuiTabs-scroller': { overflow: 'auto !important' },
+              }}
             >
               {[
-                'Resumen',
-                'Diagnósticos',
-                'Citas',
-                'Medicamentos',
-                'Signos Vitales',
-                'Documentos',
-              ].map((label) => (
+                { label: 'Resumen', shortLabel: 'Resumen' },
+                { label: 'Diagnósticos', shortLabel: 'Diag.' },
+                { label: 'Citas', shortLabel: 'Citas' },
+                { label: 'Medicamentos', shortLabel: 'Meds' },
+                { label: 'Signos Vitales', shortLabel: 'Signos' },
+                { label: 'Documentos', shortLabel: 'Docs' },
+              ].map((item) => (
                 <Tab
-                  key={label}
-                  label={label}
+                  key={item.label}
+                  label={isMobile ? item.shortLabel : item.label}
                   sx={{
                     textTransform: 'none',
-                    minHeight: 40,
-                    py: 1,
-                    px: 2,
+                    minHeight: { xs: 34, sm: 40 },
+                    minWidth: { xs: 'auto', sm: 90 },
+                    py: { xs: 0.5, sm: 1 },
+                    px: { xs: 1.25, sm: 2 },
                     borderRadius: 2,
                     fontWeight: 900,
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     color: BRAND_TEXT_DARK,
                     '&.Mui-selected': {
                       background: BRAND_GRADIENT,
@@ -799,46 +825,46 @@ export default function PacientePortalPageFixed() {
         {tab === 0 && (
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
-              <Card sx={{ mb: 2, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-                <CardContent>
+              <Card sx={{ mb: { xs: 1.5, sm: 2 }, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                    <Box sx={{ width: 36, height: 36, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK }}>
+                    <Box sx={{ width: { xs: 32, sm: 36 }, height: { xs: 32, sm: 36 }, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK }}>
                       <CalendarMonthIcon fontSize="small" />
                     </Box>
-                    <Typography fontWeight={900}>Perfil</Typography>
+                    <Typography fontWeight={900} sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>Perfil</Typography>
                   </Stack>
-                  <Typography variant="body2" color="text.secondary">Edad</Typography>
-                  <Typography fontWeight={900} sx={{ mb: 1 }}>{edadFromDob != null ? `${edadFromDob} años` : (paciente?.edad ? `${paciente.edad} años` : '—')}</Typography>
-                  <Typography variant="body2" color="text.secondary">Sexo</Typography>
-                  <Typography fontWeight={900} sx={{ mb: 1 }}>{paciente?.sexo || 'No especifica'}</Typography>
-                  <Typography variant="body2" color="text.secondary">Teléfono</Typography>
-                  <Typography fontWeight={900}>{paciente?.telefono || '—'}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Edad</Typography>
+                  <Typography fontWeight={900} sx={{ mb: 1, fontSize: { xs: '0.9rem', sm: '1rem' } }}>{edadFromDob != null ? `${edadFromDob} años` : (paciente?.edad ? `${paciente.edad} años` : '—')}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Sexo</Typography>
+                  <Typography fontWeight={900} sx={{ mb: 1, fontSize: { xs: '0.9rem', sm: '1rem' } }}>{paciente?.sexo || 'No especifica'}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Teléfono</Typography>
+                  <Typography fontWeight={900} sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>{paciente?.telefono || '—'}</Typography>
                 </CardContent>
               </Card>
 
-              <Card sx={{ mb: 2, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-                <CardContent>
+              <Card sx={{ mb: { xs: 1.5, sm: 2 }, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                    <Box sx={{ width: 36, height: 36, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK }}>
+                    <Box sx={{ width: { xs: 32, sm: 36 }, height: { xs: 32, sm: 36 }, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK }}>
                       <PhoneIphoneIcon fontSize="small" />
                     </Box>
-                    <Typography fontWeight={900}>Contacto de emergencia</Typography>
+                    <Typography fontWeight={900} sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>Contacto de emergencia</Typography>
                   </Stack>
-                  <Typography fontWeight={900}>{paciente?.contactoEmergencia?.nombre || '—'}</Typography>
-                  <Typography variant="body2" color="text.secondary">{paciente?.contactoEmergencia?.relacion || '—'}</Typography>
-                  <Typography variant="body2" color="text.secondary">{paciente?.contactoEmergencia?.telefono || '—'}</Typography>
+                  <Typography fontWeight={900} sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>{paciente?.contactoEmergencia?.nombre || '—'}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>{paciente?.contactoEmergencia?.relacion || '—'}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>{paciente?.contactoEmergencia?.telefono || '—'}</Typography>
                 </CardContent>
               </Card>
             </Grid>
 
             <Grid item xs={12} md={8}>
-              <Card sx={{ mb: 2, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-                <CardContent>
+              <Card sx={{ mb: { xs: 1.5, sm: 2 }, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                    <Box sx={{ width: 36, height: 36, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK }}>
+                    <Box sx={{ width: { xs: 32, sm: 36 }, height: { xs: 32, sm: 36 }, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK }}>
                       <FavoriteBorderIcon fontSize="small" />
                     </Box>
-                    <Typography fontWeight={900}>Últimos signos vitales</Typography>
+                    <Typography fontWeight={900} sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>Últimos signos vitales</Typography>
                   </Stack>
                   {loading ? (
                     <Skeleton height={120} />
@@ -849,20 +875,24 @@ export default function PacientePortalPageFixed() {
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                         Fecha: {fmtDate(ultimosSignos?.fecha) || '—'} {ultimosSignos?.source === 'clinicalCase' ? '· desde ficha' : ''}
                       </Typography>
-                      <Grid container spacing={1.5}>
+                      <Grid container spacing={{ xs: 1, sm: 1.5 }}>
                         {[
-                          { label: 'Presión Arterial', value: ultimosSignos?.presionArterial, unit: 'mmHg' },
-                          { label: 'Frecuencia Cardíaca', value: ultimosSignos?.frecuenciaCardiaca, unit: 'lpm' },
-                          { label: 'Peso', value: ultimosSignos?.pesoKg, unit: 'kg' },
-                          { label: 'Talla', value: ultimosSignos?.tallaCm, unit: 'cm' },
-                          { label: 'Temp', value: ultimosSignos?.temperaturaC, unit: '°C' },
-                          { label: 'SatO2', value: ultimosSignos?.saturacionO2, unit: '%' },
-                          { label: 'Glucosa', value: ultimosSignos?.glucosaMgDl, unit: 'mg/dL' },
+                          { label: 'Presión Arterial', shortLabel: 'PA', value: ultimosSignos?.presionArterial, unit: 'mmHg' },
+                          { label: 'Frecuencia Cardíaca', shortLabel: 'FC', value: ultimosSignos?.frecuenciaCardiaca, unit: 'lpm' },
+                          { label: 'Peso', shortLabel: 'Peso', value: ultimosSignos?.pesoKg, unit: 'kg' },
+                          { label: 'Talla', shortLabel: 'Talla', value: ultimosSignos?.tallaCm, unit: 'cm' },
+                          { label: 'Temp', shortLabel: 'Temp', value: ultimosSignos?.temperaturaC, unit: '°C' },
+                          { label: 'SatO2', shortLabel: 'SatO2', value: ultimosSignos?.saturacionO2, unit: '%' },
+                          { label: 'Glucosa', shortLabel: 'Gluc.', value: ultimosSignos?.glucosaMgDl, unit: 'mg/dL' },
                         ].map((x) => (
-                          <Grid item xs={12} sm={6} md={4} key={x.label}>
-                            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: '#f7fbfd', border: '1px solid #e3f2fd', ...HOVER_BOX_SX }}>
-                              <Typography variant="caption" color="text.secondary">{x.label}</Typography>
-                              <Typography fontWeight={900}>{x.value ? `${x.value} ${x.unit || ''}` : '—'}</Typography>
+                          <Grid item xs={6} sm={6} md={4} key={x.label}>
+                            <Box sx={{ p: { xs: 1, sm: 1.25 }, borderRadius: 2, bgcolor: '#f7fbfd', border: '1px solid #e3f2fd', ...HOVER_BOX_SX }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                                {isMobile ? x.shortLabel : x.label}
+                              </Typography>
+                              <Typography fontWeight={900} sx={{ fontSize: { xs: '0.85rem', sm: '1rem' } }}>
+                                {x.value ? `${x.value} ${x.unit || ''}` : '—'}
+                              </Typography>
                             </Box>
                           </Grid>
                         ))}
@@ -872,22 +902,33 @@ export default function PacientePortalPageFixed() {
                 </CardContent>
               </Card>
 
-              <Card sx={{ mb: 2, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-                <CardContent>
+              <Card sx={{ mb: { xs: 1.5, sm: 2 }, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                    <Box sx={{ width: 36, height: 36, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK }}>
+                    <Box sx={{ width: { xs: 32, sm: 36 }, height: { xs: 32, sm: 36 }, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK }}>
                       <BloodtypeIcon fontSize="small" />
                     </Box>
-                    <Typography fontWeight={900}>Diagnósticos</Typography>
+                    <Typography fontWeight={900} sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>Diagnósticos</Typography>
                   </Stack>
                   {loading ? (
                     <Skeleton height={60} />
                   ) : diagnosticosActivos.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">—</Typography>
                   ) : (
-                    <Stack direction="row" flexWrap="wrap" gap={1}>
+                    <Stack direction="row" flexWrap="wrap" gap={{ xs: 0.5, sm: 1 }}>
                       {diagnosticosActivos.map((dx) => (
-                        <Chip key={dx} label={dx} variant="outlined" sx={{ borderColor: '#2596be', color: BRAND_TEXT_DARK, fontWeight: 900 }} />
+                        <Chip 
+                          key={dx} 
+                          label={dx} 
+                          variant="outlined" 
+                          size={isMobile ? 'small' : 'medium'}
+                          sx={{ 
+                            borderColor: '#2596be', 
+                            color: BRAND_TEXT_DARK, 
+                            fontWeight: 900,
+                            fontSize: { xs: '0.7rem', sm: '0.8125rem' },
+                          }} 
+                        />
                       ))}
                     </Stack>
                   )}
@@ -900,8 +941,8 @@ export default function PacientePortalPageFixed() {
         {/* TAB: Diagnósticos */}
         {tab === 1 && (
           <Card sx={{ border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-            <CardContent>
-              <Typography fontWeight={900} sx={{ mb: 1 }}>Diagnósticos / Ficha clínica</Typography>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+              <Typography fontWeight={900} sx={{ mb: 1, fontSize: { xs: '0.95rem', sm: '1rem' } }}>Diagnósticos / Ficha clínica</Typography>
               {loading ? (
                 <Skeleton height={220} />
               ) : casosClinicos.length === 0 ? (
@@ -933,7 +974,7 @@ export default function PacientePortalPageFixed() {
                             <>
                               <Divider />
                               <Typography variant="subtitle2" fontWeight={900}>Signos vitales</Typography>
-                              <Grid container spacing={1.5}>
+                              <Grid container spacing={{ xs: 1, sm: 1.5 }}>
                                 {[
                                   ['Presión arterial', c.signosVitales?.presionArterial, 'mmHg'],
                                   ['Frecuencia cardíaca', c.signosVitales?.frecuenciaCardiaca, 'lpm'],
@@ -946,10 +987,10 @@ export default function PacientePortalPageFixed() {
                                   const val = String(v || '').trim();
                                   if (!val) return null;
                                   return (
-                                    <Grid item xs={12} sm={6} md={4} key={lbl}>
-                                      <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: '#f7fbfd', border: `1px solid ${BRAND_BORDER}`, ...HOVER_BOX_SX }}>
-                                        <Typography variant="caption" color="text.secondary">{lbl}</Typography>
-                                        <Typography fontWeight={900}>{val}{unit ? ` ${unit}` : ''}</Typography>
+                                    <Grid item xs={6} sm={6} md={4} key={lbl}>
+                                      <Box sx={{ p: { xs: 1, sm: 1.25 }, borderRadius: 2, bgcolor: '#f7fbfd', border: `1px solid ${BRAND_BORDER}`, ...HOVER_BOX_SX }}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>{lbl}</Typography>
+                                        <Typography fontWeight={900} sx={{ fontSize: { xs: '0.85rem', sm: '1rem' } }}>{val}{unit ? ` ${unit}` : ''}</Typography>
                                       </Box>
                                     </Grid>
                                   );
@@ -970,8 +1011,8 @@ export default function PacientePortalPageFixed() {
         {/* TAB: Citas */}
         {tab === 2 && (
           <Card sx={{ border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-            <CardContent>
-              <Typography fontWeight={900} sx={{ mb: 1 }}>Citas</Typography>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+              <Typography fontWeight={900} sx={{ mb: 1, fontSize: { xs: '0.95rem', sm: '1rem' } }}>Citas</Typography>
               {loading ? (
                 <>
                   <Skeleton height={160} />
@@ -987,9 +1028,13 @@ export default function PacientePortalPageFixed() {
                     ) : (
                       <Stack spacing={1}>
                         {proximasCitas.slice(0, 8).map((r) => (
-                          <Box key={r?._id} sx={{ p: 1.25, borderRadius: 2, bgcolor: '#f7fbfd', border: `1px solid ${BRAND_BORDER}`, ...HOVER_BOX_SX }}>
-                            <Typography fontWeight={900}>{fmtDate(r?.siguienteCita) || '—'} {r?.hora ? `· ${r.hora}` : ''}</Typography>
-                            <Typography variant="body2" color="text.secondary">Profesional: {r?.profesional?.username || r?.profesional?.email || '—'}</Typography>
+                          <Box key={r?._id} sx={{ p: { xs: 1, sm: 1.25 }, borderRadius: 2, bgcolor: '#f7fbfd', border: `1px solid ${BRAND_BORDER}`, ...HOVER_BOX_SX }}>
+                            <Typography fontWeight={900} sx={{ fontSize: { xs: '0.85rem', sm: '1rem' } }}>
+                              {fmtDate(r?.siguienteCita) || '—'} {r?.hora ? `· ${r.hora}` : ''}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                              Profesional: {r?.profesional?.username || r?.profesional?.email || '—'}
+                            </Typography>
                           </Box>
                         ))}
                       </Stack>
@@ -1049,10 +1094,17 @@ export default function PacientePortalPageFixed() {
         {/* TAB: Medicamentos */}
         {tab === 3 && (
           <Card sx={{ border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-            <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1 }}>
                 <Typography fontWeight={900}>Medicamentos</Typography>
-                <Button variant="outlined" startIcon={<EditIcon />} onClick={openEdit} sx={{ borderColor: '#2596be', color: BRAND_TEXT_DARK }}>
+                <Button 
+                  variant="outlined" 
+                  startIcon={<EditIcon />} 
+                  onClick={openEdit} 
+                  size={isMobile ? 'small' : 'medium'}
+                  fullWidth={isMobile}
+                  sx={{ borderColor: '#2596be', color: BRAND_TEXT_DARK }}
+                >
                   Editar
                 </Button>
               </Stack>
@@ -1064,9 +1116,9 @@ export default function PacientePortalPageFixed() {
                     <Typography variant="body2" color="text.secondary">—</Typography>
                   ) : (
                     (paciente.medicamentosActivos || []).map((m, idx) => (
-                      <Box key={idx} sx={{ p: 1.25, borderRadius: 2, bgcolor: '#f7fbfd', border: `1px solid ${BRAND_BORDER}`, ...HOVER_BOX_SX }}>
-                        <Typography fontWeight={900}>{m?.nombre || '—'}</Typography>
-                        <Typography variant="body2" color="text.secondary">
+                      <Box key={idx} sx={{ p: { xs: 1, sm: 1.25 }, borderRadius: 2, bgcolor: '#f7fbfd', border: `1px solid ${BRAND_BORDER}`, ...HOVER_BOX_SX }}>
+                        <Typography fontWeight={900} sx={{ fontSize: { xs: '0.85rem', sm: '1rem' } }}>{m?.nombre || '—'}</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                           {[m?.dosis, m?.frecuencia].filter(Boolean).join(' • ') || '—'}
                         </Typography>
                       </Box>
@@ -1081,8 +1133,8 @@ export default function PacientePortalPageFixed() {
         {/* TAB: Signos Vitales */}
         {tab === 4 && (
           <Card sx={{ border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-            <CardContent>
-              <Typography fontWeight={900} sx={{ mb: 1 }}>Signos Vitales</Typography>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+              <Typography fontWeight={900} sx={{ mb: 1, fontSize: { xs: '0.95rem', sm: '1rem' } }}>Signos Vitales</Typography>
               {loading ? (
                 <Skeleton height={160} />
               ) : (
@@ -1091,14 +1143,14 @@ export default function PacientePortalPageFixed() {
                     <Typography variant="body2" color="text.secondary">—</Typography>
                   ) : (
                     todosLosSignos.map((sv, idx) => (
-                      <Box key={sv?.key || idx} sx={{ p: 1.25, borderRadius: 2, bgcolor: '#f7fbfd', border: `1px solid ${BRAND_BORDER}`, ...HOVER_BOX_SX }}>
-                        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                          <Typography fontWeight={900}>{fmtDate(sv?.fecha) || '—'}</Typography>
+                      <Box key={sv?.key || idx} sx={{ p: { xs: 1, sm: 1.25 }, borderRadius: 2, bgcolor: '#f7fbfd', border: `1px solid ${BRAND_BORDER}`, ...HOVER_BOX_SX }}>
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} flexWrap="wrap">
+                          <Typography fontWeight={900} sx={{ fontSize: { xs: '0.85rem', sm: '1rem' } }}>{fmtDate(sv?.fecha) || '—'}</Typography>
                           {sv?.source === 'clinicalCase' && (
-                            <Chip size="small" label="Ficha" variant="outlined" sx={{ borderColor: '#2596be', color: BRAND_TEXT_DARK, fontWeight: 900 }} />
+                            <Chip size="small" label="Ficha" variant="outlined" sx={{ borderColor: '#2596be', color: BRAND_TEXT_DARK, fontWeight: 900, fontSize: { xs: '0.65rem', sm: '0.75rem' } }} />
                           )}
                         </Stack>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, mt: 0.5 }}>
                           {[
                             sv?.presionArterial ? `PA: ${sv.presionArterial}` : null,
                             sv?.frecuenciaCardiaca ? `FC: ${sv.frecuenciaCardiaca}` : null,
@@ -1121,62 +1173,87 @@ export default function PacientePortalPageFixed() {
         {/* TAB: Documentos */}
         {tab === 5 && (
           <Card sx={{ border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, ...HOVER_CARD_SX }}>
-            <CardContent>
-              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1 }}>
-                <Typography fontWeight={900}>Documentos (Sesiones)</Typography>
-                {docsSelectingPdf ? (
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Chip
-                      size="small"
-                      color={docsPdfStep1Done ? 'success' : 'default'}
-                      icon={docsPdfStep1Done ? <CheckIcon /> : undefined}
-                      label="1) Profesional"
-                      sx={{ fontWeight: 900 }}
-                    />
-                    <Chip
-                      size="small"
-                      color={docsPdfStep2Done ? 'success' : 'default'}
-                      icon={docsPdfStep2Done ? <CheckIcon /> : undefined}
-                      label="2) Diagnóstico"
-                      sx={{ fontWeight: 900 }}
-                    />
-                    <Chip
-                      size="small"
-                      color={docsPdfStep3Done ? 'success' : 'default'}
-                      icon={docsPdfStep3Done ? <CheckIcon /> : undefined}
-                      label="3) Sesiones"
-                      sx={{ fontWeight: 900 }}
-                    />
-                    <FormControlLabel
-                      control={<Checkbox checked={docsSelectAll} onChange={handleDocsSelectAll} />}
-                      label="Todos"
-                    />
-                    <Tooltip title="Confirmar selección" arrow>
-                      <IconButton onClick={handleDocsConfirmPdf} sx={{ bgcolor: '#82e0aa', color: 'black', boxShadow: 1 }}>
-                        <CheckIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Cancelar selección" arrow>
-                      <IconButton onClick={handleDocsCancelPdf} sx={{ bgcolor: '#f1948a', color: 'black', boxShadow: 1 }}>
-                        <CloseIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                ) : (
-                  <Button
-                    variant="contained"
-                    onClick={handleDocsStartPdf}
-                    startIcon={<PictureAsPdfIcon />}
-                    sx={{ background: BRAND_GRADIENT, fontWeight: 900, '&:hover': { background: BRAND_GRADIENT } }}
-                  >
-                    Generar PDF
-                  </Button>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+              <Stack direction="column" spacing={1} sx={{ mb: 1 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+                  <Typography fontWeight={900} sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>Documentos (Sesiones)</Typography>
+                  {!docsSelectingPdf && (
+                    <Button
+                      variant="contained"
+                      onClick={handleDocsStartPdf}
+                      startIcon={<PictureAsPdfIcon />}
+                      size={isMobile ? 'small' : 'medium'}
+                      fullWidth={isMobile}
+                      sx={{ background: BRAND_GRADIENT, fontWeight: 900, '&:hover': { background: BRAND_GRADIENT } }}
+                    >
+                      Generar PDF
+                    </Button>
+                  )}
+                </Stack>
+                {docsSelectingPdf && (
+                  <Box sx={{ 
+                    p: { xs: 1, sm: 1.5 }, 
+                    borderRadius: 2, 
+                    bgcolor: '#f7fbfd', 
+                    border: `1px solid ${BRAND_BORDER}` 
+                  }}>
+                    <Stack 
+                      direction={{ xs: 'column', sm: 'row' }} 
+                      spacing={{ xs: 1, sm: 1 }} 
+                      alignItems={{ xs: 'stretch', sm: 'center' }}
+                      flexWrap="wrap"
+                    >
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                        <Chip
+                          size="small"
+                          color={docsPdfStep1Done ? 'success' : 'default'}
+                          icon={docsPdfStep1Done ? <CheckIcon /> : undefined}
+                          label={isMobile ? '1) Prof.' : '1) Profesional'}
+                          sx={{ fontWeight: 900, fontSize: { xs: '0.7rem', sm: '0.8125rem' } }}
+                        />
+                        <Chip
+                          size="small"
+                          color={docsPdfStep2Done ? 'success' : 'default'}
+                          icon={docsPdfStep2Done ? <CheckIcon /> : undefined}
+                          label={isMobile ? '2) Diag.' : '2) Diagnóstico'}
+                          sx={{ fontWeight: 900, fontSize: { xs: '0.7rem', sm: '0.8125rem' } }}
+                        />
+                        <Chip
+                          size="small"
+                          color={docsPdfStep3Done ? 'success' : 'default'}
+                          icon={docsPdfStep3Done ? <CheckIcon /> : undefined}
+                          label={isMobile ? '3) Ses.' : '3) Sesiones'}
+                          sx={{ fontWeight: 900, fontSize: { xs: '0.7rem', sm: '0.8125rem' } }}
+                        />
+                      </Stack>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: { xs: 1, sm: 0 }, ml: { sm: 'auto' } }}>
+                        <FormControlLabel
+                          control={<Checkbox size="small" checked={docsSelectAll} onChange={handleDocsSelectAll} />}
+                          label={<Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Todos</Typography>}
+                          sx={{ mr: 0.5 }}
+                        />
+                        <Tooltip title="Confirmar" arrow>
+                          <IconButton size="small" onClick={handleDocsConfirmPdf} sx={{ bgcolor: '#82e0aa', color: 'black', boxShadow: 1 }}>
+                            <CheckIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Cancelar" arrow>
+                          <IconButton size="small" onClick={handleDocsCancelPdf} sx={{ bgcolor: '#f1948a', color: 'black', boxShadow: 1 }}>
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Stack>
+                  </Box>
                 )}
               </Stack>
 
               {docsSelectingPdf ? (
-                <Alert severity="info" sx={{ mb: 1 }}>
-                  Para generar el PDF sigue los pasos por orden: <b>profesional</b> → <b>diagnóstico</b> → <b>sesiones</b>.
+                <Alert severity="info" sx={{ mb: 1, fontSize: { xs: '0.75rem', sm: '0.875rem' }, '& .MuiAlert-message': { width: '100%' } }}>
+                  {isMobile 
+                    ? 'Sigue los pasos: profesional → diagnóstico → sesiones.' 
+                    : 'Para generar el PDF sigue los pasos por orden: profesional → diagnóstico → sesiones.'
+                  }
                 </Alert>
               ) : null}
 
@@ -1185,10 +1262,10 @@ export default function PacientePortalPageFixed() {
               ) : documentosProfesionales.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">No hay sesiones registradas para generar documentos.</Typography>
               ) : (
-                <Grid container spacing={2}>
+                <Grid container spacing={{ xs: 1.5, sm: 2 }}>
                   <Grid item xs={12} md={4}>
                     <Box ref={docsProfesionalesRef} sx={{ position: 'relative' }}>
-                      <Typography variant="subtitle2" fontWeight={900} sx={{ mb: 1 }}>Profesionales</Typography>
+                      <Typography variant="subtitle2" fontWeight={900} sx={{ mb: 1, fontSize: { xs: '0.85rem', sm: '0.875rem' } }}>Profesionales</Typography>
                       <HelpBubble open={docsHelpStep1Open} anchorEl={docsProfesionalesRef.current}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.25 }}>
                           Paso 1 (obligatorio)
@@ -1206,6 +1283,7 @@ export default function PacientePortalPageFixed() {
                             <Button
                               key={p.key}
                               variant={selected ? 'contained' : 'outlined'}
+                              size={isMobile ? 'small' : 'medium'}
                               onClick={() => {
                                 setDocsProfesionalKey(p.key);
                                 // Cambiar profesional reinicia el flujo de selección
@@ -1216,15 +1294,29 @@ export default function PacientePortalPageFixed() {
                                 }
                               }}
                               sx={selected
-                                ? { background: BRAND_GRADIENT, fontWeight: 900, justifyContent: 'space-between', '&:hover': { background: BRAND_GRADIENT } }
-                                : { borderColor: '#2596be', color: BRAND_TEXT_DARK, fontWeight: 900, justifyContent: 'space-between' }
+                                ? { 
+                                    background: BRAND_GRADIENT, 
+                                    fontWeight: 900, 
+                                    justifyContent: 'space-between', 
+                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                    '&:hover': { background: BRAND_GRADIENT } 
+                                  }
+                                : { 
+                                    borderColor: '#2596be', 
+                                    color: BRAND_TEXT_DARK, 
+                                    fontWeight: 900, 
+                                    justifyContent: 'space-between',
+                                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                  }
                               }
                             >
-                              <span style={{ textAlign: 'left' }}>{name}</span>
+                              <span style={{ textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
                               <Chip
                                 size="small"
                                 label={`${count}`}
-                                sx={selected ? { bgcolor: 'rgba(255,255,255,0.25)', color: 'white', fontWeight: 900 } : { bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK, fontWeight: 900 }}
+                                sx={selected 
+                                  ? { bgcolor: 'rgba(255,255,255,0.25)', color: 'white', fontWeight: 900, fontSize: { xs: '0.7rem', sm: '0.75rem' } } 
+                                  : { bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK, fontWeight: 900, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
                               />
                             </Button>
                           );
@@ -1339,7 +1431,7 @@ export default function PacientePortalPageFixed() {
                                           : undefined
                                       }
                                       sx={{
-                                        p: 1.25,
+                                        p: { xs: 1, sm: 1.25 },
                                         borderRadius: 2,
                                         bgcolor: docsSelectedKeys.has(s.key) ? '#f7fbff' : '#f7fbfd',
                                         border: `1px solid ${docsSelectedKeys.has(s.key) ? '#2596be' : BRAND_BORDER}`,
@@ -1352,11 +1444,12 @@ export default function PacientePortalPageFixed() {
                                       }}
                                     >
                                       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                                        <Typography fontWeight={900}>
-                                          Sesión {idx + 1} · {fmtDate(s?.fecha) || '—'}
+                                        <Typography fontWeight={900} sx={{ fontSize: { xs: '0.85rem', sm: '1rem' } }}>
+                                          {isMobile ? `#${idx + 1} · ${fmtDate(s?.fecha) || '—'}` : `Sesión ${idx + 1} · ${fmtDate(s?.fecha) || '—'}`}
                                         </Typography>
                                         {docsSelectingPdf ? (
                                           <Checkbox
+                                            size="small"
                                             checked={docsSelectedKeys.has(s.key)}
                                             onChange={() => toggleDocKey(s.key)}
                                             onClick={(e) => e.stopPropagation()}
@@ -1365,11 +1458,11 @@ export default function PacientePortalPageFixed() {
                                       </Stack>
                                       {s?.notas ? (
                                         <Box sx={{ mt: 0.75 }}>
-                                          <Typography variant="caption" color="text.secondary" fontWeight={900}>Procedimiento</Typography>
-                                          <ExpandableRich html={s?.notas || ''} empty="—" collapsedMaxHeight={180} minTextLengthToToggle={260} />
+                                          <Typography variant="caption" color="text.secondary" fontWeight={900} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Procedimiento</Typography>
+                                          <ExpandableRich html={s?.notas || ''} empty="—" collapsedMaxHeight={isMobile ? 120 : 180} minTextLengthToToggle={isMobile ? 160 : 260} />
                                         </Box>
                                       ) : (
-                                        <Typography variant="body2" color="text.secondary">Sin notas registradas.</Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Sin notas registradas.</Typography>
                                       )}
                                     </Box>
                                   ))}
@@ -1387,16 +1480,16 @@ export default function PacientePortalPageFixed() {
           </Card>
         )}
 
-        <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md">
-          <DialogTitle sx={{ background: BRAND_GRADIENT, color: 'white', fontWeight: 900 }}>
+        <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md" fullScreen={isMobile}>
+          <DialogTitle sx={{ background: BRAND_GRADIENT, color: 'white', fontWeight: 900, py: { xs: 1.5, sm: 2 }, px: { xs: 2, sm: 3 } }}>
             <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography fontWeight={900}>Editar mis datos</Typography>
-              <IconButton onClick={() => setEditOpen(false)} sx={{ color: '#fff' }} aria-label="Cerrar">
+              <Typography fontWeight={900} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Editar mis datos</Typography>
+              <IconButton onClick={() => setEditOpen(false)} sx={{ color: '#fff' }} aria-label="Cerrar" size={isMobile ? 'small' : 'medium'}>
                 <CloseIcon />
               </IconButton>
             </Stack>
           </DialogTitle>
-          <DialogContent dividers sx={{ bgcolor: '#ffffff' }}>
+          <DialogContent dividers sx={{ bgcolor: '#ffffff', p: { xs: 1.5, sm: 3 } }}>
             {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
 
             <Grid container spacing={2}>
@@ -1580,18 +1673,26 @@ export default function PacientePortalPageFixed() {
               </CardContent>
             </Card>
           </DialogContent>
-          <DialogActions>
-            <Button variant="text" onClick={() => setEditOpen(false)} disabled={editSaving}>
+          <DialogActions sx={{ p: { xs: 1.5, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 0 } }}>
+            <Button 
+              variant="text" 
+              onClick={() => setEditOpen(false)} 
+              disabled={editSaving}
+              fullWidth={isMobile}
+              sx={{ order: { xs: 2, sm: 1 } }}
+            >
               Cancelar
             </Button>
             <Button
               variant="contained"
               onClick={saveEdit}
               disabled={editSaving}
+              fullWidth={isMobile}
               sx={{
                 background: BRAND_GRADIENT,
                 fontWeight: 900,
                 '&:hover': { background: BRAND_GRADIENT },
+                order: { xs: 1, sm: 2 },
               }}
             >
               {editSaving ? 'Guardando…' : 'Guardar cambios'}

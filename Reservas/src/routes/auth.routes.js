@@ -5,6 +5,8 @@ import {
   register,
   verifyToken,
   updatePerfil,
+  getMe,
+  updateMe,
   getAllProfiles,
   updateNotifications,
   deleteNotifications,
@@ -14,7 +16,8 @@ import {
   deleteUser,
   addServicio,
   deleteServicio,
-  updateServicio
+  updateServicio,
+  getProfile
 } from "../controllers/auth.controller.js";
 import { generarEnlace, getBySlug } from "../controllers/auth.controller.js";
 import { auth } from "../middlewares/auth.middleware.js";
@@ -31,9 +34,13 @@ router.post("/login", validateSchema(loginSchema), loginLimiter, login);
 router.delete("/:id", deleteUser);
 router.post("/google-auth", googleAuth);
 router.get("/verify", verifyToken);
+// Perfil del usuario autenticado (móvil)
+router.get("/me", auth, getMe);
+router.put("/me", auth, updateMe);
 // No necesitamos verificar antes de cerrar sesión; si existe cookie se elimina
 router.post("/logout", logout);
 router.put("/:id", updatePerfil);
+router.get("/:id", auth, getProfile);
 router.put("/:id/timetable/:index", deleteBloqueHorario);
 router.post("/notifications/:id", updateNotifications);
 router.delete("/notifications/:id", deleteNotifications);

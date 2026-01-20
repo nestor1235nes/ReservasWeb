@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { FRONTEND_URL } from "../config.js";
 import { resolveWhatsAppCredentialsForUser } from '../libs/whatsappCredentials.js';
-import { programarRecordatorios } from './reminder.controller.js';
+import { cancelarRecordatoriosDeReserva, programarRecordatorios } from './reminder.controller.js';
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -994,6 +994,29 @@ export const updateReserva = async (req, res) => {
 
         if (Object.keys(updateOp).length > 0) {
             await Reserva.findByIdAndUpdate(reserva._id, updateOp, { new: true });
+        }
+
+        // Reprogramar recordatorios cuando cambia la cita (fecha/hora)
+        const changedAppointment = has('siguienteCita') || has('hora');
+        if (changedAppointment) {
+            try {
+                await cancelarRecordatoriosDeReserva(reserva._id);
+                if (isSchedulingNextAppointment) {
+                    const profesionalIdForReminders = has('profesional') ? req.body.profesional : (reserva.profesional || profesionalFiltro);
+                    const resultRecordatorios = await programarRecordatorios(
+                        reserva._id,
+                        profesionalIdForReminders,
+                        paciente._id,
+                        nextSiguienteCita,
+                        nextHora
+                    );
+                    if (!resultRecordatorios.ok) {
+                        console.warn('No se pudieron programar recordatorios (updateReserva):', resultRecordatorios);
+                    }
+                }
+            } catch (e) {
+                console.warn('Error reprogramando recordatorios (updateReserva):', e?.message || e);
+            }
         }
 
         // Persistir cambios de casos clínicos si hubo modificaciones

@@ -821,6 +821,7 @@ export function PerfilPage() {
   const buildFormData = (u) => ({
     username: u?.username || "",
     celular: u?.celular || "",
+    celularEsWhatsApp: u?.celularEsWhatsApp || false,
     direccion: u?.direccion || u?.maps?.formattedAddress || u?.sucursal?.direccion || u?.sucursal?.maps?.formattedAddress || "",
     mapsProvider: u?.maps?.provider || u?.sucursal?.maps?.provider || 'mapbox',
     mapsPlaceId: u?.maps?.placeId || u?.sucursal?.maps?.placeId || "",
@@ -1371,6 +1372,23 @@ export function PerfilPage() {
                   fullWidth
                   disabled={!editProfileMode}
                 />
+                {!esAsistente && (
+                  <Box>
+                    <FormControlLabel
+                      control={
+                        <MuiSwitch
+                          checked={!!formData.celularEsWhatsApp}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, celularEsWhatsApp: e.target.checked }))}
+                          disabled={!editProfileMode}
+                        />
+                      }
+                      label="Este número tiene WhatsApp"
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.5 }}>
+                      Si lo activas, en tu enlace público aparecerá un botón para hablarte por WhatsApp.
+                    </Typography>
+                  </Box>
+                )}
                 {!esAsistente && (
                   <>
                     {!editProfileMode ? (

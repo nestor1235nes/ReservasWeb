@@ -156,7 +156,7 @@ function AppContent() {
                         </Drawer>
                       )}
                       {/* Main Content */}
-                      <Box flexGrow={1} p={{ xs: 1, sm: 3 }}>
+                      <Box flexGrow={1} p={hideSidebar ? 0 : { xs: 1, sm: 3 }}>
                         {!hideSidebar && isMobile && (
                           <IconButton
                             color="inherit"

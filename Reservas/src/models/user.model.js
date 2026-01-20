@@ -63,6 +63,11 @@ const userSchema = new mongoose.Schema({
     celular: {
         type: String,
     },
+    // Indica si el número de celular publicado corresponde a WhatsApp (para botón público de contacto)
+    celularEsWhatsApp: {
+        type: Boolean,
+        default: false,
+    },
     direccion: {
         type: String,
     },

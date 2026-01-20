@@ -5,9 +5,15 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
+import BusinessIcon from '@mui/icons-material/Business';
 import Logo from '../../assets/LOGO.png';
 import LocationSection from './LocationSection';
 import ExpandableText from './ExpandableText';
+
+import { buildWhatsAppHref, formatDaysShort, getExperienceLabel, getSpecialtyLabel, getTimetableSummary } from './templateMeta';
 
 const DAYS_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -44,17 +50,37 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
     primary: brand?.primary || '#2596be',
     secondary: brand?.secondary || '#21cbe6',
   };
-  const dias = useMemo(() => getUniqueDays(prof?.timetable), [prof]);
+  const { days: timetableDays, hours: timetableHours } = useMemo(() => getTimetableSummary(prof?.timetable), [prof]);
+  const diasShort = useMemo(() => formatDaysShort(timetableDays), [timetableDays]);
   const services = Array.isArray(prof?.servicios) ? prof.servicios : [];
   const isReady = Boolean(seleccion.fecha && seleccion.horaSeleccionada);
 
-  const stats = useMemo(() => {
+  const specialtyLabel = useMemo(() => getSpecialtyLabel(prof), [prof]);
+  const experienceLabel = useMemo(() => getExperienceLabel(prof), [prof]);
+  const hoursLabel = useMemo(() => {
+    const list = (timetableHours || []).filter(Boolean);
+    if (list.length === 0) return '';
+    const shown = list.slice(0, 2).join(' · ');
+    return list.length > 2 ? `${shown} +${list.length - 2}` : shown;
+  }, [timetableHours]);
+
+  const waHref = useMemo(() => {
+    if (!prof?.celular || !prof?.celularEsWhatsApp) return '';
+    return buildWhatsAppHref({
+      phone: prof.celular,
+      message: `Hola ${prof?.username || ''}, vengo desde tu enlace de reservas.`,
+    });
+  }, [prof?.celular, prof?.celularEsWhatsApp, prof?.username]);
+
+  const metaChips = useMemo(() => {
     const out = [];
-    if (services.length > 0) out.push({ label: `${services.length} servicio${services.length === 1 ? '' : 's'}` });
-    if (dias.length > 0) out.push({ label: `${dias.length} día${dias.length === 1 ? '' : 's'} activo${dias.length === 1 ? '' : 's'}` });
-    if (prof?.sucursal?.nombre) out.push({ label: prof.sucursal.nombre });
+    if (specialtyLabel) out.push({ label: `Especialidad: ${specialtyLabel}`, icon: <LocalHospitalIcon fontSize="small" /> });
+    if (experienceLabel) out.push({ label: experienceLabel, icon: <WorkspacePremiumIcon fontSize="small" /> });
+    if (diasShort) out.push({ label: `Días: ${diasShort}`, icon: <CalendarMonthIcon fontSize="small" /> });
+    if (hoursLabel) out.push({ label: `Horario: ${hoursLabel}`, icon: <AccessTimeIcon fontSize="small" /> });
+    if (prof?.sucursal?.nombre) out.push({ label: String(prof.sucursal.nombre), icon: <BusinessIcon fontSize="small" /> });
     return out;
-  }, [services.length, dias.length, prof?.sucursal?.nombre]);
+  }, [diasShort, hoursLabel, specialtyLabel, experienceLabel, prof?.sucursal?.nombre]);
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={0} sx={{ background: 'transparent', color: 'inherit', borderBottom: '1px solid #e3f2fd', backdropFilter: 'blur(8px)' }}>
@@ -131,11 +157,12 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
               </Grid>
               <Grid item xs={12} md={6}>
                 <Stack direction="row" spacing={1} justifyContent={{ xs: 'center', md: 'flex-end' }} flexWrap="wrap" useFlexGap>
-                  {stats.slice(0, 4).map((s, i) => (
+                  {metaChips.slice(0, 5).map((s, i) => (
                     <Chip
                       key={i}
                       size="small"
                       label={s.label}
+                      icon={s.icon}
                       sx={{
                         bgcolor: '#f1fbff',
                         border: '1px solid #dff1ff',
@@ -167,25 +194,30 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                   >
                     Reservar
                   </Button>
-                  {prof?.celular && (
+                  {waHref ? (
                     <Button
                       variant="outlined"
-                      href={`https://wa.me/${String(prof.celular).replace(/\D/g, '')}`}
+                      href={waHref}
                       target="_blank"
                       rel="noopener noreferrer"
+                      startIcon={<WhatsAppIcon />}
                       sx={{
-                        borderColor: BRAND.primary,
-                        color: BRAND.primary,
+                        borderColor: '#25D366',
+                        color: '#128C7E',
                         fontWeight: 900,
                         textTransform: 'none',
                         borderRadius: 999,
                         px: 3,
                         bgcolor: 'rgba(255,255,255,0.9)',
+                        '&:hover': {
+                          borderColor: '#25D366',
+                          bgcolor: 'rgba(37,211,102,0.08)',
+                        },
                       }}
                     >
-                      WhatsApp
+                      Hablar por WhatsApp
                     </Button>
-                  )}
+                  ) : null}
                 </Stack>
               </Grid>
             </Grid>
@@ -217,9 +249,9 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                       />
                     </Box>
                   )}
-                  {dias.length > 0 && (
+                  {diasShort && (
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Atención: {dias.join(' · ')}
+                      Atención: {diasShort}
                     </Typography>
                   )}
                 </CardContent>

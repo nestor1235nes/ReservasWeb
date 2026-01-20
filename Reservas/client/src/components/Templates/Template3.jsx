@@ -4,9 +4,16 @@ import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
+import BusinessIcon from '@mui/icons-material/Business';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import Logo from '../../assets/LOGO.png';
 import LocationSection from './LocationSection';
 import ExpandableText from './ExpandableText';
+
+import { buildWhatsAppHref, formatDaysShort, getExperienceLabel, getSpecialtyLabel, getTimetableSummary } from './templateMeta';
 
 function TabPanel({ value, index, children }) {
   if (value !== index) return null;
@@ -24,12 +31,42 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
   const isReady = Boolean(seleccion.fecha && seleccion.horaSeleccionada);
   const [tab, setTab] = React.useState(0);
 
-  const professionalBadges = [
-    prof?.sucursal?.nombre ? String(prof.sucursal.nombre) : null,
-    prof?.cita_presencial ? 'Presencial' : null,
-    prof?.cita_virtual ? 'Telemedicina' : null,
-    prof?.cita_domicilio ? 'Domicilio' : null,
-  ].filter(Boolean);
+  const modalityBadges = React.useMemo(() => {
+    return [
+      prof?.cita_presencial ? 'Presencial' : null,
+      prof?.cita_virtual ? 'Telemedicina' : null,
+      prof?.cita_domicilio ? 'Domicilio' : null,
+    ].filter(Boolean);
+  }, [prof?.cita_presencial, prof?.cita_virtual, prof?.cita_domicilio]);
+
+  const { days: timetableDays, hours: timetableHours } = React.useMemo(() => getTimetableSummary(prof?.timetable), [prof]);
+  const diasShort = React.useMemo(() => formatDaysShort(timetableDays), [timetableDays]);
+  const specialtyLabel = React.useMemo(() => getSpecialtyLabel(prof), [prof]);
+  const experienceLabel = React.useMemo(() => getExperienceLabel(prof), [prof]);
+  const hoursLabel = React.useMemo(() => {
+    const list = (timetableHours || []).filter(Boolean);
+    if (list.length === 0) return '';
+    const shown = list.slice(0, 2).join(' · ');
+    return list.length > 2 ? `${shown} +${list.length - 2}` : shown;
+  }, [timetableHours]);
+
+  const waHref = React.useMemo(() => {
+    if (!prof?.celular || !prof?.celularEsWhatsApp) return '';
+    return buildWhatsAppHref({
+      phone: prof.celular,
+      message: `Hola ${prof?.username || ''}, vengo desde tu enlace de reservas.`,
+    });
+  }, [prof?.celular, prof?.celularEsWhatsApp, prof?.username]);
+
+  const metaChips = React.useMemo(() => {
+    const out = [];
+    if (specialtyLabel) out.push({ label: `Especialidad: ${specialtyLabel}`, icon: <LocalHospitalIcon fontSize="small" /> });
+    if (experienceLabel) out.push({ label: experienceLabel, icon: <WorkspacePremiumIcon fontSize="small" /> });
+    if (diasShort) out.push({ label: `Días: ${diasShort}`, icon: <CalendarMonthIcon fontSize="small" /> });
+    if (hoursLabel) out.push({ label: `Horario: ${hoursLabel}`, icon: <AccessTimeIcon fontSize="small" /> });
+    if (prof?.sucursal?.nombre) out.push({ label: String(prof.sucursal.nombre), icon: <BusinessIcon fontSize="small" /> });
+    return out;
+  }, [specialtyLabel, experienceLabel, diasShort, hoursLabel, prof?.sucursal?.nombre]);
 
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
@@ -66,10 +103,13 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
               />
               <Box sx={{ flex: 1, textAlign: { xs: 'center', sm: 'left' } }}>
                 <Typography variant="h5" fontWeight={900} sx={{ lineHeight: 1.1 }}>{prof.username}</Typography>
-                <Typography color="text.secondary">{prof.especialidad || 'Profesional'}</Typography>
+                <Typography color="text.secondary">{specialtyLabel || prof.especialidad || 'Profesional'}</Typography>
                 <Stack direction="row" spacing={1} mt={1} flexWrap="wrap" useFlexGap justifyContent={{ xs: 'center', sm: 'flex-start' }}>
-                  {professionalBadges.slice(0, 4).map((b) => (
-                    <Chip key={b} size="small" label={b} sx={{ bgcolor: '#f8fbff', border: '1px solid #e3f2fd', fontWeight: 700 }} />
+                  {metaChips.map((c) => (
+                    <Chip key={c.label} size="small" icon={c.icon} label={c.label} sx={{ bgcolor: '#f8fbff', border: '1px solid #e3f2fd', fontWeight: 700 }} />
+                  ))}
+                  {modalityBadges.map((b) => (
+                    <Chip key={b} size="small" label={b} sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: BRAND.primary, fontWeight: 800 }} />
                   ))}
                   {services.length > 0 && (
                     <Chip size="small" label={`${services.length} servicio${services.length === 1 ? '' : 's'}`} sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: BRAND.primary, fontWeight: 800 }} />
@@ -129,10 +169,13 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
                       />
                     </Box>
                   )}
-                  {professionalBadges.length > 0 && (
+                  {(metaChips.length > 0 || modalityBadges.length > 0) && (
                     <Stack direction="row" spacing={1} mt={2} flexWrap="wrap" useFlexGap>
-                      {professionalBadges.map((b) => (
-                        <Chip key={b} size="small" label={b} sx={{ bgcolor: '#f8fbff', border: '1px solid #e3f2fd' }} />
+                      {metaChips.map((c) => (
+                        <Chip key={c.label} size="small" icon={c.icon} label={c.label} sx={{ bgcolor: '#f8fbff', border: '1px solid #e3f2fd' }} />
+                      ))}
+                      {modalityBadges.map((b) => (
+                        <Chip key={b} size="small" label={b} sx={{ bgcolor: 'rgba(37,150,190,0.12)', color: BRAND.primary, fontWeight: 800 }} />
                       ))}
                     </Stack>
                   )}
@@ -200,6 +243,28 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
                   Selecciona fecha y hora. La modalidad se elige al seleccionar el servicio.
                 </Typography>
                 <Divider sx={{ my: 1.5 }} />
+
+                {waHref ? (
+                  <Button
+                    variant="outlined"
+                    href={waHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<WhatsAppIcon />}
+                    sx={{
+                      mb: 1.5,
+                      borderColor: '#25D366',
+                      color: '#128C7E',
+                      fontWeight: 900,
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      '&:hover': { borderColor: '#25D366', bgcolor: 'rgba(37,211,102,0.08)' },
+                    }}
+                    fullWidth
+                  >
+                    Hablar por WhatsApp
+                  </Button>
+                ) : null}
 
                 <Typography fontWeight={800} mb={1}>1) Fecha</Typography>
                 <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
