@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { FormControl, InputLabel, Select, MenuItem, TextField } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -15,6 +15,20 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
   const [horasDisponibles, setHorasDisponibles] = useState([]);
   const [feriados, setFeriados] = useState([]);
   const { getFeriados } = useReserva();
+
+  // Filtrar horas que ya pasaron si se selecciona hoy
+  const filteredHorasDisponibles = useMemo(() => {
+    if (!Array.isArray(horasDisponibles) || horasDisponibles.length === 0) return [];
+    
+    const today = dayjs().format('YYYY-MM-DD');
+    if (formData.diaPrimeraCita !== today) return horasDisponibles;
+    
+    const now = dayjs();
+    return horasDisponibles.filter((timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return dayjs().set('hour', hours).set('minute', minutes).isAfter(now);
+    });
+  }, [horasDisponibles, formData.diaPrimeraCita]);
 
 
   useEffect(() => {
@@ -105,7 +119,7 @@ const BusquedaHoras = ({ formData, setFormData, profesionales, obtenerHorasDispo
           value={formData.hora}
           onChange={handleChange}
         >
-          {horasDisponibles.map((hora) => (
+          {filteredHorasDisponibles.map((hora) => (
             <MenuItem key={hora} value={hora}>
               {hora}
             </MenuItem>

@@ -41,7 +41,8 @@ const statusMap = {
   confirmed: { color: "success", label: "Confirmada", icon: <CheckCircleIcon fontSize="small" /> },
   pending: { color: "warning", label: "Pendiente", icon: <WarningAmberIcon fontSize="small" /> },
   cancelled: { color: "error", label: "Cancelada", icon: <CancelIcon fontSize="small" /> },
-  reschedule_requested: { color: "info", label: "Solicitud Cambio", icon: <WarningAmberIcon fontSize="small" /> }
+  reschedule_requested: { color: "info", label: "Solicitud Cambio", icon: <WarningAmberIcon fontSize="small" /> },
+  completed: { color: "success", label: "Completada", icon: <CheckCircleIcon fontSize="small" /> }
 };
 
 function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {

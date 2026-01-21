@@ -191,9 +191,12 @@ const ReservasSchema = new mongoose.Schema({
     // --- Confirmación de cita ---
     confirmStatus: {
         type: String,
-        enum: ['pending','confirmed','cancelled','reschedule_requested'],
+        enum: ['pending','confirmed','cancelled','reschedule_requested','completed'],
         default: 'pending',
         index: true
+    },
+    completedAt: {
+        type: Date
     },
     confirmTokenHash: {
         type: String,

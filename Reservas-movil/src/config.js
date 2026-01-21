@@ -6,7 +6,7 @@
 // - iOS Simulator: http://localhost:4000/api
 // - Dispositivo físico: http://TU_IP_LOCAL:4000/api (ej: http://192.168.1.100:4000/api)
 
-const DEV_API_URL = 'http://172.20.10.5:4000/api'; // Android Emulator
+const DEV_API_URL = 'http://192.168.1.88:4000/api'; // Android Emulator
 // const DEV_API_URL = 'http://localhost:4000/api'; // iOS Simulator
 // const DEV_API_URL = 'http://192.168.1.100:4000/api'; // Tu IP local para dispositivos físicos
 

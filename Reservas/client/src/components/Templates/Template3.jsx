@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import dayjs from 'dayjs';
 import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar, Chip, Divider, Tabs, Tab } from '@mui/material';
 import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -67,6 +68,24 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
     if (prof?.sucursal?.nombre) out.push({ label: String(prof.sucursal.nombre), icon: <BusinessIcon fontSize="small" /> });
     return out;
   }, [specialtyLabel, experienceLabel, diasShort, hoursLabel, prof?.sucursal?.nombre]);
+
+  const filteredHoras = React.useMemo(() => {
+    const horasDisponibles = seleccion?.horasDisponibles || [];
+    const fecha = seleccion?.fecha;
+    
+    if (!Array.isArray(horasDisponibles) || horasDisponibles.length === 0) return [];
+    
+    const today = dayjs().format('YYYY-MM-DD');
+    const fechaFormato = fecha ? dayjs(fecha).format('YYYY-MM-DD') : null;
+    
+    if (fechaFormato !== today) return horasDisponibles;
+    
+    const now = dayjs();
+    return horasDisponibles.filter((timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return dayjs().set('hour', hours).set('minute', minutes).isAfter(now);
+    });
+  }, [seleccion?.horasDisponibles, seleccion?.fecha]);
 
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
@@ -284,12 +303,12 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
                 <Box mt={2}>
                   <Typography fontWeight={800} mb={1}>2) Hora</Typography>
                   <Stack spacing={1}>
-                    {(seleccion.horasDisponibles || []).length === 0 && (
+                    {filteredHoras.length === 0 && (
                       <Typography color="text.secondary" fontSize={14}>
                         {seleccion.fecha ? 'No hay horas para este día.' : 'Selecciona una fecha.'}
                       </Typography>
                     )}
-                    {(seleccion.horasDisponibles || []).slice(0, 10).map((hora) => (
+                    {filteredHoras.slice(0, 10).map((hora) => (
                       <Button
                         key={hora}
                         variant={seleccion.horaSeleccionada === hora ? 'contained' : 'outlined'}
@@ -309,7 +328,7 @@ export default function Template3({ prof, seleccion, onFechaChange, onHoraSelect
                       </Button>
                     ))}
                   </Stack>
-                  {(seleccion.horasDisponibles || []).length > 10 && (
+                  {filteredHoras.length > 10 && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                       Mostrando 10 horas. Selecciona otra fecha para ver más.
                     </Typography>

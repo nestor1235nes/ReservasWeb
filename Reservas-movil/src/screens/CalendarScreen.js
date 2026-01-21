@@ -402,6 +402,110 @@ const CalendarScreen = ({ navigation }) => {
     }
   };
 
+  // Determinar si es primera consulta para mostrar botón de registrar ficha
+  const activeClinicalCase = useMemo(() => {
+    if (!selectedReserva) return null;
+    const cases = Array.isArray(selectedReserva?.paciente?.clinicalCases) 
+      ? selectedReserva.paciente.clinicalCases 
+      : [];
+    const activeId = selectedReserva?.activeClinicalCaseId;
+    if (!activeId || cases.length === 0) return null;
+    return cases.find((c) => String(c?._id) === String(activeId)) || null;
+  }, [selectedReserva]);
+
+  // Determinar si es primera consulta o si puede iniciar nuevo diagnóstico
+  const shouldShowFichaButtons = useMemo(() => {
+    if (!selectedReserva?.paciente) return null;
+    
+    const cases = Array.isArray(selectedReserva?.paciente?.clinicalCases)
+      ? selectedReserva.paciente.clinicalCases
+      : [];
+    const activeId = selectedReserva?.activeClinicalCaseId;
+    
+    // Si hay un activeClinicalCaseId O si hay casos clínicos, el paciente YA TIENE diagnóstico
+    if (activeId || cases.length > 0) {
+      return { type: 'newDiagnosis', hasExisting: true };
+    }
+    
+    // Si no hay casos ni ID activo, pero activeClinicalCase existe y sin info inicial
+    if (activeClinicalCase) {
+      const hasInitialInfo = Boolean(activeClinicalCase?.diagnostico || activeClinicalCase?.anamnesis);
+      const activeSesionesCount = Array.isArray(activeClinicalCase?.sesiones) ? activeClinicalCase.sesiones.length : 0;
+      if (!hasInitialInfo && activeSesionesCount === 0) {
+        return { type: 'primeraConsulta', hasExisting: false };
+      }
+    }
+    
+    // Fallback legacy
+    const legacyHasInitialInfo = Boolean(selectedReserva?.paciente?.diagnostico || selectedReserva?.paciente?.anamnesis);
+    const legacySesionesCount = Array.isArray(selectedReserva?.paciente?.historial) ? selectedReserva.paciente.historial.length : 0;
+    if (!legacyHasInitialInfo && legacySesionesCount === 0) {
+      return { type: 'primeraConsulta', hasExisting: false };
+    }
+    
+    return null;
+  }, [activeClinicalCase, selectedReserva?.paciente]);
+
+  const handleRegistrarFichaInicial = () => {
+    const paciente = selectedReserva?.paciente;
+    if (!paciente?.rut) return;
+    
+    closeDetail();
+    navigation.navigate('Patients', {
+      screen: 'PatientCreate',
+      params: {
+        mode: 'editFromReserva',
+        rut: paciente.rut,
+        nombre: paciente.nombre || '',
+        telefono: paciente.telefono || '',
+        email: paciente.email || '',
+        isPrimeraConsulta: true,
+        reservaId: selectedReserva?._id,
+        activeClinicalCaseId: selectedReserva?.activeClinicalCaseId,
+        skipToStep: 1,
+      },
+    });
+  };
+
+  const handleIniciarNuevoDiagnostico = async () => {
+    try {
+      const paciente = selectedReserva?.paciente;
+      if (!paciente?.rut) {
+        showAlert('RUT del paciente no disponible', 'error');
+        return;
+      }
+      
+      console.log('Iniciando nuevo diagnóstico para:', paciente.rut);
+      
+      // Iniciar nuevo caso clínico en el backend
+      await updateReservaRequest(paciente.rut, { startNewClinicalCase: true });
+      console.log('Nuevo diagnóstico iniciado en backend');
+      
+      // Cerrar el detalle ANTES de navegar
+      closeDetail();
+      
+      // Navegar a PatientCreateScreen para agregar la información clínica
+      setTimeout(() => {
+        navigation.navigate('Patients', {
+          screen: 'PatientCreate',
+          params: {
+            mode: 'editFromReserva',
+            rut: paciente.rut,
+            nombre: paciente.nombre || '',
+            telefono: paciente.telefono || '',
+            email: paciente.email || '',
+            isPrimeraConsulta: false,
+            reservaId: selectedReserva?._id,
+            skipToStep: 1,
+          },
+        });
+      }, 300); // Pequeño delay para asegurar que el modal se cierre primero
+    } catch (error) {
+      console.error('Error iniciando nuevo diagnóstico:', error);
+      showAlert('No se pudo iniciar el nuevo diagnóstico', 'error');
+    }
+  };
+
   const selectedProfesionalId = useMemo(() => {
     return (
       selectedReserva?.profesional?._id ||
@@ -443,6 +547,38 @@ const CalendarScreen = ({ navigation }) => {
     Sábado: 6,
     Sabado: 6,
   };
+
+  // Filtrar horas disponibles que ya pasaron si es hoy
+  const filteredAvailableTimes = useMemo(() => {
+    if (!Array.isArray(availableTimes) || availableTimes.length === 0) return [];
+    
+    // Obtener la fecha actual en formato YYYY-MM-DD local
+    const today = new Date();
+    const todayYmd = toYmdLocal(today);
+    
+    // Si el día seleccionado NO es hoy, mostrar todas las horas
+    if (editDateYmd !== todayYmd) {
+      return availableTimes;
+    }
+    
+    // Si es hoy, filtrar horas que ya pasaron
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    return availableTimes.filter((timeStr) => {
+      try {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        // Si la hora es mayor que la actual, o si es igual pero los minutos son mayores, incluir
+        if (hours > currentHour || (hours === currentHour && minutes > currentMinute)) {
+          return true;
+        }
+        return false;
+      } catch {
+        return true; // Si hay error al parsear, incluir la hora
+      }
+    });
+  }, [availableTimes, editDateYmd]);
 
   const toYMDUtc = (d) => {
     try {
@@ -659,6 +795,7 @@ const CalendarScreen = ({ navigation }) => {
     pending: { bg: '#fff3e0', fg: '#ef6c00', label: 'Pendiente' },
     cancelled: { bg: '#ffebee', fg: '#c62828', label: 'Cancelada' },
     reschedule_requested: { bg: colors.primarySoft, fg: colors.primary, label: 'Solicitud cambio' },
+    completed: { bg: '#e3f2fd', fg: '#1565c0', label: 'Completada' },
   };
 
   const ReservaCard = ({ reserva }) => {
@@ -900,6 +1037,40 @@ const CalendarScreen = ({ navigation }) => {
                   )}
                 </View>
 
+                {/* Botón Primera Consulta o Nuevo Diagnóstico */}
+                {shouldShowFichaButtons && (
+                  <View style={styles.primeraConsultaCard}>
+                    <View style={styles.primeraConsultaHeader}>
+                      <Ionicons
+                        name={shouldShowFichaButtons.type === 'newDiagnosis' ? 'add-circle-outline' : 'document-text'}
+                        size={24}
+                        color="#2596be"
+                      />
+                      <View style={styles.primeraConsultaTextContainer}>
+                        <Text style={styles.primeraConsultaTitle}>
+                          {shouldShowFichaButtons.type === 'newDiagnosis' ? 'Nuevo Diagnóstico' : 'Primera Consulta'}
+                        </Text>
+                        <Text style={styles.primeraConsultaSubtitle}>
+                          {shouldShowFichaButtons.type === 'newDiagnosis'
+                            ? 'Inicia un nuevo caso clínico para el paciente'
+                            : 'Registra la información inicial del paciente'}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.primeraConsultaBtn}
+                      onPress={shouldShowFichaButtons.type === 'newDiagnosis'
+                        ? handleIniciarNuevoDiagnostico
+                        : handleRegistrarFichaInicial}
+                    >
+                      <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                      <Text style={styles.primeraConsultaBtnText}>
+                        {shouldShowFichaButtons.type === 'newDiagnosis' ? 'Iniciar Nuevo Diagnóstico' : 'Registrar Ficha Inicial'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <View style={styles.modalCard}>
                   <Text style={styles.modalRowLabel}>Fecha</Text>
                   <Text style={styles.modalRowValue}>
@@ -987,7 +1158,7 @@ const CalendarScreen = ({ navigation }) => {
                     ) : null}
 
                     <View style={styles.timesWrap}>
-                      {(Array.isArray(availableTimes) ? availableTimes : []).map((t) => {
+                      {(Array.isArray(filteredAvailableTimes) ? filteredAvailableTimes : []).map((t) => {
                         const isSelected = String(editHour) === String(t);
                         return (
                           <TouchableOpacity
@@ -1600,6 +1771,54 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  // Estilos Primera Consulta
+  primeraConsultaCard: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  primeraConsultaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  primeraConsultaTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  primeraConsultaTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0c4a6e',
+  },
+  primeraConsultaSubtitle: {
+    fontSize: 13,
+    color: '#0369a1',
+    marginTop: 2,
+  },
+  primeraConsultaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2596be',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#2596be',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  primeraConsultaBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

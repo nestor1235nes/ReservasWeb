@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Modal, 
   Box, 
@@ -107,6 +107,20 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
     };
     fetchHorasDisponibles();
   }, [fecha, user.id || user._id, obtenerHorasDisponibles]);
+
+  // Filtrar horas que ya pasaron si se selecciona hoy
+  const filteredHoras = useMemo(() => {
+    if (!Array.isArray(horasDisponibles) || horasDisponibles.length === 0) return [];
+    
+    const today = dayjs().format('YYYY-MM-DD');
+    if (fecha !== today) return horasDisponibles;
+    
+    const now = dayjs();
+    return horasDisponibles.filter((timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return dayjs().set('hour', hours).set('minute', minutes).isAfter(now);
+    });
+  }, [horasDisponibles, fecha]);
 
 
   const handleSesionChange = (value) => {
@@ -667,7 +681,7 @@ const AgregarSesion = ({ open, close, onClose, paciente, fetchReservas, gapi, ev
                               label="Hora de la Cita"
                               startAdornment={<ScheduleIcon sx={{ mr: 1, color: 'text.secondary' }} />}
                             >
-                              {horasDisponibles.map((horaItem) => (
+                              {filteredHoras.map((horaItem) => (
                                 <MenuItem key={horaItem} value={horaItem}>
                                   <Box display="flex" alignItems="center">
                                     <ScheduleIcon sx={{ mr: 1, fontSize: 16, color: 'text.secondary' }} />

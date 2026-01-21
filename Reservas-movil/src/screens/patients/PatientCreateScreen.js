@@ -63,9 +63,15 @@ const isValidHourHHMM = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || '').
 
 const hasNonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 
-const PatientCreateScreen = ({ navigation }) => {
+const PatientCreateScreen = ({ navigation, route }) => {
   const { user } = useAuth();
-  const [activeStep, setActiveStep] = useState(0);
+  
+  // Parámetros de ruta
+  const routeParams = route?.params || {};
+  const isEditMode = routeParams.mode === 'editFromReserva';
+  const skipToStep = routeParams.skipToStep || 0;
+  
+  const [activeStep, setActiveStep] = useState(skipToStep);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -83,10 +89,10 @@ const PatientCreateScreen = ({ navigation }) => {
   const [cambiarDiaPrimera, setCambiarDiaPrimera] = useState(false);
 
   const [form, setForm] = useState({
-    nombre: '',
-    rut: '',
-    telefono: '',
-    email: '',
+    nombre: routeParams.nombre || '',
+    rut: routeParams.rut || '',
+    telefono: routeParams.telefono || '',
+    email: routeParams.email || '',
 
     diagnostico: '',
     anamnesis: '',
@@ -143,7 +149,8 @@ const PatientCreateScreen = ({ navigation }) => {
     const rut = String(form.rut || '').trim();
     const nombre = String(form.nombre || '').trim();
 
-    if (activeStep === 0) {
+    // En modo edit, no revalidar datos personales si vienen prellenados
+    if (activeStep === 0 && !isEditMode) {
       if (!nombre) return 'El nombre es obligatorio.';
       if (!rut) return 'El RUT es obligatorio.';
     }
@@ -358,6 +365,25 @@ const PatientCreateScreen = ({ navigation }) => {
     }
   };
 
+  // Filtrar horas que ya pasaron si se selecciona hoy
+  const filteredAvailableTimes = useMemo(() => {
+    if (!Array.isArray(availableTimes) || availableTimes.length === 0) return [];
+    
+    const today = toYMD(new Date());
+    const selectedDate = form.diaPrimeraCita;
+    
+    if (selectedDate !== today) return availableTimes;
+    
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    return availableTimes.filter((timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours > currentHours || (hours === currentHours && minutes > currentMinutes);
+    });
+  }, [availableTimes, form.diaPrimeraCita]);
+
   const StepPill = ({ idx, label }) => {
     const isActive = idx === activeStep;
     const isDone = idx < activeStep;
@@ -534,7 +560,7 @@ const PatientCreateScreen = ({ navigation }) => {
                   ) : form.diaPrimeraCita ? (
                     availableTimes.length > 0 ? (
                       <View style={styles.timesWrap}>
-                        {availableTimes.map((t) => {
+                        {filteredAvailableTimes.map((t) => {
                           const selected = form.hora === t;
                           return (
                             <TouchableOpacity

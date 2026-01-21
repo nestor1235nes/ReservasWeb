@@ -185,6 +185,24 @@ export default function FrontUsers() {
 	const getDiasDisponibles = (timetable) => [...new Set((timetable || []).flatMap(b => b.days || []))];
 	const esFeriado = (fecha) => feriados.some(f => f.date && dayjs(f.date).isSame(fecha, 'day'));
 
+	const getFilteredHoras = useMemo(() => {
+		const horasDisponibles = seleccion?.horasDisponibles || [];
+		const fecha = seleccion?.fecha;
+		
+		if (!Array.isArray(horasDisponibles) || horasDisponibles.length === 0) return [];
+		
+		const today = dayjs().format('YYYY-MM-DD');
+		const fechaFormato = fecha ? dayjs(fecha).format('YYYY-MM-DD') : null;
+		
+		if (fechaFormato !== today) return horasDisponibles;
+		
+		const now = dayjs();
+		return horasDisponibles.filter((timeStr) => {
+			const [hours, minutes] = timeStr.split(':').map(Number);
+			return dayjs().set('hour', hours).set('minute', minutes).isAfter(now);
+		});
+	}, [seleccion?.horasDisponibles, seleccion?.fecha]);
+
 	const handleFechaChange = async (fecha) => {
 		setSeleccion(prev => ({ ...prev, fecha, horasDisponibles: [], horaSeleccionada: undefined }));
 		if (fecha && prof?._id) {

@@ -184,6 +184,23 @@ const AddSessionScreen = ({ route, navigation }) => {
     return marked;
   }, [fechaCita]);
 
+  // Filtrar horas que ya pasaron si se selecciona hoy
+  const filteredAvailableTimes = useMemo(() => {
+    if (!Array.isArray(availableTimes) || availableTimes.length === 0) return [];
+    
+    const today = todayYmd();
+    if (fechaCita !== today) return availableTimes;
+    
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    return availableTimes.filter((timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours > currentHours || (hours === currentHours && minutes > currentMinutes);
+    });
+  }, [availableTimes, fechaCita]);
+
   const handleSave = async () => {
     if (!rut) {
       setErrorMsg('Falta RUT del paciente.');
@@ -379,7 +396,7 @@ const AddSessionScreen = ({ route, navigation }) => {
               ) : fechaCita ? (
                 availableTimes.length > 0 ? (
                   <View style={styles.timesWrap}>
-                    {availableTimes.map((t) => {
+                    {filteredAvailableTimes.map((t) => {
                       const selected = horaCita === t;
                       return (
                         <TouchableOpacity

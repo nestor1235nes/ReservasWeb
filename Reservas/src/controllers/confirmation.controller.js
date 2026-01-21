@@ -3,6 +3,10 @@ import Reserva from '../models/ficha.model.js';
 import { FRONTEND_URL } from '../config.js';
 import { processCancelledAppointment } from './waitlist.controller.js';
 import { cancelarRecordatoriosDeReserva, omitirRecordatoriosPorConfirmacion } from './reminder.controller.js';
+import { 
+  createCancelledAppointmentNotification, 
+  createConfirmedAppointmentNotification 
+} from './notification.controller.js';
 // Email sending disabled: confirmation links are shared via WhatsApp only
 
 const TOKEN_BYTES = 24; // 32 chars aprox en base64url
@@ -56,7 +60,7 @@ export const confirmReserva = async (req, res) => {
   try {
     const { token } = req.params;
     const hash = hashToken(token);
-    const reserva = await Reserva.findOne({ confirmTokenHash: hash });
+    const reserva = await Reserva.findOne({ confirmTokenHash: hash }).populate('paciente');
     if (!reserva) return res.status(404).json({ message: 'Token inválido' });
     if (!reserva.confirmTokenExpires || reserva.confirmTokenExpires < new Date()) {
       return res.status(410).json({ message: 'Token expirado' });
@@ -73,6 +77,13 @@ export const confirmReserva = async (req, res) => {
       console.error('Error omitting reminders:', omitErr);
     }
 
+    // Crear notificación para el profesional
+    try {
+      await createConfirmedAppointmentNotification(reserva.profesional, reserva.paciente, reserva);
+    } catch (notifErr) {
+      console.error('Error creating confirmation notification:', notifErr);
+    }
+
     res.json({ message: 'Cita confirmada', status: reserva.confirmStatus });
   } catch (err) {
     res.status(500).json({ message: 'Error confirmando cita' });
@@ -83,7 +94,7 @@ export const cancelReservaByToken = async (req, res) => {
   try {
     const { token } = req.params;
     const hash = hashToken(token);
-    const reserva = await Reserva.findOne({ confirmTokenHash: hash });
+    const reserva = await Reserva.findOne({ confirmTokenHash: hash }).populate('paciente');
     if (!reserva) return res.status(404).json({ message: 'Token inválido' });
     reserva.confirmStatus = 'cancelled';
     reserva.confirmationLog.push({ action: 'cancelled' });
@@ -103,6 +114,13 @@ export const cancelReservaByToken = async (req, res) => {
     } catch (waitlistErr) {
       console.error('Error notifying waitlist:', waitlistErr);
       // No fallar la cancelación si la notificación falla
+    }
+
+    // Crear notificación para el profesional
+    try {
+      await createCancelledAppointmentNotification(reserva.profesional, reserva.paciente, reserva);
+    } catch (notifErr) {
+      console.error('Error creating cancellation notification:', notifErr);
     }
 
     res.json({ message: 'Cita cancelada', status: reserva.confirmStatus });
@@ -161,8 +179,8 @@ export const resendLink = async (req, res) => {
 export const updateConfirmStatus = async (req, res) => {
   try {
     const { id } = req.params; // id de la reserva
-    const { status } = req.body; // expected: pending | confirmed | cancelled | reschedule_requested
-    const allowed = ['pending','confirmed','cancelled','reschedule_requested'];
+    const { status } = req.body; // expected: pending | confirmed | cancelled | reschedule_requested | completed
+    const allowed = ['pending','confirmed','cancelled','reschedule_requested','completed'];
     if (!allowed.includes(status)) {
       return res.status(400).json({ message: 'Estado no permitido' });
     }
@@ -179,6 +197,16 @@ export const updateConfirmStatus = async (req, res) => {
         await omitirRecordatoriosPorConfirmacion(reserva._id);
       } catch (omitErr) {
         console.error('Error omitting reminders (manual):', omitErr);
+      }
+    }
+    
+    if (status === 'completed') {
+      reserva.completedAt = new Date();
+      // Cancelar recordatorios pendientes ya que se completó
+      try {
+        await cancelarRecordatoriosDeReserva(reserva._id);
+      } catch (cancelErr) {
+        console.error('Error cancelling reminders on completed:', cancelErr);
       }
     }
     reserva.confirmationLog.push({ action: 'manual_update', meta: { to: status, by: req.user?.id } });

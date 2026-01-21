@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   List,
@@ -11,7 +11,8 @@ import {
   Stack,
   Toolbar,
   Button,
-
+  IconButton,
+  Badge,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import TodayIcon from '@mui/icons-material/Today';
@@ -29,9 +30,12 @@ import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SettingsIcon from '@mui/icons-material/Settings';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 import { useSubscription } from '../context/subscriptionContext';
+import { getUnreadCountRequest, getNotificationsRequest, markAsReadRequest } from '../api/notifications';
+import VentanaNotificaciones from './VentanaNotificaciones';
 import Logo from '../assets/LOGO.png';
 
 const baseMenuItems = [
@@ -67,6 +71,50 @@ const SlideBar = ({ selected, onSelect }) => {
   const { logout, user, esAdminSucursal, esAsistente } = useAuth();
   const { canUseTelemedicina, hasActiveSubscription } = useSubscription();
   const [empresaOpen, setEmpresaOpen] = useState(false);
+
+  // Estado para notificaciones
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+
+  // Función para cargar notificaciones
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const countRes = await getUnreadCountRequest();
+      setUnreadCount(countRes?.data?.count || 0);
+      
+      const notifRes = await getNotificationsRequest({ limit: 10, unreadOnly: false });
+      setNotifications(notifRes?.data?.notifications || []);
+    } catch (error) {
+      console.error('Error cargando notificaciones:', error);
+    }
+  }, []);
+
+  // Cargar notificaciones al montar y periódicamente
+  useEffect(() => {
+    fetchNotifications();
+    // Actualizar cada 60 segundos
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const handleNotificationClick = (event) => {
+    setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationClose = async () => {
+    setNotificationAnchorEl(null);
+    // Marcar todas como leídas al cerrar
+    if (unreadCount > 0) {
+      try {
+        await markAsReadRequest([]);
+        setUnreadCount(0);
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      } catch (error) {
+        console.error('Error marcando notificaciones:', error);
+      }
+    }
+  };
 
   let menuItems;
   if (esAsistente) {
@@ -135,9 +183,25 @@ const SlideBar = ({ selected, onSelect }) => {
       
                 <Box sx={{ flex: 1 }} />
       
-                            <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <IconButton
+                    sx={{ color: '#2596be' }}
+                    onClick={handleNotificationClick}
+                    aria-label="notificaciones"
+                  >
+                    <Badge badgeContent={unreadCount} color="error" max={99}>
+                      <NotificationsIcon  />
+                    </Badge>
+                  </IconButton>
                 </Stack>
               </Toolbar>
+      <VentanaNotificaciones
+        anchorEl={notificationAnchorEl}
+        open={Boolean(notificationAnchorEl)}
+        onClose={handleNotificationClose}
+        notifications={notifications}
+        onRefresh={() => fetchNotifications()}
+      />
       <Divider sx={{ mb: 2 }} />
       <List>
         {menuItems.map((item) => (

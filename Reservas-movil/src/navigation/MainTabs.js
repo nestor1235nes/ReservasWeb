@@ -3,8 +3,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 
-// Screens
-import HomeScreen from '../screens/HomeScreen';
+// Screens & Stacks
+import HomeStack from './HomeStack';
 import CalendarScreen from '../screens/CalendarScreen';
 import PatientsStack from './PatientsStack';
 import ProfileStack from './ProfileStack';
@@ -50,10 +50,10 @@ const MainTabs = () => {
     >
       <Tab.Screen 
         name="Home" 
-        component={HomeScreen}
+        component={HomeStack}
         options={{ 
           title: 'Inicio',
-          headerTitle: 'Reservas'
+          headerShown: false
         }}
       />
       <Tab.Screen 

@@ -1,7 +1,5 @@
 import api from './axios';
 
-export const sendWhatsAppRequest = async ({ phoneNumber, message }) =>
-  api.post('/notifications/whatsapp', { phoneNumber, message });
 // Obtener notificaciones del usuario
 export const getNotificationsRequest = (params = {}) => 
   api.get('/notifications', { params });
@@ -17,3 +15,10 @@ export const markAsReadRequest = (notificationIds = []) =>
 // Eliminar todas las notificaciones
 export const deleteAllNotificationsRequest = () => 
   api.delete('/notifications');
+
+export default {
+  getNotificationsRequest,
+  getUnreadCountRequest,
+  markAsReadRequest,
+  deleteAllNotificationsRequest
+};

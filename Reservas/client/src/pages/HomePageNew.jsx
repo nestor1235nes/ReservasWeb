@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
 	Avatar,
 	Box,
@@ -125,19 +125,37 @@ export default function HomePageNew() {
 			return feriados.some(f => f.date && dayjs(f.date).isSame(fecha, 'day'));
 		};
 
-		const handleFechaChange = async (profId, fecha, timetable) => {
+	const getFilteredHoras = (profId) => {
+		const horasDisponibles = seleccion[profId]?.horasDisponibles || [];
+		const fecha = seleccion[profId]?.fecha;
+		
+		if (!Array.isArray(horasDisponibles) || horasDisponibles.length === 0) return [];
+		
+		const today = dayjs().format('YYYY-MM-DD');
+		const fechaFormato = fecha ? dayjs(fecha).format('YYYY-MM-DD') : null;
+		
+		if (fechaFormato !== today) return horasDisponibles;
+		
+		const now = dayjs();
+		return horasDisponibles.filter((timeStr) => {
+			const [hours, minutes] = timeStr.split(':').map(Number);
+			return dayjs().set('hour', hours).set('minute', minutes).isAfter(now);
+		});
+	};
+
+	const handleFechaChange = async (profId, fecha, timetable) => {
+		setSeleccion(prev => ({
+			...prev,
+			[profId]: { ...prev[profId], fecha, horasDisponibles: [], horaSeleccionada: undefined }
+		}));
+		if (fecha) {
+			const res = await obtenerHorasDisponibles(profId, dayjs(fecha).format('YYYY-MM-DD'));
 			setSeleccion(prev => ({
 				...prev,
-				[profId]: { ...prev[profId], fecha, horasDisponibles: [], horaSeleccionada: undefined }
+				[profId]: { ...prev[profId], fecha, horasDisponibles: res.times || [], horaSeleccionada: undefined }
 			}));
-			if (fecha) {
-				const res = await obtenerHorasDisponibles(profId, dayjs(fecha).format('YYYY-MM-DD'));
-				setSeleccion(prev => ({
-					...prev,
-					[profId]: { ...prev[profId], fecha, horasDisponibles: res.times || [], horaSeleccionada: undefined }
-				}));
-			}
-		};
+		}
+	};
 
 		const handleOpenPerfil = (profesional) => {
 			setProfesionalSeleccionado(profesional);
@@ -405,10 +423,10 @@ export default function HomePageNew() {
 															<Box mt={2}>
 																<Typography fontWeight={500} mb={1}><strong>Horas disponibles para la fecha seleccionada</strong></Typography>
 																<Box display="flex" gap={1} flexWrap="wrap">
-																	{(seleccion[prof._id]?.horasDisponibles || []).length === 0 && (
+																	{getFilteredHoras(prof._id).length === 0 && (
 																		<Typography color="text.secondary" fontSize={14}>Selecciona una fecha</Typography>
 																	)}
-																	{(seleccion[prof._id]?.horasDisponibles || []).map(hora => (
+																	{getFilteredHoras(prof._id).map(hora => (
 																		<Button
 																			key={hora}
 																			variant={seleccion[prof._id]?.horaSeleccionada === hora ? 'contained' : 'outlined'}

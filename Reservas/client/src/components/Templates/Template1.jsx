@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import dayjs from 'dayjs';
 import { AppBar, Toolbar, Box, Button, Container, Grid, Typography, Stack, Card, CardContent, Avatar, Divider, Chip } from '@mui/material';
 import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -81,6 +82,24 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
     if (prof?.sucursal?.nombre) out.push({ label: String(prof.sucursal.nombre), icon: <BusinessIcon fontSize="small" /> });
     return out;
   }, [diasShort, hoursLabel, specialtyLabel, experienceLabel, prof?.sucursal?.nombre]);
+
+  const filteredHoras = useMemo(() => {
+    const horasDisponibles = seleccion?.horasDisponibles || [];
+    const fecha = seleccion?.fecha;
+    
+    if (!Array.isArray(horasDisponibles) || horasDisponibles.length === 0) return [];
+    
+    const today = dayjs().format('YYYY-MM-DD');
+    const fechaFormato = fecha ? dayjs(fecha).format('YYYY-MM-DD') : null;
+    
+    if (fechaFormato !== today) return horasDisponibles;
+    
+    const now = dayjs();
+    return horasDisponibles.filter((timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return dayjs().set('hour', hours).set('minute', minutes).isAfter(now);
+    });
+  }, [seleccion?.horasDisponibles, seleccion?.fecha]);
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={0} sx={{ background: 'transparent', color: 'inherit', borderBottom: '1px solid #e3f2fd', backdropFilter: 'blur(8px)' }}>
@@ -315,10 +334,10 @@ export default function Template1({ prof, seleccion, onFechaChange, onHoraSelect
                   <Box mt={2}>
                     <Typography fontWeight={800} mb={1}>Horas</Typography>
                     <Box display="flex" gap={1} flexWrap="wrap">
-                      {(seleccion.horasDisponibles || []).length === 0 && (
+                      {filteredHoras.length === 0 && (
                         <Typography color="text.secondary" fontSize={14}>Selecciona una fecha</Typography>
                       )}
-                      {(seleccion.horasDisponibles || []).map((hora) => (
+                      {filteredHoras.map((hora) => (
                         <Button
                           key={hora}
                           variant={seleccion.horaSeleccionada === hora ? 'contained' : 'outlined'}

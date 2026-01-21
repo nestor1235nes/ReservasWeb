@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box, Typography, IconButton, Slide, Button, TextField, Card, CardContent, CardHeader,
   FormControl, InputLabel, Select, MenuItem, Divider, Chip, Stack, Tooltip, Avatar,
@@ -358,6 +358,22 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
     };
     fetchHorasDisponibles();
   }, [profesionalActual, editableFields.fecha, obtenerHorasDisponibles]);
+
+  // Filtrar horas que ya pasaron si se selecciona hoy
+  const filteredHoras = useMemo(() => {
+    if (!Array.isArray(horasDisponibles) || horasDisponibles.length === 0) return [];
+    
+    const today = dayjs().format('YYYY-MM-DD');
+    const selectedDate = editableFields.fecha;
+    
+    if (selectedDate !== today) return horasDisponibles;
+    
+    const now = dayjs();
+    return horasDisponibles.filter((timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return dayjs().set('hour', hours).set('minute', minutes).isAfter(now);
+    });
+  }, [horasDisponibles, editableFields.fecha]);
 
   useEffect(() => {
     // Si cambia el evento (por ejemplo, desde PatientsPage), actualiza los campos editables
@@ -1538,7 +1554,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                       value={editableFields.hora}
                       onChange={handleFieldChange}
                     >
-                      {horasDisponibles.map((hora) => (
+                      {filteredHoras.map((hora) => (
                         <MenuItem key={hora} value={hora}>{hora}</MenuItem>
                       ))}
                     </Select>

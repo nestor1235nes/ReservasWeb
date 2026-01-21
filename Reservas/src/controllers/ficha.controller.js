@@ -7,6 +7,7 @@ import axios from 'axios';
 import { FRONTEND_URL } from "../config.js";
 import { resolveWhatsAppCredentialsForUser } from '../libs/whatsappCredentials.js';
 import { cancelarRecordatoriosDeReserva, programarRecordatorios } from './reminder.controller.js';
+import { createNewAppointmentNotification } from './notification.controller.js';
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
 const normalizarTelefono = (telefono) => {
@@ -778,6 +779,25 @@ export const createReserva = async (req, res) => {
                     }))
                 });
                 nuevaReserva.activeClinicalCaseId = nuevaReserva.clinicalCases[0]?._id;
+                
+                // Marcar cita como completada si se registra ficha inicial
+                // (solo si es la misma fecha de la cita o si se está registrando la ficha en el mismo día)
+                const citaDate = nuevaReserva.siguienteCita ? new Date(nuevaReserva.siguienteCita) : null;
+                const fichaDate = diaPrimeraCitaValue ? new Date(diaPrimeraCitaValue) : new Date();
+                const isSameDay = citaDate && 
+                    fichaDate.getFullYear() === citaDate.getFullYear() &&
+                    fichaDate.getMonth() === citaDate.getMonth() &&
+                    fichaDate.getDate() === citaDate.getDate();
+                
+                if (isSameDay) {
+                    nuevaReserva.confirmStatus = 'completed';
+                    nuevaReserva.completedAt = new Date();
+                    nuevaReserva.confirmationLog = nuevaReserva.confirmationLog || [];
+                    nuevaReserva.confirmationLog.push({ 
+                        action: 'completed_by_initial_record', 
+                        meta: { profesionalId }
+                    });
+                }
             }
             await nuevaReserva.save();
         }
@@ -799,6 +819,21 @@ export const createReserva = async (req, res) => {
                 } catch (e) {
                     console.warn('Error programando recordatorios (createReserva):', e?.message || e);
                 }
+
+                // Crear notificación de nueva cita para el profesional
+                // SOLO si el paciente hizo la reserva (publicCreateReserva)
+                // NO si el profesional creó la reserva a sí mismo (createReserva)
+                // Por lo tanto, esta sección se comentó aquí - las notificaciones
+                // solo se envían desde publicCreateReserva
+                /*
+                try {
+                    if (nuevaReserva.siguienteCita && nuevaReserva.hora) {
+                        await createNewAppointmentNotification(profesionalId, paciente, nuevaReserva);
+                    }
+                } catch (notifErr) {
+                    console.warn('Error creando notificación de nueva cita:', notifErr?.message || notifErr);
+                }
+                */
 
                 res.status(201).json(nuevaReserva);
     } catch (error) {
@@ -1183,6 +1218,25 @@ export const addHistorial = async (req, res) => {
             reserva.hora = req.body.hora;
         }
 
+        // Marcar cita como completada si se registra sesión para la fecha de la cita actual
+        // Solo marcar si no se está reagendando (si siguienteCitaDate es la misma que la actual o no se envía nueva fecha)
+        const citaActualDate = reserva.siguienteCita ? new Date(reserva.siguienteCita) : null;
+        const sesionDate = new Date(fechaSesion);
+        const isSameDay = citaActualDate && 
+            sesionDate.getFullYear() === citaActualDate.getFullYear() &&
+            sesionDate.getMonth() === citaActualDate.getMonth() &&
+            sesionDate.getDate() === citaActualDate.getDate();
+        
+        if (isSameDay && reserva.confirmStatus !== 'completed') {
+            reserva.confirmStatus = 'completed';
+            reserva.completedAt = new Date();
+            reserva.confirmationLog = reserva.confirmationLog || [];
+            reserva.confirmationLog.push({ 
+                action: 'completed_by_session', 
+                meta: { profesionalId: req.user?.id }
+            });
+        }
+
         await reserva.save();
 
         res.status(200).json(reserva);
@@ -1384,6 +1438,7 @@ export const publicCreatePaciente = async (req, res) => {
 
 // Crear reserva desde flujo público (sin autenticación)
 export const publicCreateReserva = async (req, res) => {
+    console.log('publicCreateReserva iniciado con body:', req.body);
     try {
     const { rut, profesional: profesionalId, diaPrimeraCita, siguienteCita, hora, mensajePaciente, diagnostico, anamnesis, historial, eventId, modalidad, servicio } = req.body;
 
@@ -1545,8 +1600,18 @@ export const publicCreateReserva = async (req, res) => {
                     console.warn('Error programando recordatorios (publicCreateReserva):', e?.message || e);
                 }
 
+                // Crear notificación de nueva cita para el profesional (flujo público)
+                try {
+                    if (nuevaReserva.siguienteCita && nuevaReserva.hora) {
+                        await createNewAppointmentNotification(profesionalId, paciente, nuevaReserva);
+                    }
+                } catch (notifErr) {
+                    console.warn('Error creando notificación de nueva cita (public):', notifErr?.message || notifErr);
+                }
+
                 res.status(201).json(nuevaReserva);
     } catch (error) {
+        console.error('Error en publicCreateReserva:', error);
         res.status(500).json({ message: error.message });
     }
 };

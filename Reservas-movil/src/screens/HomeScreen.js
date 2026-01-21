@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useFocusEffect } from '@react-navigation/native';
 import { getReservasRequest } from '../api/reservas';
+import { getUnreadCountRequest } from '../api/notifications';
 import { addMinutesToHHMM, getReservaDateKey, toYmdLocal } from '../utils/helpers';
 import { colors } from '../theme';
 
@@ -29,9 +30,19 @@ const HomeScreen = ({ navigation }) => {
 
   const [todayReservas, setTodayReservas] = useState([]);
   const [loadingToday, setLoadingToday] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const today = new Date();
   const formattedDate = format(today, "EEEE, d 'de' MMMM", { locale: es });
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await getUnreadCountRequest();
+      setUnreadNotifications(res?.data?.count || 0);
+    } catch (error) {
+      console.error('Error cargando notificaciones:', error);
+    }
+  }, []);
 
   const fetchToday = async () => {
     setLoadingToday(true);
@@ -48,7 +59,7 @@ const HomeScreen = ({ navigation }) => {
 
       const estado = (r) => String(r?.confirmStatus || 'pending').toLowerCase().trim();
       const totalCitas = list.length;
-      const citasCompletadas = list.filter((r) => estado(r) === 'confirmed').length;
+      const citasCompletadas = list.filter((r) => estado(r) === 'confirmed' || estado(r) === 'completed').length;
       const citasPendientes = list.filter((r) => estado(r) === 'pending').length;
       setTodayStats({ totalCitas, citasPendientes, citasCompletadas });
     } catch (e) {
@@ -63,12 +74,14 @@ const HomeScreen = ({ navigation }) => {
   useFocusEffect(
     React.useCallback(() => {
       fetchToday();
-    }, [])
+      fetchUnreadCount();
+    }, [fetchUnreadCount])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchToday();
+    await fetchUnreadCount();
     setRefreshing(false);
   };
 
@@ -77,6 +90,7 @@ const HomeScreen = ({ navigation }) => {
     pending: { bg: '#fff3e0', fg: '#ef6c00', label: 'Pendiente' },
     cancelled: { bg: '#ffebee', fg: '#c62828', label: 'Cancelada' },
     reschedule_requested: { bg: colors.primarySoft, fg: colors.primary, label: 'Solicitud cambio' },
+    completed: { bg: '#e3f2fd', fg: '#1565c0', label: 'Completada' },
   };
 
   const TodayReservaRow = ({ reserva }) => {
@@ -105,10 +119,15 @@ const HomeScreen = ({ navigation }) => {
     );
   };
 
-  const QuickActionCard = ({ icon, title, subtitle, onPress, color }) => (
+  const QuickActionCard = ({ icon, title, subtitle, color, onPress, badge }) => (
     <TouchableOpacity style={styles.actionCard} onPress={onPress}>
-      <View style={[styles.actionIconContainer, { backgroundColor: color + '20' }]}>
-        <Ionicons name={icon} size={28} color={color} />
+      <View style={[styles.actionIcon, { backgroundColor: color + '20' }]}>
+        <Ionicons name={icon} size={24} color={color} />
+        {badge > 0 && (
+          <View style={styles.badgeContainer}>
+            <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        )}
       </View>
       <Text style={styles.actionTitle}>{title}</Text>
       <Text style={styles.actionSubtitle}>{subtitle}</Text>
@@ -191,6 +210,14 @@ const HomeScreen = ({ navigation }) => {
             subtitle="Ajustes"
             color="#9c27b0"
             onPress={() => navigation.navigate('Profile')}
+          />
+          <QuickActionCard
+            icon="notifications"
+            title={`Notificaciones (${unreadNotifications})`}
+            subtitle="Ver alertas"
+            color="#e91e63"
+            badge={unreadNotifications}
+            onPress={() => navigation.navigate('Notifications')}
           />
         </View>
 
@@ -389,6 +416,32 @@ const styles = StyleSheet.create({
   emptyStateButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  actionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    position: 'relative',
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#f44336',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
 });
 

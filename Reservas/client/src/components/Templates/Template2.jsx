@@ -1,4 +1,5 @@
 import React from 'react';
+import dayjs from 'dayjs';
 import { AppBar, Toolbar, Box, Button, Container, Typography, Stack, Card, CardContent, Avatar, Chip, Divider, Grid } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -56,6 +57,24 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
     if (hoursLabel) out.push({ label: `Horario: ${hoursLabel}`, icon: <AccessTimeIcon fontSize="small" /> });
     return out;
   }, [prof?.sucursal?.nombre, specialtyLabel, experienceLabel, diasShort, hoursLabel]);
+
+  const filteredHoras = React.useMemo(() => {
+    const horasDisponibles = seleccion?.horasDisponibles || [];
+    const fecha = seleccion?.fecha;
+    
+    if (!Array.isArray(horasDisponibles) || horasDisponibles.length === 0) return [];
+    
+    const today = dayjs().format('YYYY-MM-DD');
+    const fechaFormato = fecha ? dayjs(fecha).format('YYYY-MM-DD') : null;
+    
+    if (fechaFormato !== today) return horasDisponibles;
+    
+    const now = dayjs();
+    return horasDisponibles.filter((timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return dayjs().set('hour', hours).set('minute', minutes).isAfter(now);
+    });
+  }, [seleccion?.horasDisponibles, seleccion?.fecha]);
 
   return (
     <Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
@@ -229,14 +248,14 @@ export default function Template2({ prof, seleccion, onFechaChange, onHoraSelect
                   <Grid item xs={12} sm={6}>
                     <Typography fontWeight={800} mb={1}>Horas</Typography>
                     <Box sx={{ maxHeight: 320, overflowY: 'auto', pr: 0.5 }}>
-                      {(seleccion.horasDisponibles || []).length === 0 && (
+                      {filteredHoras.length === 0 && (
                         <Typography color="text.secondary" fontSize={14}>
                           {seleccion.fecha ? 'No hay horas para este día.' : 'Selecciona una fecha.'}
                         </Typography>
                       )}
 
                       <Stack spacing={1}>
-                        {(seleccion.horasDisponibles || []).map((hora) => {
+                        {filteredHoras.map((hora) => {
                           const selected = seleccion.horaSeleccionada === hora;
                           return (
                             <Button

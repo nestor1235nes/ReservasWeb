@@ -139,13 +139,8 @@ const userSchema = new mongoose.Schema({
         type: [serviciosSchema],
         default: []
     },
-    ///Notificaciones
-    notifications: {
-        type: [String],
-        default: []
-    },
 
-
+    // Notificaciones ahora están en modelo Notification separado (no aquí)
 
     ///////////Configuracion de wsp/////////////
     idInstance: {

@@ -14,7 +14,7 @@ import RenderHTML from 'react-native-render-html';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { getPacientePorRutRequest, getPacienteRequest } from '../../api/pacientes';
-import { getHistorialRequest } from '../../api/reservas';
+import { getHistorialRequest, updateReservaRequest } from '../../api/reservas';
 import { colors } from '../../theme';
 
 function formatDate(val) {
@@ -81,6 +81,8 @@ const calcEdad = (fechaNacimiento) => {
 const PatientDetailScreen = ({ route, navigation }) => {
   const rut = route?.params?.rut;
   const pacienteId = route?.params?.pacienteId;
+  const showDxTab = route?.params?.showDxTab; // Flag para abrir directamente en pestaña de diagnóstico
+  const isPrimeraConsulta = route?.params?.isPrimeraConsulta;
 
   const { width } = useWindowDimensions();
 
@@ -89,7 +91,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
   const [historial, setHistorial] = useState({ clinicalCases: [], activeClinicalCaseId: null });
   const [errorMsg, setErrorMsg] = useState('');
 
-  const [activeTab, setActiveTab] = useState('info'); // 'info' | 'dx' | 'sessions'
+  const [activeTab, setActiveTab] = useState(showDxTab ? 'dx' : 'info'); // 'info' | 'dx' | 'sessions'
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [selectedSessionKey, setSelectedSessionKey] = useState(null); // `${caseId}:${idx}`
 
@@ -144,6 +146,26 @@ const PatientDetailScreen = ({ route, navigation }) => {
       setLoading(false);
     }
   }, [rut, pacienteId]);
+
+  const handleIniciarNuevoDiagnostico = async () => {
+    try {
+      if (!patient?.rut) return;
+      await updateReservaRequest(patient.rut, { startNewClinicalCase: true });
+      await fetchAll();
+      // Navegar a PatientCreateScreen para agregar la información clínica del nuevo diagnóstico
+      navigation.navigate('PatientCreate', {
+        mode: 'editFromPatientDetail',
+        rut: patient.rut,
+        nombre: patient.nombre || '',
+        telefono: patient.telefono || '',
+        email: patient.email || '',
+        isPrimeraConsulta: false,
+        skipToStep: 1,
+      });
+    } catch (error) {
+      console.error('Error iniciando nuevo diagnóstico:', error);
+    }
+  };
 
   useEffect(() => {
     fetchAll();
@@ -374,48 +396,78 @@ const PatientDetailScreen = ({ route, navigation }) => {
                   <Ionicons name="document-text-outline" size={40} color="#999" />
                   <Text style={styles.emptyTitle}>Sin diagnósticos</Text>
                   <Text style={styles.emptyText}>Este paciente aún no tiene casos clínicos.</Text>
+                  {isPrimeraConsulta && (
+                    <View style={styles.primeraConsultaHint}>
+                      <Ionicons name="information-circle" size={18} color="#2596be" />
+                      <Text style={styles.primeraConsultaHintText}>
+                        Para registrar la primera consulta, agregue una sesión usando el botón de abajo.
+                      </Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.addFirstSessionBtn}
+                    onPress={() => {
+                      navigation.navigate('PatientAddSession', {
+                        rut: patient?.rut,
+                        pacienteNombre: patient?.nombre,
+                        diagnostico: '',
+                        isPrimeraConsulta: true,
+                      });
+                    }}
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.addFirstSessionBtnText}>Registrar Primera Consulta</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
-                clinicalCases
-                  .slice()
-                  .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))
-                  .map((c) => {
-                    const isSelected = String(selectedCaseId) === String(c?._id);
-                    return (
-                      <TouchableOpacity
-                        key={c._id}
-                        style={[styles.caseCard, isSelected && styles.caseCardSelected]}
-                        onPress={() => {
-                          setSelectedCaseId(c?._id);
-                          setSelectedSessionKey(null);
-                          setActiveTab('sessions');
-                        }}
-                      >
-                        <View style={styles.caseHeader}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.caseDx}>{c.diagnostico || 'Sin diagnóstico'}</Text>
-                            <Text style={styles.caseMeta}>
-                              Inicio: {formatDate(c.createdAt) || '—'}
-                              {c.closedAt ? ` • Cierre: ${formatDate(c.closedAt)}` : ''}
-                            </Text>
+                <>
+                  {clinicalCases
+                    .slice()
+                    .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))
+                    .map((c) => {
+                      const isSelected = String(selectedCaseId) === String(c?._id);
+                      return (
+                        <TouchableOpacity
+                          key={c._id}
+                          style={[styles.caseCard, isSelected && styles.caseCardSelected]}
+                          onPress={() => {
+                            setSelectedCaseId(c?._id);
+                            setSelectedSessionKey(null);
+                          }}
+                        >
+                          <View style={styles.caseHeader}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.caseDx}>{c.diagnostico || 'Sin diagnóstico'}</Text>
+                              <Text style={styles.caseMeta}>
+                                Inicio: {formatDate(c.createdAt) || '—'}
+                                {c.closedAt ? ` • Cierre: ${formatDate(c.closedAt)}` : ''}
+                              </Text>
+                            </View>
+                            <View style={styles.caseBadge}>
+                              <Text style={styles.caseBadgeText}>{(c.sesiones || []).length} sesiones</Text>
+                            </View>
                           </View>
-                          <View style={styles.caseBadge}>
-                            <Text style={styles.caseBadgeText}>{(c.sesiones || []).length} sesiones</Text>
-                          </View>
-                        </View>
 
-                        {!!c.anamnesis && (
-                          <View style={{ marginTop: 10 }}>
-                            <RenderHTML
-                              contentWidth={Math.max(320, width - 30)}
-                              source={{ html: normalizeHtml(c.anamnesis) }}
-                              tagsStyles={htmlTagsStyles}
-                            />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })
+                          {!!c.anamnesis && (
+                            <View style={{ marginTop: 10 }}>
+                              <RenderHTML
+                                contentWidth={Math.max(320, width - 30)}
+                                source={{ html: normalizeHtml(c.anamnesis) }}
+                                tagsStyles={htmlTagsStyles}
+                              />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  <TouchableOpacity
+                    style={styles.addFirstSessionBtn}
+                    onPress={handleIniciarNuevoDiagnostico}
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.addFirstSessionBtnText}>Iniciar Nuevo Diagnóstico</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </View>
           )}
@@ -820,6 +872,43 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     color: '#666',
+    fontWeight: '700',
+  },
+  // Estilos para primera consulta
+  primeraConsultaHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  primeraConsultaHintText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0369a1',
+    lineHeight: 18,
+  },
+  addFirstSessionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2596be',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 16,
+    gap: 8,
+    elevation: 2,
+    shadowColor: '#2596be',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  addFirstSessionBtnText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '700',
   },
 });
