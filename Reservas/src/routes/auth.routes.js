@@ -22,8 +22,20 @@ import {
 import { generarEnlace, getBySlug } from "../controllers/auth.controller.js";
 import { auth } from "../middlewares/auth.middleware.js";
 import { validateSchema } from "../middlewares/validator.middleware.js";
-import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
+import {
+  loginSchema,
+  registerSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema,
+  changePasswordSchema,
+} from "../schemas/auth.schema.js";
 import { loginLimiter } from "../middlewares/rateLimit.js";
+
+import {
+  requestPasswordResetOtp,
+  resetPasswordWithOtp,
+  changePassword,
+} from "../controllers/passwordReset.controller.js";
 
 const router = Router();
 
@@ -31,6 +43,14 @@ router.post("/register", validateSchema(registerSchema), register);
 router.post("/register-only", validateSchema(registerSchema), registerUserOnly);
 // Validación primero, luego limitador para contar solo intentos fallidos del controlador
 router.post("/login", validateSchema(loginSchema), loginLimiter, login);
+
+// Forgot password (profesionales) via WhatsApp OTP
+router.post("/request-password-reset", validateSchema(requestPasswordResetSchema), requestPasswordResetOtp);
+router.post("/reset-password", validateSchema(resetPasswordSchema), resetPasswordWithOtp);
+
+// Change password (authenticated)
+router.post("/change-password", auth, validateSchema(changePasswordSchema), changePassword);
+
 router.delete("/:id", deleteUser);
 router.post("/google-auth", googleAuth);
 router.get("/verify", verifyToken);

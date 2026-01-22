@@ -34,55 +34,90 @@ export default function LoginModal({ open, onClose, anchorEl }) {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const formContent = (
-    <>
+    <Stack spacing={2.5}>
       {loginErrors?.map((e, i) => (
-        <Alert key={i} severity="error" sx={{ mb: 1 }}>{e}</Alert>
+        <Alert key={i} severity="error" variant="outlined" sx={{ borderColor: 'error.main' }}>{e}</Alert>
       ))}
-      <Typography variant="h6" gutterBottom>Iniciar sesión</Typography>
+      <Box>
+        <Typography variant="h6" fontWeight={700} sx={{ color: '#2596be' }}>
+          Iniciar sesión
+        </Typography>
+      </Box>
       <form id="login-form" onSubmit={handleSubmit(onSubmit)}>
-        <TextField
-          label="Correo electrónico"
-          type="email"
-          fullWidth
-          margin="normal"
-          {...register('email')}
-          error={!!errors.email}
-          helperText={errors.email?.message}
-        />
-        <TextField
-          label="Contraseña"
-          type="password"
-          fullWidth
-          margin="normal"
-          {...register('password')}
-          error={!!errors.password}
-          helperText={errors.password?.message}
-        />
-        <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1 }}>
-          <Button
+        <Stack spacing={2}>
+          <TextField
+            label="Correo electrónico"
+            type="email"
+            fullWidth
             variant="outlined"
-            size="large"
-            onClick={onClose}
-            sx={{
-              borderColor: '#2596be',
-              color: '#2596be',
-              '&:hover': {
-                borderColor: '#21cbe6',
-                backgroundColor: 'rgba(37,150,190,0.08)'
-              }
-            }}
-          >Cancelar</Button>
-          <Button type="submit" form="login-form" variant="contained" sx={{ backgroundColor: '#2596be', '&:hover': { backgroundColor: '#1e7fa0' } }}>Iniciar sesión</Button>
+            {...register('email')}
+            error={!!errors.email}
+            helperText={errors.email?.message}
+          />
+          <TextField
+            label="Contraseña"
+            type="password"
+            fullWidth
+            variant="outlined"
+            {...register('password')}
+            error={!!errors.password}
+            helperText={errors.password?.message}
+          />
+          <Stack spacing={1.5} sx={{ mt: 1 }}>
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => {
+                onClose?.();
+                navigate('/reset-password');
+              }}
+              sx={{ color: '#2596be', fontWeight: 600, textTransform: 'none', p: 0, justifyContent: 'flex-start' }}
+            >
+              ¿Olvidaste tu contraseña?
+            </Button>
+            <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+              <Button
+                variant="outlined"
+                onClick={onClose}
+                sx={{
+                  borderColor: '#2596be',
+                  color: '#2596be',
+                  fontWeight: 600,
+                  flex: 1,
+                  '&:hover': {
+                    borderColor: '#1e7fa0',
+                    backgroundColor: 'rgba(37,150,190,0.08)'
+                  }
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                form="login-form" 
+                variant="contained" 
+                sx={{ 
+                  backgroundColor: '#2596be',
+                  fontWeight: 600,
+                  flex: 1,
+                  '&:hover': { backgroundColor: '#1e7fa0' },
+                  color: 'white'
+                }}
+              >
+                Iniciar sesión
+              </Button>
+            </Stack>
+          </Stack>
         </Stack>
       </form>
-    </>
+    </Stack>
   );
 
   // If on mobile, show centered Dialog regardless (render plain formContent to avoid nested Card)
   if (isMobile) {
     return (
-      <Dialog open={!!open || popOpen} onClose={onClose} fullWidth maxWidth="xs">
-        <DialogContent>
+      <Dialog open={!!open || popOpen} onClose={onClose} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogContent sx={{ pt: 3 }}>
           {formContent}
         </DialogContent>
       </Dialog>
@@ -100,23 +135,20 @@ export default function LoginModal({ open, onClose, anchorEl }) {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         PaperProps={{ sx: { borderRadius: 2, boxShadow: 6 } }}
       >
-        <Box sx={{ p: 1 }}>
-          <Card sx={{ width: 320, boxShadow: 0 }}>
-            <CardContent>
-              {formContent}
-            </CardContent>
-          </Card>
-        </Box>
+        <Card sx={{ width: 340, boxShadow: 0, border: '2px solid #e3f2fd', '&:hover': { borderColor: '#2596be' } }}>
+          <CardContent sx={{ p: 2.5 }}>
+            {formContent}
+          </CardContent>
+        </Card>
       </Popover>
     );
   }
 
   // Fallback: keep Dialog behavior if anchorEl not provided
   return (
-    <Dialog open={!!open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Iniciar sesión</DialogTitle>
-      <DialogContent>
-  {formContent}
+    <Dialog open={!!open} onClose={onClose} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 2 } }}>
+      <DialogContent sx={{ pt: 3 }}>
+        {formContent}
       </DialogContent>
     </Dialog>
   );

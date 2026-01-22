@@ -39,6 +39,95 @@ const normalizarTelefono = (telefono) => {
   return '';
 };
 
+// Helper: Extraer minutos de una cadena de duración ("30 minutos" -> 30, "1 hora" -> 60, etc.)
+const extractMinutesFromDuration = (duracionStr) => {
+  if (!duracionStr || typeof duracionStr !== 'string') return null;
+  
+  const normalized = duracionStr.toLowerCase().trim();
+  
+  // Buscar patrón "X minutos"
+  const minutosMatch = normalized.match(/^(\d+)\s*minutos?$/);
+  if (minutosMatch) {
+    return parseInt(minutosMatch[1], 10);
+  }
+  
+  // Buscar patrón "X horas" o "X hora"
+  const horasMatch = normalized.match(/^(\d+)\s*horas?$/);
+  if (horasMatch) {
+    return parseInt(horasMatch[1], 10) * 60;
+  }
+  
+  // Buscar patrón "X.Y horas" (ej: "1.5 horas")
+  const horasDecimalMatch = normalized.match(/^([\d.]+)\s*horas?$/);
+  if (horasDecimalMatch) {
+    return Math.round(parseFloat(horasDecimalMatch[1]) * 60);
+  }
+  
+  return null;
+};
+
+// Helper: Convertir "HH:mm" a minutos desde medianoche
+const timeToMinutes = (hhmm) => {
+  if (!hhmm || typeof hhmm !== 'string') return null;
+  const parts = hhmm.split(':');
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+};
+
+// Helper: Validar sobrecupo considerando duraciones y capacidad
+// Cuenta cuántas citas se solapan SIMULTÁNEAMENTE durante el rango de la nueva cita
+// newStartTime: hora de inicio en minutos desde medianoche
+// serviceTipo: tipo de servicio a reservar
+// capacity: cantidad máxima de pacientes simultáneos en esa hora
+// existingReservas: array de reservas existentes con {hora, servicio}
+// servicios: array de servicios disponibles con {tipo, duracion}
+const checkOverbooking = (newStartTime, serviceTipo, capacity, existingReservas, servicios) => {
+  if (!servicios || !Array.isArray(servicios)) return false;
+  if (!existingReservas || !Array.isArray(existingReservas)) return false;
+  if (!capacity || capacity < 1) return false;
+
+  // Mapa servicio.tipo -> duracion en minutos
+  const serviciosDuracion = new Map();
+  (servicios || []).forEach(svc => {
+    if (svc?.tipo && svc?.duracion) {
+      const mins = extractMinutesFromDuration(svc.duracion);
+      if (mins && mins > 0) {
+        serviciosDuracion.set(svc.tipo, mins);
+      }
+    }
+  });
+
+  // Obtener duración de la nueva cita (default 30 min)
+  const newServiceDurationMins = serviciosDuracion.get(serviceTipo) || 30;
+  const newEndTime = newStartTime + newServiceDurationMins;
+
+  // Contar cuántas citas existentes se solapan con el rango [newStartTime, newEndTime)
+  let overlappingCount = 0;
+  
+  for (const reserva of existingReservas) {
+    if (!reserva?.hora) continue;
+    
+    const existingStartMins = timeToMinutes(reserva.hora);
+    if (existingStartMins == null) continue;
+
+    // Obtener duración de la reserva existente
+    const existingServiceDurationMins = serviciosDuracion.get(reserva.servicio) || 30;
+    const existingEndMins = existingStartMins + existingServiceDurationMins;
+
+    // Verificar si hay solapamiento: 
+    // Dos intervalos [a1, a2) y [b1, b2) se solapan si: a1 < b2 AND b1 < a2
+    if (newStartTime < existingEndMins && existingStartMins < newEndTime) {
+      overlappingCount++;
+    }
+  }
+  
+  // Hay sobrecupo si el count de solapamientos >= capacity
+  return overlappingCount >= capacity;
+};
+
 // Helpers para token de confirmación
 const TOKEN_BYTES = 24; // ~32 chars base64url
 const TOKEN_TTL_HOURS = 48;
@@ -646,6 +735,31 @@ export const createReserva = async (req, res) => {
 
                 if (currentCount >= capacity) {
                     return res.status(409).json({ message: `No hay cupos disponibles para la hora ${horaValue}.` });
+                }
+
+                // Validar conflictos de tiempo considerando duraciones de servicios e intervalo
+                const existingReservasForDay = await Reserva.find({
+                    profesional: profesionalId,
+                    siguienteCita: { $gte: range.start, $lte: range.end },
+                    confirmStatus: { $ne: 'cancelled' },
+                }).select('hora servicio');
+                
+                if (reservaExistente?._id) {
+                    // Excluir la reserva actual al verificar conflictos (re-agendamiento)
+                    existingReservasForDay = existingReservasForDay.filter(r => !r._id.equals(reservaExistente._id));
+                }
+
+                // Obtener intervalo del timetable (default 30 min)
+                const timetable = profesionalDoc?.timetable || [];
+                const defaultInterval = timetable.length > 0 ? (timetable[0]?.interval || 30) : 30;
+
+                // Verificar si hay conflicto
+                const startTimeInMinutes = timeToMinutes(horaValue);
+                const serviceTipo = req.body.servicio || 'Consulta';
+                const hasConflict = checkTimeConflict(startTimeInMinutes, serviceTipo, defaultInterval, existingReservasForDay, profesionalDoc?.servicios || []);
+
+                if (hasConflict) {
+                    return res.status(409).json({ message: `No hay disponibilidad a las ${horaValue} considerando la duración del servicio y el intervalo entre citas.` });
                 }
             }
         }
@@ -1537,6 +1651,28 @@ export const publicCreateReserva = async (req, res) => {
                 const currentCount = await Reserva.countDocuments(countQuery);
                 if (currentCount >= capacity) {
                     return res.status(409).json({ message: `No hay cupos disponibles para la hora ${horaValue}.` });
+                }
+
+                // Validar sobrecupo considerando duraciones de servicios
+                // Obtener todas las reservas del día (excluyendo canceladas)
+                const existingReservasForDay = await Reserva.find({
+                    profesional: profesionalId,
+                    siguienteCita: { $gte: range.start, $lte: range.end },
+                    confirmStatus: { $ne: 'cancelled' },
+                }).select('hora servicio');
+                
+                // Excluir la reserva actual si es re-agendamiento
+                const filteredReservas = reservaExistente?._id 
+                    ? existingReservasForDay.filter(r => !r._id.equals(reservaExistente._id))
+                    : existingReservasForDay;
+
+                // Verificar sobrecupo: contar cuántas citas se solapan simultáneamente
+                const startTimeInMinutes = timeToMinutes(horaValue);
+                const serviceTipo = servicio || 'Consulta';
+                const hasOverbooking = checkOverbooking(startTimeInMinutes, serviceTipo, capacity, filteredReservas, profesional?.servicios || []);
+
+                if (hasOverbooking) {
+                    return res.status(409).json({ message: `No hay disponibilidad a las ${horaValue} considerando la duración del servicio. Todos los cupos están ocupados en ese horario.` });
                 }
             }
         }

@@ -32,6 +32,7 @@ import { useAlert } from "../context/AlertContext";
 import { useSubscription } from "../context/subscriptionContext";
 import MapboxAddressField from "../components/ui/MapboxAddressField";
 import SubscriptionPlansModal from '../components/Modales/SubscriptionPlansModal';
+import ChangePasswordSection from '../components/ChangePasswordSection';
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const intervals = [10, 15, 30, 60];
@@ -1320,6 +1321,7 @@ export function PerfilPage() {
           {!esAsistente && <Tab label="Horarios" disabled={noSubscription} />}
           {!esAsistente && <Tab label="Servicios" disabled={noSubscription} />}
           <Tab label="Mensajes" disabled={noSubscription} sx={{ display: canSeeMensajesTab ? 'flex' : 'none' }} />
+          <Tab label="Seguridad" disabled={noSubscription} />
         </Tabs>
       </Box>
 
@@ -2037,6 +2039,13 @@ export function PerfilPage() {
           formData={formData}
           onChange={handleChange}
         />
+      )}
+
+      {/* Seguridad - Cambio de Contraseña */}
+      {tab === 5 && (
+        <Box mt={2}>
+          <ChangePasswordSection userEmail={user?.email} />
+        </Box>
       )}
 
       {/* Modal de Servicios */}

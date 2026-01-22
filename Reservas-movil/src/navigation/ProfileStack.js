@@ -7,6 +7,7 @@ import ServicesScreen from '../screens/profile/ServicesScreen';
 import ServiceFormScreen from '../screens/profile/ServiceFormScreen';
 import TimetableScreen from '../screens/profile/TimetableScreen';
 import EditTimetableBlockScreen from '../screens/profile/EditTimetableBlockScreen';
+import PrivacySecurityScreen from '../screens/profile/PrivacySecurityScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -37,6 +38,11 @@ export default function ProfileStack() {
         name="EditTimetableBlock"
         component={EditTimetableBlockScreen}
         options={{ title: 'Editar Bloque de Horario' }}
+      />
+      <Stack.Screen
+        name="PrivacySecurity"
+        component={PrivacySecurityScreen}
+        options={{ title: 'Privacidad y seguridad' }}
       />
       <Stack.Screen
         name="ServiceForm"

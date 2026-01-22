@@ -104,6 +104,7 @@ const ProfileScreen = ({ navigation }) => {
           <MenuItem
             icon="shield-checkmark-outline"
             title="Privacidad y seguridad"
+            onPress={() => navigation.navigate('PrivacySecurity')}
           />
           <MenuItem
             icon="color-palette-outline"

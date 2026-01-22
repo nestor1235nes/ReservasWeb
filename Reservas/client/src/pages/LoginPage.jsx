@@ -103,6 +103,12 @@ export function LoginPage() {
             </Button>
           </form>
 
+          <Typography variant="body2" align="center" sx={{ mt: 1.5 }}>
+            <Link to="/reset-password" style={{ color: primary, fontWeight: 700 }}>
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </Typography>
+
           {/*
             Mantengo el código comentado tal cual lo pediste. No se eliminó nada de lo comentado.
             <Button variant="contained" color="secondary" fullWidth sx={{ mt: 2 }} onClick={handleClickOpen}>

@@ -36,3 +36,8 @@ export const deleteServicioRequest = async (id, index) => api.delete(`/auth/serv
 // Enlace público
 export const generateEnlaceRequest = async (id) => api.post(`/auth/${id}/generar-enlace`);
 export const getUserBySlugRequest = async (slug) => api.get(`/auth/by-slug/${encodeURIComponent(slug)}`);
+
+// Password reset / change
+export const requestPasswordResetRequest = async (email) => api.post('/auth/request-password-reset', { email });
+export const resetPasswordRequest = async ({ email, code, password }) => api.post('/auth/reset-password', { email, code, password });
+export const changePasswordRequest = async ({ currentPassword, newPassword }) => api.post('/auth/change-password', { currentPassword, newPassword });

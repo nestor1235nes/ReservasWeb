@@ -42,6 +42,7 @@ import EnlaceSucursal from "./pages/Sucursales/EnlaceSucursal.jsx";
 import WaitlistOfferPage from "./pages/WaitlistOfferPage.jsx";
 import PacienteLoginPage from "./pages/PacienteLoginPage.jsx";
 import PacientePortalPage from "./pages/PacientePortalPageFixed.jsx";
+import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 
 
 const theme = createTheme({
@@ -70,6 +71,7 @@ function AppContent() {
   const reservedTopLevel = new Set([
     'login',
     'register',
+    'reset-password',
     'front-users',
     'p',
     'sucursal-publica',
@@ -98,6 +100,7 @@ function AppContent() {
     location.pathname === "/" ||
     location.pathname === "/login" ||
     location.pathname === "/register" ||
+    location.pathname === "/reset-password" ||
     location.pathname === "/front-users" ||
     location.pathname.startsWith("/paciente/") ||
     location.pathname.startsWith("/confirmacion/") ||
@@ -170,6 +173,7 @@ function AppContent() {
                         <Routes>
                           <Route path="/" element={<HomePageNew />} />
                           <Route path="/login" element={<LoginPage />} />
+                          <Route path="/reset-password" element={<ResetPasswordPage />} />
                           <Route path="/paciente/login" element={<PacienteLoginPage />} />
                           <Route path="/register" element={<RegisterPage />} />
                           <Route path="/front-users" element={<FrontUsers />} />

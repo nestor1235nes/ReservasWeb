@@ -18,6 +18,33 @@ const toYMDUtc = (d) => {
   return `${y}-${m}-${dd}`;
 };
 
+// Helper: Extraer minutos de una cadena de duración ("30 minutos" -> 30, "1 hora" -> 60, etc.)
+const extractMinutesFromDuration = (duracionStr) => {
+  if (!duracionStr || typeof duracionStr !== 'string') return null;
+  
+  const normalized = duracionStr.toLowerCase().trim();
+  
+  // Buscar patrón "X minutos"
+  const minutosMatch = normalized.match(/^(\d+)\s*minutos?$/);
+  if (minutosMatch) {
+    return parseInt(minutosMatch[1], 10);
+  }
+  
+  // Buscar patrón "X horas" o "X hora"
+  const horasMatch = normalized.match(/^(\d+)\s*horas?$/);
+  if (horasMatch) {
+    return parseInt(horasMatch[1], 10) * 60;
+  }
+  
+  // Buscar patrón "X.Y horas" (ej: "1.5 horas")
+  const horasDecimalMatch = normalized.match(/^([\d.]+)\s*horas?$/);
+  if (horasDecimalMatch) {
+    return Math.round(parseFloat(horasDecimalMatch[1]) * 60);
+  }
+  
+  return null;
+};
+
 const requireAdvancedPlan = async (userId) => {
   const user = await User.findById(userId).populate('suscriptionPlan sucursal');
   if (!user) return { allowed: false, reason: 'USER_NOT_FOUND' };
@@ -217,29 +244,70 @@ export const obtenerHorasDisponibles = async (req, res) => {
     const startOfDay = new Date(year, (month || 1) - 1, day || 1, 0, 0, 0, 0);
     const endOfDay = new Date(year, (month || 1) - 1, day || 1, 23, 59, 59, 999);
 
+    // Cargar reservas con información de servicios para obtener duración
     const reservas = await Reserva.find({
       profesional: id,
       siguienteCita: { $gte: startOfDay, $lte: endOfDay },
       confirmStatus: { $ne: 'cancelled' },
-    }).select('hora confirmStatus');
+    }).select('hora servicio');
 
-    const counts = new Map(); // time -> reservedCount
-    (reservas || []).forEach((r) => {
-      const mins = toMinutes(r?.hora);
-      if (mins == null) return;
-      const norm = fmt(mins);
-      counts.set(norm, (counts.get(norm) || 0) + 1);
+    // Cargar servicios del profesional
+    const profesionalDoc = await User.findById(id).select('servicios');
+    const servicios = profesionalDoc?.servicios || [];
+    
+    // Mapa servicio.tipo -> duracion en minutos
+    const serviciosDuracion = new Map();
+    (servicios || []).forEach(svc => {
+      if (svc?.tipo && svc?.duracion) {
+        const mins = extractMinutesFromDuration(svc.duracion);
+        if (mins && mins > 0) {
+          serviciosDuracion.set(svc.tipo, mins);
+        }
+      }
     });
+
+    // Función para verificar sobrecupo considerando duraciones
+    // Cuenta cuántas citas se solapan simultáneamente con el rango [startTime, startTime + duration)
+    const checkOverbookingForHour = (startMins, capacity, defaultServiceDuration) => {
+      const endMins = startMins + defaultServiceDuration;
+      let overlappingCount = 0;
+
+      for (const reserva of reservas) {
+        if (!reserva?.hora) continue;
+        
+        const existingStartMins = toMinutes(reserva.hora);
+        if (existingStartMins == null) continue;
+
+        const existingServiceDurationMins = serviciosDuracion.get(reserva.servicio) || 30;
+        const existingEndMins = existingStartMins + existingServiceDurationMins;
+
+        // Verificar solapamiento: [startMins, endMins) vs [existingStartMins, existingEndMins)
+        if (startMins < existingEndMins && existingStartMins < endMins) {
+          overlappingCount++;
+        }
+      }
+      
+      // Hay sobrecupo si count >= capacity
+      return overlappingCount >= capacity;
+    };
 
     const blockedSet = new Set((blockedTimesForDay || []).map(t => {
       const mins = toMinutes(t);
       return mins == null ? null : fmt(mins);
     }).filter(Boolean));
 
+    // Duración por defecto para slots (usar 30 min si no hay info)
+    const defaultSlotDuration = 30;
+
     const availableTimes = [...slots.entries()]
       .filter(([time, cap]) => {
-        const reserved = counts.get(time) || 0;
-        return reserved < cap;
+        const startMins = toMinutes(time);
+        if (startMins == null) return false;
+        
+        // Verificar sobrecupo: ¿cuántas citas se solapan en [time, time + 30min)?
+        const isOverbooking = checkOverbookingForHour(startMins, cap, defaultSlotDuration);
+        
+        return !isOverbooking;
       })
       .filter(([time]) => !blockedSet.has(time))
       .map(([time]) => time)

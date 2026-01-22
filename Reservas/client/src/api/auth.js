@@ -35,3 +35,10 @@ export const deleteServicioRequest = async (id, index) => axios.delete(`/auth/se
 // Generar enlace público del usuario
 export const generateEnlaceRequest = async (id) => axios.post(`/auth/${id}/generar-enlace`);
 export const getUserBySlugRequest = async (slug) => axios.get(`/auth/by-slug/${encodeURIComponent(slug)}`);
+
+// Password reset / change
+export const requestPasswordResetRequest = async (email) => axios.post(`/auth/request-password-reset`, { email });
+export const resetPasswordRequest = async ({ email, code, password }) =>
+	axios.post(`/auth/reset-password`, { email, code, password });
+export const changePasswordRequest = async ({ currentPassword, newPassword }) =>
+	axios.post(`/auth/change-password`, { currentPassword, newPassword });
