@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -13,14 +14,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
-import { Image } from 'react-native';
-import logo from '../../../assets/icon.png';
+import { API_URL } from '../../config';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   const { signin, errors } = useAuth();
 
   const handleLogin = async () => {
@@ -50,8 +51,22 @@ const LoginScreen = ({ navigation }) => {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Image source={logo} style={{ width: '105%', height: 115, borderRadius: 10 }} />
-            <Text style={styles.subtitle}>Gestión de citas médicas</Text>
+            <TouchableOpacity activeOpacity={0.9} onLongPress={() => setShowDebug((v) => !v)}>
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('../../../assets/icon.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                  accessibilityLabel="Logo"
+                />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.subtitle}>Gestión de citas</Text>
+            {showDebug && (
+              <Text style={styles.debugText} numberOfLines={2}>
+                API: {API_URL}
+              </Text>
+            )}
           </View>
 
           {/* Form */}
@@ -139,12 +154,24 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     padding: 20,
+    paddingTop: 40,
+    paddingBottom: 30,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 100,
+    marginBottom: 35,
+  },
+  logoContainer: {
+    width: 220,
+    height: 110,
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 32,
@@ -156,6 +183,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#2596be',
     marginTop: 5,
+    lineHeight: 26,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  debugText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#666',
   },
   form: {
     width: '100%',

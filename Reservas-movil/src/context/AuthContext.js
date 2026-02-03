@@ -74,11 +74,18 @@ export const AuthProvider = ({ children }) => {
         if (res.data.token) {
           await SecureStore.setItemAsync('auth_token', res.data.token);
         }
-        // cargar perfil completo
-        const me = await getMeRequest();
-        setUser(me.data || res.data);
+        // marcar sesión como iniciada inmediatamente; luego intentamos cargar perfil completo
+        setUser(res.data?.user || res.data);
         setIsAuthenticated(true);
         showAlert('Cuenta creada exitosamente', 'success');
+
+        try {
+          const me = await getMeRequest();
+          if (me.data) setUser(me.data);
+        } catch (e) {
+          console.log('Profile fetch after signup failed:', e);
+        }
+
         return res.data;
       }
     } catch (error) {
@@ -96,15 +103,35 @@ export const AuthProvider = ({ children }) => {
         if (res.data.token) {
           await SecureStore.setItemAsync('auth_token', res.data.token);
         }
-        // cargar perfil completo
-        const me = await getMeRequest();
-        setUser(me.data || res.data);
+        // marcar sesión como iniciada inmediatamente; luego intentamos cargar perfil completo
+        setUser(res.data?.user || res.data);
         setIsAuthenticated(true);
         showAlert('Sesión iniciada correctamente', 'success');
+
+        try {
+          const me = await getMeRequest();
+          if (me.data) setUser(me.data);
+        } catch (e) {
+          console.log('Profile fetch after signin failed:', e);
+        }
+
         return res.data;
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Credenciales incorrectas';
+      const status = error.response?.status;
+      const backendMessage = error.response?.data?.message;
+      const networkDetail = error?.code || error?.message;
+      const where = error?.__where;
+      const stackLines = typeof error?.stack === 'string' ? error.stack.split('\n').slice(0, 4) : [];
+      const stackBlock = stackLines.length ? `\n${stackLines.join('\n')}` : '';
+      const fallback = status
+        ? `Error al iniciar sesión (HTTP ${status})`
+        : (
+            networkDetail
+              ? `Error de conexión con el servidor (${networkDetail})${where ? `\n${where}` : ''}${stackBlock}`
+              : `Error de conexión con el servidor${where ? `\n${where}` : ''}${stackBlock}`
+          );
+      const errorMessage = backendMessage || fallback;
       setErrors(Array.isArray(errorMessage) ? errorMessage : [errorMessage]);
       showAlert(errorMessage, 'error');
       throw error;

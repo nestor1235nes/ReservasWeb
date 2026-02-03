@@ -1,10 +1,74 @@
+import { API_URL } from '../config';
+
+// Helper para hacer requests sin fetch/axios (usa XMLHttpRequest)
+// Esto evita errores del runtime en algunos builds Android.
+const xhrJson = (endpoint, { method = 'GET', body, timeout = 15000 } = {}) => {
+  const url = `${API_URL}${endpoint}`;
+
+  return new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url, true);
+      xhr.timeout = timeout;
+      xhr.setRequestHeader('Content-Type', 'application/json');
+
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState !== 4) return;
+
+        const status = xhr.status;
+        let data = null;
+        try {
+          data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch {
+          data = xhr.responseText;
+        }
+
+        if (status >= 200 && status < 300) {
+          resolve({ data, status });
+        } else {
+          const error = new Error(
+            (data && typeof data === 'object' && data.message) || `HTTP ${status}`
+          );
+          error.response = { status, data };
+          error.__where = `xhr ${method} ${url}`;
+          reject(error);
+        }
+      };
+
+      xhr.ontimeout = () => {
+        const error = new Error('timeout');
+        error.code = 'ETIMEDOUT';
+        error.__where = `xhr ${method} ${url}`;
+        reject(error);
+      };
+
+      xhr.onerror = () => {
+        const error = new Error('network error');
+        error.code = 'ENETWORK';
+        error.__where = `xhr ${method} ${url}`;
+        reject(error);
+      };
+
+      xhr.send(body ?? null);
+    } catch (e) {
+      if (e && typeof e === 'object') {
+        e.__where = `xhr ${method} ${url}`;
+      }
+      reject(e);
+    }
+  });
+};
+
+// Registro de usuario profesional (usa fetch nativo)
+export const registerRequest = async (user) => 
+  xhrJson('/auth/register', { method: 'POST', body: JSON.stringify(user) });
+
+// Login de usuario profesional (usa fetch nativo)
+export const loginRequest = async (user) => 
+  xhrJson('/auth/login', { method: 'POST', body: JSON.stringify(user) });
+
+// Las siguientes usan el cliente API común
 import api from './axios';
-
-// Registro de usuario profesional
-export const registerRequest = async (user) => api.post('/auth/register', user);
-
-// Login de usuario profesional
-export const loginRequest = async (user) => api.post('/auth/login', user);
 
 // Cerrar sesión
 export const logoutRequest = async () => api.post('/auth/logout');

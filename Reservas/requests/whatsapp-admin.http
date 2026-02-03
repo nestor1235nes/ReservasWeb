@@ -1,0 +1,19 @@
+### Admin (plataforma) - configurar credenciales globales GreenAPI
+### Requiere autenticarte primero para obtener cookie token o enviar Authorization: Bearer <token>
+
+@baseUrl = http://localhost:4000
+@token = REEMPLAZA_POR_TOKEN
+
+### Ver estado (admin-only)
+GET {{baseUrl}}/api/admin/whatsapp-credentials
+Authorization: Bearer {{token}}
+
+### Setear credenciales (admin-only)
+PUT {{baseUrl}}/api/admin/whatsapp-credentials
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idInstance": "TU_ID_INSTANCE",
+  "apiTokenInstance": "TU_API_TOKEN_INSTANCE"
+}

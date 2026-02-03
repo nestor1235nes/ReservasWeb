@@ -45,3 +45,20 @@ Endpoints:
 - POST /api/reserva/:id/confirm-link (auth required): generates a confirmation link and, if the reserva.notificationChannel is 'email' and the patient has email, sends the confirmation email automatically.
 
 You can test with the request collection in `requests/notifications.http`.
+
+## WhatsApp (GreenAPI) setup (centralizado)
+
+El envío de WhatsApp ahora se hace desde un único número de la plataforma (GreenAPI global). Los profesionales solo editan las plantillas de mensajes, no las credenciales.
+
+Configurar quién puede administrar las credenciales (recomendado en producción):
+
+- PLATFORM_ADMIN_EMAILS=tu-email@dominio.com[,otro@dominio.com]
+
+Si no se configura, el endpoint queda accesible para cualquier usuario autenticado (misma lógica que la página `/admin/planes`).
+
+Configurar credenciales (una de las dos opciones):
+
+- Vía endpoint admin: `PUT /api/admin/whatsapp-credentials` (ver `requests/whatsapp-admin.http`)
+- O vía variables de entorno (fallback):
+	- GREENAPI_ID_INSTANCE=...
+	- GREENAPI_API_TOKEN_INSTANCE=...

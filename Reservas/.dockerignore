@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+.git
+.gitignore
+
+client/node_modules
+client/dist
+client/.env
+
+.env
+
+# local artifacts
+uploads
+imagenesPacientes

@@ -17,11 +17,46 @@ import { getPacientePorRutRequest, getPacienteRequest } from '../../api/paciente
 import { getHistorialRequest, updateReservaRequest } from '../../api/reservas';
 import { colors } from '../../theme';
 
+function parseDateValue(val) {
+  try {
+    if (!val) return null;
+    if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val;
+    if (typeof val === 'number') {
+      const dnum = new Date(val);
+      return Number.isNaN(dnum.getTime()) ? null : dnum;
+    }
+    const s = String(val).trim();
+    if (!s) return null;
+
+    // Evitar el bug de timezone cuando llega como fecha sin hora o ISO (YYYY-MM-DD o YYYY-MM-DDT...)
+    // En ambos casos, tomamos solo la parte de fecha y la interpretamos como fecha local.
+    const m = s.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})(?:$|T)/);
+    if (m) {
+      const yyyy = parseInt(m[1], 10);
+      const mm = parseInt(m[2], 10);
+      const dd = parseInt(m[3], 10);
+      const dLocal = new Date(yyyy, mm - 1, dd);
+      return Number.isNaN(dLocal.getTime()) ? null : dLocal;
+    }
+
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
 function formatDate(val) {
   try {
     if (!val) return '';
-    const d = new Date(val);
-    if (Number.isNaN(d.getTime())) return '';
+    // Si viene como string tipo YYYY-MM-DD o YYYY-MM-DDT..., formatear sin Date() (evita timezone)
+    if (typeof val === 'string') {
+      const s = val.trim();
+      const m = s.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})(?:$|T)/);
+      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    }
+    const d = parseDateValue(val);
+    if (!d) return '';
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
@@ -52,8 +87,8 @@ const normalizeHtml = (val) => {
 const formatYMD = (d) => {
   try {
     if (!d) return '';
-    const dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return '';
+    const dt = parseDateValue(d);
+    if (!dt) return '';
     const yyyy = dt.getFullYear();
     const mm = String(dt.getMonth() + 1).padStart(2, '0');
     const dd = String(dt.getDate()).padStart(2, '0');
@@ -93,7 +128,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
 
   const [activeTab, setActiveTab] = useState(showDxTab ? 'dx' : 'info'); // 'info' | 'dx' | 'sessions'
   const [selectedCaseId, setSelectedCaseId] = useState(null);
-  const [selectedSessionKey, setSelectedSessionKey] = useState(null); // `${caseId}:${idx}`
+  const [selectedSessionKey, setSelectedSessionKey] = useState(null); // `${caseId}:${sessionIdOrFallback}`
 
   const title = useMemo(() => {
     const n = patient?.nombre || route?.params?.title;
@@ -206,6 +241,22 @@ const PatientDetailScreen = ({ route, navigation }) => {
     return clinicalCases[0] || null;
   }, [clinicalCases, selectedCaseId]);
 
+  const sessionItems = useMemo(() => {
+    const caseId = selectedCase?._id;
+    const sesiones = Array.isArray(selectedCase?.sesiones) ? selectedCase.sesiones : [];
+    if (!caseId || !sesiones.length) return [];
+
+    const withKeys = sesiones.map((s, origIndex) => {
+      const idPart = s?._id || s?.id || s?.createdAt || s?.fecha || `idx:${origIndex}`;
+      const key = `${caseId}:${String(idPart)}`;
+      const dt = parseDateValue(s?.fecha) || parseDateValue(s?.createdAt) || new Date(0);
+      return { key, session: s, dt };
+    });
+
+    // Ordenar por fecha (más reciente primero)
+    return withKeys.sort((a, b) => b.dt - a.dt);
+  }, [selectedCase?._id, selectedCase?.sesiones]);
+
   const activeCase = useMemo(() => {
     const activeId = historial?.activeClinicalCaseId;
     if (!activeId) return null;
@@ -214,14 +265,11 @@ const PatientDetailScreen = ({ route, navigation }) => {
 
   const selectedSession = useMemo(() => {
     if (!selectedCase || !selectedSessionKey) return null;
-    const parts = String(selectedSessionKey).split(':');
-    const caseId = parts[0];
-    const idx = parseInt(parts[1], 10);
-    if (Number.isNaN(idx)) return null;
-    if (String(selectedCase?._id) !== String(caseId)) return null;
-    const sesiones = Array.isArray(selectedCase?.sesiones) ? selectedCase.sesiones : [];
-    return sesiones[idx] || null;
-  }, [selectedCase, selectedSessionKey]);
+    const caseId = String(selectedCase?._id);
+    if (!String(selectedSessionKey).startsWith(`${caseId}:`)) return null;
+    const found = sessionItems.find((it) => it.key === selectedSessionKey);
+    return found?.session || null;
+  }, [selectedCase, selectedSessionKey, sessionItems]);
 
   const InfoRow = ({ label, value }) => {
     const v = String(value || '').trim();
@@ -519,11 +567,9 @@ const PatientDetailScreen = ({ route, navigation }) => {
 
                   {Array.isArray(selectedCase?.sesiones) && selectedCase.sesiones.length > 0 ? (
                     <View style={styles.sessionsList}>
-                      {selectedCase.sesiones
-                        .slice()
-                        .sort((a, b) => new Date(b?.fecha || 0) - new Date(a?.fecha || 0))
-                        .map((s, idx) => {
-                          const key = `${selectedCase._id}:${idx}`;
+                      {sessionItems.map((it) => {
+                          const s = it.session;
+                          const key = it.key;
                           const isSel = selectedSessionKey === key;
                           return (
                             <TouchableOpacity

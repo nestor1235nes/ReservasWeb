@@ -1,10 +1,11 @@
 {
   "expo": {
-    "name": "Reservas",
+    "name": "VITALINK",
     "slug": "reservas-movil",
     "version": "1.0.0",
+    "sdkVersion": "54.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-square.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
@@ -20,16 +21,27 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/icon-foreground.png",
+        "backgroundColor": "#1976d2"
+      },
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
         "backgroundColor": "#1976d2"
       },
       "package": "com.tuempresa.reservas"
     },
     "web": {
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/icon-square.png"
     },
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "584b6759-ec20-4288-af0f-aad163677116"
+      }
+    }
   }
 }

@@ -78,6 +78,21 @@ const toYMDUtc = (d) => {
   }
 };
 
+const ymdToLocalDate = (ymd) => {
+  try {
+    const s = String(ymd || '').trim();
+    const m = s.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
+    if (!m) return null;
+    const yyyy = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10);
+    const dd = parseInt(m[3], 10);
+    const d = new Date(yyyy, mm - 1, dd);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+};
+
 const AddSessionScreen = ({ route, navigation }) => {
   const { user } = useAuth();
 
@@ -231,7 +246,9 @@ const AddSessionScreen = ({ route, navigation }) => {
     try {
       // 1) Guardar sesión
       await addHistorialRequest(rut, {
-        fecha: fechaSesion,
+        // Enviar como Date para conservar el día seleccionado incluso si el backend normaliza a UTC.
+        // (JSON.stringify(Date) => ISO con offset; evita el -1 día típico de 'YYYY-MM-DD')
+        fecha: ymdToLocalDate(fechaSesion) || fechaSesion,
         notas: normalizeHtml(notas),
         siguienteCita: agendarNuevaCita ? fechaCita : null,
         hora: agendarNuevaCita ? horaCita : null,
@@ -241,7 +258,9 @@ const AddSessionScreen = ({ route, navigation }) => {
       // 2) Si agenda nueva cita, aplicar lógica de pago como en web
       if (agendarNuevaCita) {
         await updateReservaRequest(rut, {
-          siguienteCita: new Date(fechaCita),
+          // Importante: new Date('YYYY-MM-DD') se interpreta como UTC y puede quedar un día antes.
+          // Construimos fecha LOCAL para mantener el día seleccionado.
+          siguienteCita: ymdToLocalDate(fechaCita),
           hora: horaCita,
           profesional: profesionalId,
           profesionalOriginal: profesionalId,

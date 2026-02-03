@@ -1,21 +1,15 @@
 // Configuración de la API
-// Cambia esta URL por la URL de tu servidor en producción
+// Forzamos SIEMPRE a usar el backend de Google Cloud Run (sin IPs locales),
+// así el APK nunca apunta a otra parte.
 
-// Para desarrollo local:
-// - Android Emulator: http://10.0.2.2:4000/api
-// - iOS Simulator: http://localhost:4000/api
-// - Dispositivo físico: http://TU_IP_LOCAL:4000/api (ej: http://192.168.1.100:4000/api)
+// Cloud Run: tu API está expuesta bajo /api (por ejemplo: /api/auth/login)
+const CLOUD_RUN_API_URL = 'https://reservas-backend-738093538653.southamerica-east1.run.app/api';
 
-const DEV_API_URL = 'http://192.168.1.88:4000/api'; // Android Emulator
-// const DEV_API_URL = 'http://localhost:4000/api'; // iOS Simulator
-// const DEV_API_URL = 'http://192.168.1.100:4000/api'; // Tu IP local para dispositivos físicos
+// Permite override explícito (EAS env), pero por defecto queda Cloud Run.
+// Mantenerlo es útil si algún día cambias a dominio propio sin tocar el código.
+const OVERRIDE_API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-const PROD_API_URL = 'https://tu-servidor-produccion.com/api'; // Cambia por tu URL de producción
-
-// Detectar si estamos en modo desarrollo o producción
-const __DEV__ = process.env.NODE_ENV !== 'production';
-
-export const API_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
+export const API_URL = OVERRIDE_API_URL || CLOUD_RUN_API_URL;
 
 export const config = {
   API_URL,
