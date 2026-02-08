@@ -812,14 +812,14 @@ export default function ModalReservarCita({ open, onClose, onReserva, datosPrese
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   >
                     <FormControlLabel value="presencial" control={<Radio />} label="Pagar presencialmente (en consulta)" />
-                    
-                    {/*<FormControlLabel
+
+                    <FormControlLabel
                       value="webpay"
                       control={<Radio />}
                       label="Pagar ahora con Webpay"
                       disabled={!canUsePayments}
-                    />*/}
-                    
+                    />
+
                   </RadioGroup>
                   {paymentMethod === 'webpay' && canUsePayments && (
                     <Typography variant="caption" color="text.secondary">Serás redirigido a Webpay para completar el pago seguro.</Typography>
