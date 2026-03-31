@@ -51,15 +51,26 @@ app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
 
 // CORS: permitir lista de orígenes (frontend principal + localhost + posibles IPs locales)
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
-const allowedOrigins = [
-  FRONTEND_URL,
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:3000',
-  // Producción Vercel
-  'https://agendavitalink.vercel.app',
-  // Agrega dinámicamente la IP local si se despliega en red (acepta cualquier origen que empiece con http://192.168.)
-];
+const FRONTEND_URLS = String(process.env.FRONTEND_URLS || '')
+  .split(',')
+  .map((u) => u.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(
+  new Set([
+    FRONTEND_URL,
+    ...FRONTEND_URLS,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    // Producción Vercel
+    'https://agendavitalink.vercel.app',
+    // Dominio propio
+    'https://agendavitalink.cl',
+    'https://www.agendavitalink.cl',
+    // Agrega dinámicamente la IP local si se despliega en red (acepta cualquier origen que empiece con http://192.168.)
+  ])
+);
 
 app.use(
   cors({
