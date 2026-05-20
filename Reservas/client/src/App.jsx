@@ -39,6 +39,8 @@ import AdminPlansPage from "./pages/AdminPlansPage.jsx";
 import AdminWhatsAppPage from "./pages/AdminWhatsAppPage.jsx";
 import PublicSucursalProfesionalesPage from "./pages/PublicSucursalProfesionalesPage.jsx";
 import EnlaceSucursal from "./pages/Sucursales/EnlaceSucursal.jsx";
+import GestionarBoxes from "./pages/Sucursales/GestionarBoxes.jsx";
+import AgendaBox from "./pages/Sucursales/AgendaBox.jsx";
 import WaitlistOfferPage from "./pages/WaitlistOfferPage.jsx";
 import PacienteLoginPage from "./pages/PacienteLoginPage.jsx";
 import PacientePortalPage from "./pages/PacientePortalPageFixed.jsx";
@@ -196,6 +198,8 @@ function AppContent() {
                             <Route path="/template-builder" element={<TemplateBuilderPage />} />
                             <Route path="/sucursal/asistentes" element={<GestionarAsistentes />} />
                             <Route path="/sucursal/profesionales" element={<GestionarProfesionales />} />
+                            <Route path="/mi-empresa/boxes" element={<GestionarBoxes />} />
+                            <Route path="/mi-empresa/boxes/:boxId/agenda" element={<AgendaBox />} />
                             <Route path="/mi-empresa/configuracion" element={<ConfiguracionSucursal />} />
                             <Route path="/mi-empresa/reportes" element={<ReportesEmpresa />} />
                             <Route path="/reportes" element={<GraphicsPage />} />

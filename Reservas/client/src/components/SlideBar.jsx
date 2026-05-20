@@ -30,6 +30,7 @@ import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SettingsIcon from '@mui/icons-material/Settings';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
@@ -53,23 +54,38 @@ const baseMenuItems = [
 const empresaSubItems = [
   { label: 'Gestionar asistentes', icon: <GroupAddIcon />, path: '/sucursal/asistentes' },
   { label: 'Gestionar profesionales', icon: <MedicalServicesIcon />, path: '/sucursal/profesionales' },
+  { label: 'Salas de Box', icon: <MeetingRoomIcon />, path: '/mi-empresa/boxes' },
   { label: 'Enlace de sucursal', icon: <AddLinkIcon />, path: '/mi-empresa/enlace' },
   { label: 'Configuración', icon: <SettingsIcon />, path: '/mi-empresa/configuracion' },
   { label: 'Reportes', icon: <AssessmentIcon />, path: '/mi-empresa/reportes' },
 ];
 
-// Opciones para asistentes
+// Opciones para asistentes (pueden ver Salas de Box pero solo lectura)
 const assistantMenuItems = [
   { label: 'Calendario', icon: <CalendarMonthIcon />, path: '/calendario' },
   { label: 'Pacientes', icon: <PeopleIcon />, path: '/pacientes' },
+  { label: 'Salas de Box', icon: <MeetingRoomIcon />, path: '/mi-empresa/boxes' },
   { label: 'Perfil', icon: <AccountCircleIcon />, path: '/perfil' },
+  { label: 'Cerrar sesión', icon: <LogoutIcon />, logout: true },
+];
+
+// Opciones para profesionales de sucursal (pueden ver y reservar Salas de Box)
+const profesionalSucursalMenuItems = [
+  { label: 'Día Actual', icon: <TodayIcon />, path: '/hoy' },
+  { label: 'Calendario', icon: <CalendarMonthIcon />, path: '/calendario' },
+  { label: 'Pacientes', icon: <PeopleIcon />, path: '/pacientes' },
+  { label: 'Telemedicina', icon: <VideoCallIcon />, path: '/telemedicina' },
+  { label: 'Gráficos y Reportes', icon: <BarChartIcon />, path: '/reportes' },
+  { label: 'Salas de Box', icon: <MeetingRoomIcon />, path: '/mi-empresa/boxes' },
+  { label: 'Perfil', icon: <AccountCircleIcon />, path: '/perfil' },
+  { label: 'Mi Enlace', icon: <AddLinkIcon />, path: '/mi-enlace' },
   { label: 'Cerrar sesión', icon: <LogoutIcon />, logout: true },
 ];
 
 const SlideBar = ({ selected, onSelect }) => {
   const navigate = useNavigate();
   const { logout, user, esAdminSucursal, esAsistente } = useAuth();
-  const { canUseTelemedicina, hasActiveSubscription } = useSubscription();
+  const { canUseTelemedicina, hasActiveSubscription, isTeams } = useSubscription();
   const [empresaOpen, setEmpresaOpen] = useState(false);
 
   // Estado para notificaciones
@@ -116,15 +132,19 @@ const SlideBar = ({ selected, onSelect }) => {
     }
   };
 
+  // Profesional de sucursal: pertenece a una sucursal Teams pero no es admin ni asistente
+  const esProfesionalSucursal = !esAdminSucursal && !esAsistente && !!user?.sucursal && isTeams;
+
   let menuItems;
   if (esAsistente) {
     menuItems = assistantMenuItems;
-  } else if (user?.sucursal && esAdminSucursal) {
+  } else if (esProfesionalSucursal) {
+    menuItems = profesionalSucursalMenuItems;
+  } else if (user?.sucursal && esAdminSucursal && isTeams) {
     menuItems = [
       ...baseMenuItems.slice(0, 6),
       { label: 'Mi empresa', icon: <GiteIcon />, isEmpresa: true },
       baseMenuItems[6],
-      // Aseguramos que el botón "Cerrar sesión" aparezca al final del menú también para admin de sucursal
       baseMenuItems[7],
     ];
   } else {

@@ -26,6 +26,7 @@ import waitlistRoutes from './routes/waitlist.routes.js';
 import reminderRoutes from './routes/reminder.routes.js';
 import adminWhatsAppRoutes from './routes/adminWhatsApp.routes.js';
 import patientAuthRoutes from './routes/patientAuth.routes.js';
+import boxRoutes from './routes/box.routes.js';
 
 const app = express();
 
@@ -133,6 +134,7 @@ app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/admin', adminWhatsAppRoutes);
 app.use('/api/patient-auth', patientAuthRoutes);
+app.use('/api', boxRoutes);
 
 // Archivos estáticos de uploads
 // Asegurar que existan las carpetas de subida
