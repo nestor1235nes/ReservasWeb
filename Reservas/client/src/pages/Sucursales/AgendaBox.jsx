@@ -104,7 +104,7 @@ export default function AgendaBox() {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { esAsistente } = useAuth();
+  const { esAsistente, user } = useAuth();
 
   // Asistentes solo pueden ver la agenda, no reservar
   const puedeReservar = !esAsistente;
@@ -240,7 +240,7 @@ export default function AgendaBox() {
         }
       }
     } catch {
-      mostrar("Error al liberar el box", "error");
+      mostrar("Error al liberar el boxxxxx", "error");
     }
     setLiberarDialog({ open: false, ocupacion: null });
     setDetalleOpen(false);
@@ -273,6 +273,7 @@ export default function AgendaBox() {
   // Mostrar todas incluyendo canceladas (historial gris)
   const ocupacionesVisibles = ocupaciones;
   const ocupacionesActivas = ocupaciones.filter((oc) => oc.estado !== "cancelado");
+  const ocupacionesCanceladas = ocupaciones.filter((oc) => oc.estado === "cancelado");
 
   if (loading && !box) {
     return (
@@ -405,6 +406,48 @@ export default function AgendaBox() {
                 );
               })}
             </Stack>
+          )}
+
+          {/* Historial de liberadas */}
+          {ocupacionesCanceladas.length > 0 && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Typography fontWeight={700} color="text.secondary" fontSize={12} mb={1} textTransform="uppercase"
+                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <CancelIcon sx={{ fontSize: 14 }} />
+                Historial liberadas
+              </Typography>
+              <Stack spacing={1}>
+                {[...ocupacionesCanceladas].sort((a, b) => toMinutes(a.horaInicio) - toMinutes(b.horaInicio)).map((oc) => (
+                  <Box
+                    key={oc._id}
+                    onClick={() => { setDetalleOc(oc); setDetalleOpen(true); }}
+                    sx={{
+                      border: "1.5px dashed #bdbdbd",
+                      borderRadius: 2,
+                      p: 1.2,
+                      bgcolor: "#f5f5f5",
+                      cursor: "pointer",
+                      opacity: 0.75,
+                      "&:hover": { opacity: 1, boxShadow: 1 },
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.2}>
+                      <Typography fontWeight={600} fontSize={12} color="#9e9e9e"
+                        sx={{ textDecoration: "line-through" }}>
+                        {oc.horaInicio} – {oc.horaFin}
+                      </Typography>
+                      <Chip label="Liberada" size="small"
+                        sx={{ height: 16, fontSize: 10, bgcolor: "transparent", border: "1px solid #bdbdbd", color: "#9e9e9e" }} />
+                    </Stack>
+                    <Typography fontSize={12} color="#bdbdbd" noWrap>
+                      {oc.solicitadoPor?.username || "—"}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </>
           )}
         </Box>
 
@@ -564,54 +607,93 @@ export default function AgendaBox() {
       </Dialog>
 
       {/* ── Dialog Detalle ── */}
-      {detalleOc && (
-        <Dialog open={detalleOpen} onClose={() => setDetalleOpen(false)} maxWidth="xs" fullWidth>
-          <DialogTitle sx={{ fontWeight: 700 }}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              {(() => { const cfg = ESTADO_CONFIG[detalleOc.estado]; return <Chip icon={cfg?.icon} label={cfg?.label} size="small" sx={{ bgcolor: cfg?.bg, color: cfg?.color, fontWeight: 700, "& .MuiChip-icon": { color: cfg?.color } }} />; })()}
-              <span>{detalleOc.horaInicio} – {detalleOc.horaFin}</span>
-            </Stack>
-          </DialogTitle>
-          <DialogContent dividers sx={{ pt: 3 }}>
-            <Stack spacing={1.5}>
-              <DetalleRow label="Tipo" value={TIPO_LABELS[detalleOc.tipo] || detalleOc.tipo} />
-              <DetalleRow label="Reservado por" value={detalleOc.solicitadoPor?.username || "—"} />
-              {detalleOc.motivo && <DetalleRow label="Motivo" value={detalleOc.motivo} />}
-              {detalleOc.notas && <DetalleRow label="Notas" value={detalleOc.notas} />}
-              {esHoy && ["reservado", "en_curso"].includes(detalleOc.estado) && (
-                <Alert severity="info" sx={{ fontSize: 12 }}>
-                  {detalleOc.estado === "reservado"
-                    ? `Pasará a "En curso" automáticamente a las ${detalleOc.horaInicio}.`
-                    : `Se completará automáticamente a las ${detalleOc.horaFin}.`}
-                </Alert>
+      {detalleOc && (() => {
+        const cfg = ESTADO_CONFIG[detalleOc.estado] || ESTADO_CONFIG.reservado;
+        const userId = user?.id || user?._id;
+        const duenioId = detalleOc.solicitadoPor?._id || detalleOc.solicitadoPor?.id;
+        const esDuenio = userId && duenioId && userId === duenioId;
+        const puedeAccionar = puedeReservar && esDuenio;
+        return (
+          <Dialog open={detalleOpen} onClose={() => setDetalleOpen(false)} maxWidth="xs" fullWidth>
+            <DialogTitle
+              sx={{
+                background: `linear-gradient(45deg, ${cfg.color} 30%, ${cfg.color}cc 90%)`,
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+                pb: 1.5,
+                mb: 2,
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Box sx={{ "& .MuiSvgIcon-root": { color: "white", fontSize: 28 } }}>{cfg.icon}</Box>
+                <Box>
+                  <Typography variant="h6" fontWeight={700} lineHeight={1.2} color="white">
+                    {detalleOc.horaInicio} – {detalleOc.horaFin}
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.88, color: "white" }}>
+                    {cfg.label} · {TIPO_LABELS[detalleOc.tipo] || detalleOc.tipo}
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton onClick={() => setDetalleOpen(false)}
+                sx={{ color: "white", "&:hover": { bgcolor: "rgba(255,255,255,0.15)" } }}>
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+
+            <DialogContent sx={{ p: 3, pt: 3 }}>
+              <Stack spacing={1.5}>
+                <DetalleRow label="Reservado por" value={detalleOc.solicitadoPor?.username || "—"} />
+                {detalleOc.motivo && <DetalleRow label="Motivo" value={detalleOc.motivo} />}
+                {detalleOc.notas && <DetalleRow label="Notas" value={detalleOc.notas} />}
+                {esHoy && ["reservado", "en_curso"].includes(detalleOc.estado) && (
+                  <Alert severity="info" sx={{ fontSize: 12 }}>
+                    {detalleOc.estado === "reservado"
+                      ? `Pasará a "En curso" automáticamente a las ${detalleOc.horaInicio}.`
+                      : `Se completará automáticamente a las ${detalleOc.horaFin}.`}
+                  </Alert>
+                )}
+                {puedeReservar && !esDuenio && (
+                  <Alert severity="warning" sx={{ fontSize: 12 }}>
+                    Esta reserva pertenece a otro profesional.
+                  </Alert>
+                )}
+              </Stack>
+            </DialogContent>
+
+            <DialogActions sx={{ p: 2, bgcolor: "#f8f9fa", gap: 1, flexWrap: "wrap" }}>
+              {puedeAccionar && ["reservado", "en_curso"].includes(detalleOc.estado) && (
+                <Button size="small" variant="contained" startIcon={<LockOpenIcon />} color="warning"
+                  sx={{ fontWeight: 700 }}
+                  onClick={() => setLiberarDialog({ open: true, ocupacion: detalleOc })}>
+                  Liberar box
+                </Button>
               )}
-            </Stack>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, flexWrap: "wrap", gap: 1 }}>
-            {puedeReservar && ["reservado", "en_curso"].includes(detalleOc.estado) && (
-              <Button size="small" variant="contained" startIcon={<LockOpenIcon />} color="warning" fontWeight={700}
-                onClick={() => setLiberarDialog({ open: true, ocupacion: detalleOc })}>
-                Liberar box
+              {puedeAccionar && (
+                <Button size="small" variant="outlined" startIcon={<EditIcon />}
+                  disabled={["completado", "cancelado"].includes(detalleOc.estado)}
+                  onClick={() => abrirEditar(detalleOc)}>
+                  Editar
+                </Button>
+              )}
+              {puedeAccionar && detalleOc.estado === "reservado" && (
+                <Button size="small" variant="outlined" startIcon={<CancelIcon />} color="error"
+                  onClick={() => cancelar(detalleOc._id)}>
+                  Cancelar
+                </Button>
+              )}
+              <Box flex={1} />
+              <Button onClick={() => setDetalleOpen(false)} variant="outlined" color="inherit" size="small"
+                startIcon={<CloseIcon />}>
+                Cerrar
               </Button>
-            )}
-            {puedeReservar && (
-              <Button size="small" startIcon={<EditIcon />}
-                disabled={["completado", "cancelado"].includes(detalleOc.estado)}
-                onClick={() => abrirEditar(detalleOc)}>
-                Editar
-              </Button>
-            )}
-            {puedeReservar && detalleOc.estado === "reservado" && (
-              <Button size="small" startIcon={<CancelIcon />} color="error"
-                onClick={() => cancelar(detalleOc._id)}>
-                Cancelar
-              </Button>
-            )}
-            <Box flex={1} />
-            <Button onClick={() => setDetalleOpen(false)} color="inherit" size="small">Cerrar</Button>
-          </DialogActions>
-        </Dialog>
-      )}
+            </DialogActions>
+          </Dialog>
+        );
+      })()}
 
       {/* ── Dialog Liberar ── */}
       <Dialog open={liberarDialog.open} onClose={() => setLiberarDialog({ open: false, ocupacion: null })} maxWidth="xs" fullWidth>
