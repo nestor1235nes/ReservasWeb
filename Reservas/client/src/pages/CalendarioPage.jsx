@@ -4,7 +4,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { AppBar, Toolbar, Typography, Box, Drawer, Slide, Stack, Chip, Paper, useMediaQuery, Button, CircularProgress } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
-import es from 'date-fns/locale/es';
+import { es } from 'date-fns/locale';
 import { useReserva } from '../context/reservaContext';
 import { useAuth } from '../context/authContext';
 import { useNavigate } from "react-router-dom";
