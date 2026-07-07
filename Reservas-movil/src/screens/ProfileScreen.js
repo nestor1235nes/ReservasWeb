@@ -10,10 +10,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { esAdminDeSucursal } from '../utils/sucursal';
 import { colors } from '../theme';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const esAdmin = esAdminDeSucursal(user);
 
   const handleLogout = () => {
     Alert.alert(
@@ -92,14 +94,48 @@ const ProfileScreen = ({ navigation }) => {
             subtitle="Disponibilidad de atención"
             onPress={() => navigation.navigate('Timetable')}
           />
+          <MenuItem
+            icon="link-outline"
+            title="Mi enlace"
+            subtitle="Comparte tu página de reservas"
+            onPress={() => navigation.navigate('MyLink')}
+          />
         </View>
+
+        {esAdmin ? (
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>Mi empresa</Text>
+            <MenuItem
+              icon="business-outline"
+              title="Configuración de empresa"
+              subtitle="Datos, colores y contacto"
+              onPress={() => navigation.navigate('SucursalConfig')}
+            />
+            <MenuItem
+              icon="globe-outline"
+              title="Enlace de empresa"
+              subtitle="Página pública de la sucursal"
+              onPress={() => navigation.navigate('SucursalLink')}
+            />
+            <MenuItem
+              icon="cube-outline"
+              title="Boxes"
+              subtitle="Salas de atención"
+              onPress={() => navigation.navigate('Boxes')}
+            />
+            <Text style={styles.menuFootnote}>
+              Reportes y gestión de asistentes/profesionales están disponibles en la versión web.
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Configuración</Text>
           <MenuItem
-            icon="notifications-outline"
-            title="Notificaciones"
-            subtitle="Alertas y recordatorios"
+            icon="chatbubble-ellipses-outline"
+            title="Mensajes automáticos"
+            subtitle="Plantillas de WhatsApp"
+            onPress={() => navigation.navigate('MessageTemplates')}
           />
           <MenuItem
             icon="shield-checkmark-outline"
@@ -242,6 +278,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#999',
     marginTop: 2,
+  },
+  menuFootnote: {
+    fontSize: 12,
+    color: '#999',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    lineHeight: 16,
   },
 });
 

@@ -24,19 +24,56 @@ const calculateTeamsPrice = (plan, cantidadAdmins = 0, cantidadProfessionals = 0
   );
 };
 
-// Opciones de integración
+// Resuelve el precio AUTORITATIVO de un servicio desde el profesional (servidor),
+// para no confiar en el monto que envía el cliente. Los servicios se identifican
+// por "tipo" (no tienen _id propio) y "precio" es un String (p.ej. "50000" o "$50.000").
+// Devuelve un entero > 0 o null si no se puede resolver.
+const parsePrecio = (precio) => {
+  const n = Number(String(precio ?? '').replace(/[^\d]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const resolveServicePrice = (profesional, servicioId) => {
+  try {
+    const servicios = Array.isArray(profesional?.servicios) ? profesional.servicios : [];
+    if (!servicios.length || !servicioId) return null;
+    const key = String(servicioId).trim();
+    const match = servicios.find((s) => String(s?.tipo || '').trim() === key);
+    return match ? parsePrecio(match.precio) : null;
+  } catch {
+    return null;
+  }
+};
+
+// Entorno Webpay. Por defecto INTEGRACIÓN (comportamiento actual, no rompe nada).
+// Para producción: definir WEBPAY_ENVIRONMENT=production junto con WEBPAY_COMMERCE_CODE
+// y WEBPAY_API_KEY reales. NO se hardcodean credenciales de producción.
+const webpayEnvName = String(process.env.WEBPAY_ENVIRONMENT || '').toLowerCase();
+const useWebpayProduction = webpayEnvName === 'production';
+
+// Credenciales públicas del ambiente de INTEGRACIÓN de Transbank (solo para pruebas).
+const WEBPAY_INTEGRATION_COMMERCE_CODE = '597055555532';
+const WEBPAY_INTEGRATION_API_KEY = '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C';
+
+const webpayCommerceCode = process.env.WEBPAY_COMMERCE_CODE || (useWebpayProduction ? '' : WEBPAY_INTEGRATION_COMMERCE_CODE);
+const webpayApiKey = process.env.WEBPAY_API_KEY || (useWebpayProduction ? '' : WEBPAY_INTEGRATION_API_KEY);
+
+if (useWebpayProduction && (!webpayCommerceCode || !webpayApiKey)) {
+  console.error('❌ WEBPAY producción: faltan WEBPAY_COMMERCE_CODE / WEBPAY_API_KEY en el entorno. Los pagos no funcionarán hasta configurarlos.');
+}
+
 const webpayOptions = new Options(
-  process.env.WEBPAY_COMMERCE_CODE || '597055555532',
-  process.env.WEBPAY_API_KEY || '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C',
-  Environment.Integration // Usa Environment.Production para producción
+  webpayCommerceCode,
+  webpayApiKey,
+  useWebpayProduction ? Environment.Production : Environment.Integration
 );
 
 // Crear transacción
 export const createTransaction = async (req, res) => {
   try {
-    const { reservaId, amount, patientRut } = req.body;
+    const { reservaId, amount: clientAmount, patientRut } = req.body;
 
-    const reserva = await Reserva.findById(reservaId).populate('paciente');
+    const reserva = await Reserva.findById(reservaId).populate('paciente').populate('profesional');
     if (!reserva) {
       return res.status(404).json({ message: 'Reserva no encontrada' });
     }
@@ -47,6 +84,21 @@ export const createTransaction = async (req, res) => {
     }
     if (reserva.paymentStatus === 'completed') {
       return res.status(400).json({ message: 'Esta cita ya está pagada.' });
+    }
+
+    // SEGURIDAD: el monto se determina en el servidor a partir del precio del
+    // servicio del profesional. NUNCA se confía en el "amount" del cliente.
+    const serverPrice = resolveServicePrice(reserva.profesional, reserva.servicio);
+    let amount = serverPrice;
+    if (amount == null) {
+      // Fallback: si no se puede resolver el precio del servicio (datos antiguos),
+      // se usa el monto del cliente VALIDADO para no bloquear el cobro, dejando aviso.
+      const fallback = Math.round(Number(clientAmount));
+      if (!Number.isFinite(fallback) || fallback <= 0) {
+        return res.status(400).json({ message: 'No se pudo determinar el monto del pago.' });
+      }
+      amount = fallback;
+      console.warn(`[PAY] Precio de servicio no resuelto para reserva ${reservaId} (servicio="${reserva.servicio}"). Usando monto del cliente: ${amount}`);
     }
 
     const shortReservaId = String(reservaId).slice(-10); // últimos 10 caracteres
@@ -100,10 +152,26 @@ export const createTransaction = async (req, res) => {
 // Crear transacción PÚBLICA (sin crear paciente ni reserva aún)
 export const createTransactionPublic = async (req, res) => {
   try {
-    const { amount, patient, reserva } = req.body; // patient: {nombre,rut,telefono,email}, reserva: {profesional,siguienteCita,hora,modalidad,servicio}
+    const { amount: clientAmount, patient, reserva } = req.body; // patient: {nombre,rut,telefono,email}, reserva: {profesional,siguienteCita,hora,modalidad,servicio}
 
-    if (!amount || !patient?.rut || !reserva?.profesional || !reserva?.siguienteCita || !reserva?.hora) {
+    if (!patient?.rut || !reserva?.profesional || !reserva?.siguienteCita || !reserva?.hora) {
       return res.status(400).json({ message: 'Datos insuficientes para iniciar el pago' });
+    }
+
+    // SEGURIDAD: monto autoritativo desde el profesional (no se confía en el cliente).
+    const profesionalDoc = await User.findById(reserva.profesional).select('servicios');
+    if (!profesionalDoc) {
+      return res.status(400).json({ message: 'Profesional inválido para iniciar el pago' });
+    }
+    const serverPrice = resolveServicePrice(profesionalDoc, reserva.servicio);
+    let amount = serverPrice;
+    if (amount == null) {
+      const fallback = Math.round(Number(clientAmount));
+      if (!Number.isFinite(fallback) || fallback <= 0) {
+        return res.status(400).json({ message: 'No se pudo determinar el monto del pago.' });
+      }
+      amount = fallback;
+      console.warn(`[PAY] Público: precio no resuelto (profesional=${reserva.profesional}, servicio="${reserva.servicio}"). Usando monto del cliente: ${amount}`);
     }
 
     // Armar buyOrder/sessionId sin necesidad de reserva previa
@@ -326,6 +394,13 @@ export const confirmTransaction = async (req, res) => {
     if (approved) {
       // Flujo 1: Reserva ya existía (pago ligado a reserva creada previamente)
       if (reserva) {
+        // SEGURIDAD: el monto efectivamente pagado debe coincidir con el esperado.
+        const expectedAmount = Number(reserva.paymentAmount);
+        const paidAmount = Number(response?.amount);
+        if (Number.isFinite(expectedAmount) && expectedAmount > 0 && Number.isFinite(paidAmount) && paidAmount !== expectedAmount) {
+          console.error(`[PAY] Monto no coincide al confirmar reserva ${reserva._id}: esperado ${expectedAmount}, pagado ${paidAmount}`);
+          return res.status(400).json({ success: false, message: 'El monto pagado no coincide con el esperado.' });
+        }
         const updatedReserva = await Reserva.findByIdAndUpdate(reserva._id, {
         $set: {
           paymentStatus: 'completed',
@@ -366,6 +441,13 @@ export const confirmTransaction = async (req, res) => {
         ],
       }).populate('subscription.plan');
       if (subscriptionIntent?.subscription?.plan) {
+        // SEGURIDAD: validar que el monto pagado coincida con el del intent (server-side).
+        const expectedSubAmount = Number(subscriptionIntent.amount);
+        const paidSubAmount = Number(response?.amount);
+        if (Number.isFinite(expectedSubAmount) && expectedSubAmount > 0 && Number.isFinite(paidSubAmount) && paidSubAmount !== expectedSubAmount) {
+          console.error(`[PAY] Monto no coincide al confirmar suscripción ${subscriptionIntent._id}: esperado ${expectedSubAmount}, pagado ${paidSubAmount}`);
+          return res.status(400).json({ success: false, message: 'El monto pagado no coincide con el esperado para la suscripción.' });
+        }
         const plan = subscriptionIntent.subscription.plan;
         const durationMonths = Number(subscriptionIntent.subscription.durationMonths) || 1;
         const startDate = new Date();
@@ -458,6 +540,16 @@ export const confirmTransaction = async (req, res) => {
           message: 'Pago aprobado, pero el intento de suscripción no pudo activarse por datos incompletos.',
           transaction: response,
         });
+      }
+
+      // SEGURIDAD: el monto pagado debe coincidir con el del intent público (server-side).
+      const expectedIntentAmount = Number(intent.amount);
+      const paidIntentAmount = Number(response?.amount);
+      if (Number.isFinite(expectedIntentAmount) && expectedIntentAmount > 0 && Number.isFinite(paidIntentAmount) && paidIntentAmount !== expectedIntentAmount) {
+        console.error(`[PAY] Monto no coincide al confirmar intent público ${intent._id}: esperado ${expectedIntentAmount}, pagado ${paidIntentAmount}`);
+        intent.status = 'failed';
+        await intent.save().catch(() => null);
+        return res.status(400).json({ success: false, message: 'El monto pagado no coincide con el esperado.' });
       }
 
       // Asegurar paciente (crear si no existe)
@@ -596,10 +688,18 @@ export const getPaymentStatus = async (req, res) => {
       return res.status(404).json({ message: 'Reserva no encontrada' });
     }
 
+    // Endpoint público (retorno de Webpay sin sesión). Se exponen SOLO datos no
+    // sensibles: se omiten número de tarjeta y código de autorización.
+    const pd = reserva.paymentData || {};
     res.json({
       paymentStatus: reserva.paymentStatus || 'not_initiated',
-      paymentData: reserva.paymentData,
-      requiresPayment: reserva.requiresPayment
+      requiresPayment: reserva.requiresPayment,
+      paymentAmount: reserva.paymentAmount,
+      paymentData: {
+        amount: pd.amount,
+        transactionDate: pd.transactionDate,
+        responseCode: pd.responseCode,
+      },
     });
 
   } catch (error) {

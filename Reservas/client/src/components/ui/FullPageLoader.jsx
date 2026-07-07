@@ -1,72 +1,34 @@
 import React from 'react';
-import { Backdrop, Box, CircularProgress, Typography, useTheme } from '@mui/material';
+import { Box } from '@mui/material';
+import VitalinkLoader from './VitalinkLoader';
 
 /**
- * Full-screen loading overlay that matches the app's gradient style.
+ * Overlay de carga a pantalla completa (o dentro de un contenedor).
+ * Reescrito para usar el loader oficial VitalinkLoader (logo + pulso ECG).
+ *
  * Props:
- * - open: boolean to show/hide
- * - message: optional string
- * - gifSrc: optional path to a gif in /public (e.g., '/loader.gif')
+ * - open: boolean para mostrar/ocultar.
+ * - message: texto opcional bajo el pulso.
+ * - withinContainer: si true, cubre el contenedor relativo en vez de toda la pantalla.
  */
-export default function FullPageLoader({ open, message = 'Cargando...', gifSrc, withinContainer = false }) {
-  const theme = useTheme();
+export default function FullPageLoader({ open, message = 'Cargando…', withinContainer = false }) {
   if (!open) return null;
 
-  // Modo overlay dentro del contenedor (no tapa sidebar)
-  if (withinContainer) {
-    return (
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: (t) => t.zIndex.modal + 1,
-          background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-          color: '#fff',
-        }}
-      >
-        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" textAlign="center" px={2}>
-          {gifSrc ? (
-            <Box component="img" src={gifSrc} alt="loading" sx={{ width: 140, height: 140, mb: 2 }} />
-          ) : (
-            <CircularProgress thickness={5} size={76} sx={{ color: 'white', mb: 2 }} />
-          )}
-          <Typography variant="h6" fontWeight={700} color="white">
-            {message}
-          </Typography>
-          <Typography variant="body2" color="rgba(255,255,255,0.85)">
-            Por favor, espera un momento…
-          </Typography>
-        </Box>
-      </Box>
-    );
-  }
+  const baseSx = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(180deg, rgba(246,251,252,0.94) 0%, rgba(255,255,255,0.94) 100%)',
+    backdropFilter: 'blur(2px)',
+  };
 
-  // Modo fullscreen (fallback)
+  const positionSx = withinContainer
+    ? { position: 'absolute', inset: 0, zIndex: (t) => t.zIndex.modal + 1 }
+    : { position: 'fixed', inset: 0, zIndex: (t) => t.zIndex.drawer + 2 };
+
   return (
-    <Backdrop
-      sx={{
-        color: '#fff',
-        zIndex: (t) => t.zIndex.drawer + 2,
-        background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-      }}
-      open={!!open}
-    >
-      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" textAlign="center" px={2}>
-        {gifSrc ? (
-          <Box component="img" src={gifSrc} alt="loading" sx={{ width: 140, height: 140, mb: 2 }} />
-        ) : (
-          <CircularProgress thickness={5} size={76} sx={{ color: 'white', mb: 2 }} />
-        )}
-        <Typography variant="h6" fontWeight={700} color="white">
-          {message}
-        </Typography>
-        <Typography variant="body2" color="rgba(255,255,255,0.85)">
-          Por favor, espera un momento…
-        </Typography>
-      </Box>
-    </Backdrop>
+    <Box sx={{ ...positionSx, ...baseSx }}>
+      <VitalinkLoader caption={message} size="md" />
+    </Box>
   );
 }

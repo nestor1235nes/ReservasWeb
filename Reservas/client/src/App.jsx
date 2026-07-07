@@ -45,15 +45,27 @@ import WaitlistOfferPage from "./pages/WaitlistOfferPage.jsx";
 import PacienteLoginPage from "./pages/PacienteLoginPage.jsx";
 import PacientePortalPage from "./pages/PacientePortalPageFixed.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import GlobalLoadingOverlay from "./components/ui/GlobalLoadingOverlay.jsx";
 
 
 const theme = createTheme({
   palette: {
-    primary: { main: '#3f51b5' },
-    secondary: { main: '#f50057' },
+    // Paleta del sistema (cian VITALINK)
+    primary: { main: '#2596be', light: '#21cbe6', dark: '#1b7d9c', contrastText: '#ffffff' },
+    secondary: { main: '#e91e63', light: '#f06292', dark: '#c2185b', contrastText: '#ffffff' },
   },
+  shape: { borderRadius: 10 },
   components: {
-    MuiButton: { styleOverrides: { root: { textTransform: 'none' } } },
+    MuiButton: { styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } } },
+    // Switches con el color del sistema por defecto
+    MuiSwitch: {
+      styleOverrides: {
+        switchBase: {
+          '&.Mui-checked': { color: '#2596be' },
+          '&.Mui-checked + .MuiSwitch-track': { backgroundColor: '#2596be' },
+        },
+      },
+    },
   },
 });
 
@@ -115,6 +127,7 @@ function AppContent() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <GlobalLoadingOverlay />
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <SubscriptionProvider>        
           <SucursalProvider>

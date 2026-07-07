@@ -14,6 +14,7 @@ import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import PlaceIcon from '@mui/icons-material/Place';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import QueueIcon from '@mui/icons-material/Queue';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ScheduleIcon from "@mui/icons-material/Schedule";
@@ -184,17 +185,23 @@ const ScheduleBlock = ({ schedule, index, isEditing, onEdit, onDelete, overlaps 
     .filter(([k, v]) => !!k && Number.isFinite(Number(v)) && Number(v) >= 1)
     .sort((a, b) => (timeToMinutes(a[0]) ?? 0) - (timeToMinutes(b[0]) ?? 0));
   const hasOverlap = overlaps.length > 0;
+  // Estilos compartidos (look minimalista, paleta del sistema)
+  const statLabelSx = { fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#90a4ae' };
+  const statValueSx = { fontSize: '0.9rem', fontWeight: 600, color: '#37474f' };
+  const pillSx = (bg, fg) => ({ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.4, borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700, lineHeight: 1.7, bgcolor: bg, color: fg });
   return (
     <Card
       variant="outlined"
       sx={{
         mb: 2,
-        border: "2px solid #e3f2fd",
+        borderRadius: 3,
+        border: "1px solid #e6eef2",
+        boxShadow: "none",
         "&:hover": {
-          boxShadow: 3,
-          borderColor: "#2596be",
+          boxShadow: "0 6px 24px rgba(37,150,190,0.10)",
+          borderColor: "#bfe3ef",
         },
-        transition: "all 0.3s ease",
+        transition: "all 0.25s ease",
         ...(shouldFlash
           ? {
               animation: 'overlapFlash 1.2s ease-in-out 1',
@@ -227,110 +234,97 @@ const ScheduleBlock = ({ schedule, index, isEditing, onEdit, onDelete, overlaps 
             </Typography>
           </Box>
         )}
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <ScheduleIcon sx={{color:'#2596be'}} />
-            <Typography variant="h6" fontWeight={600}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2.5}>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <Box sx={{ width: 38, height: 38, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(37,150,190,0.10)' }}>
+              <ScheduleIcon sx={{ color: '#2596be', fontSize: 20 }} />
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#143b46' }}>
               Bloque de Horario {index + 1}
             </Typography>
           </Box>
           {!isEditing && (
-            <Box display="flex" gap={1}>
-              <IconButton size="small" onClick={() => onEdit(index)} sx={{ color: "#1976d2" }}>
-                <EditIcon />
+            <Box display="flex" gap={0.5}>
+              <IconButton size="small" onClick={() => onEdit(index)} sx={{ color: "#90a4ae", "&:hover": { color: "#2596be", bgcolor: "rgba(37,150,190,0.08)" } }}>
+                <EditIcon fontSize="small" />
               </IconButton>
-              <IconButton size="small" onClick={() => onDelete(index)} sx={{ color: "#d32f2f" }}>
-                <DeleteIcon />
+              <IconButton size="small" onClick={() => onDelete(index)} sx={{ color: "#90a4ae", "&:hover": { color: "#d32f2f", bgcolor: "rgba(211,47,47,0.08)" } }}>
+                <DeleteIcon fontSize="small" />
               </IconButton>
             </Box>
           )}
         </Box>
-        <Box display="flex" flexWrap="wrap" gap={3}>
+        <Box display="flex" flexWrap="wrap" sx={{ gap: { xs: 2.5, sm: 4 }, rowGap: 2.5 }}>
           <Box>
-            <Box display="flex" alignItems="center" gap={1} mb={1}>
-              <CalendarTodayIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="textSecondary">
-                Días de atención:
-              </Typography>
+            <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+              <CalendarTodayIcon sx={{ fontSize: 15, color: '#b0bec5' }} />
+              <Typography sx={statLabelSx}>Días de atención</Typography>
             </Box>
-            <Typography variant="body1" fontWeight={500}>
-              {formatDays(schedule.days)}
-            </Typography>
+            <Typography sx={statValueSx}>{formatDays(schedule.days)}</Typography>
           </Box>
           <Box>
-            <Box display="flex" alignItems="center" gap={1} mb={1}>
-              <AccessTimeIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="textSecondary">
-                Horario:
-              </Typography>
+            <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+              <AccessTimeIcon sx={{ fontSize: 15, color: '#b0bec5' }} />
+              <Typography sx={statLabelSx}>Horario</Typography>
             </Box>
-            <Typography variant="body1" fontWeight={500}>
+            <Typography sx={statValueSx}>
               {formatTimeRange(schedule.fromTime, schedule.toTime, schedule.breakFrom, schedule.breakTo)}
             </Typography>
           </Box>
           <Box>
-            <Box display="flex" alignItems="center" gap={1} mb={1}>
-              <ScheduleIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="textSecondary">
-                Intervalo entre citas:
-              </Typography>
+            <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+              <ScheduleIcon sx={{ fontSize: 15, color: '#b0bec5' }} />
+              <Typography sx={statLabelSx}>Intervalo entre citas</Typography>
             </Box>
-            <Chip label={`${schedule.interval || 30} minutos`} size="small" color="primary" variant="outlined" />
+            <Box component="span" sx={pillSx('rgba(37,150,190,0.10)', '#1b7d9c')}>{`${schedule.interval || 30} min`}</Box>
           </Box>
           <Box>
-            <Box display="flex" alignItems="center" gap={1} mb={1}>
-              <Typography variant="body2" color="textSecondary">
-                Cupos por hora:
-              </Typography>
+            <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+              <Typography sx={statLabelSx}>Cupos por hora</Typography>
             </Box>
             <Box display="flex" gap={1} flexWrap="wrap">
-              <Chip label={`Base: ${schedule.slotCapacity || 1}`} size="small" color="info" variant="outlined" />
+              <Box component="span" sx={pillSx('rgba(37,150,190,0.10)', '#1b7d9c')}>{`Base ${schedule.slotCapacity || 1}`}</Box>
               {overrideEntries.length > 0 && (
-                <Chip label={`Overrides: ${overrideEntries.length}`} size="small" color="info" variant="outlined" />
+                <Box component="span" sx={pillSx('rgba(144,164,174,0.14)', '#607d8b')}>{`+${overrideEntries.length} ajustes`}</Box>
               )}
             </Box>
           </Box>
           <Box>
-            <Box display="flex" alignItems="center" gap={1} mb={1}>
-              <Typography variant="body2" color="textSecondary">
-                Citas disponibles:
-              </Typography>
+            <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+              <Typography sx={statLabelSx}>Citas disponibles</Typography>
             </Box>
-            <Chip
-              label={`${computeTotalSlotsForSchedule(schedule)} cupos`}
-              size="small"
-              color="success"
-              variant="outlined"
-            />
+            <Box component="span" sx={pillSx('rgba(22,163,74,0.10)', '#15803d')}>{`${computeTotalSlotsForSchedule(schedule)} cupos`}</Box>
           </Box>
         </Box>
 
         {overrideEntries.length > 0 && (
-          <Box mt={2}>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Sobrecupo por hora específica:
-            </Typography>
+          <Box mt={3} pt={2.5} sx={{ borderTop: '1px solid #eef3f6' }}>
+            <Typography sx={{ ...statLabelSx, mb: 1.25 }}>Sobrecupo por hora específica</Typography>
             <Box display="flex" flexWrap="wrap" gap={1}>
               {overrideEntries.slice(0, 12).map(([hhmm, cap]) => (
-                <Chip key={hhmm} label={`${hhmm} → ${Math.floor(Number(cap))}`} size="small" variant="outlined" color="info" />
+                <Box key={hhmm} component="span" sx={pillSx('rgba(144,164,174,0.14)', '#607d8b')}>{`${hhmm} · ${Math.floor(Number(cap))}`}</Box>
               ))}
               {overrideEntries.length > 12 && (
-                <Chip label={`+${overrideEntries.length - 12} más`} size="small" color="primary" />
+                <Box component="span" sx={pillSx('rgba(37,150,190,0.10)', '#1b7d9c')}>{`+${overrideEntries.length - 12} más`}</Box>
               )}
             </Box>
           </Box>
         )}
         {schedule.times && schedule.times.length > 0 && (
-          <Box mt={2}>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Horarios específicos disponibles:
-            </Typography>
+          <Box mt={3} pt={2.5} sx={{ borderTop: '1px solid #eef3f6' }}>
+            <Typography sx={{ ...statLabelSx, mb: 1.25 }}>Horarios específicos disponibles</Typography>
             <Box display="flex" flexWrap="wrap" gap={1}>
               {schedule.times.slice(0, 20).map((time, idx) => (
-                <Chip key={idx} label={time} size="small" variant="outlined" />
+                <Box
+                  key={idx}
+                  component="span"
+                  sx={{ px: 1.25, py: 0.4, borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600, color: '#455a64', border: '1px solid #dbe6ec', bgcolor: '#fff' }}
+                >
+                  {time}
+                </Box>
               ))}
               {schedule.times.length > 20 && (
-                <Chip label={`+${schedule.times.length - 20} más`} size="small" color="primary" />
+                <Box component="span" sx={pillSx('rgba(37,150,190,0.10)', '#1b7d9c')}>{`+${schedule.times.length - 20} más`}</Box>
               )}
             </Box>
           </Box>
@@ -1299,8 +1293,8 @@ export function PerfilPage() {
           display: 'flex',
           justifyContent: 'center',
           mt: -2,
-          backgroundColor: '#f5f5f5',
-          borderBottom: '1px solid #e0e0e0',
+          backgroundColor: '#ffffff',
+          borderBottom: '1px solid #e6eef2',
           mb: 0,
           overflowX: 'auto'
         }}
@@ -1314,7 +1308,19 @@ export function PerfilPage() {
           variant={isMobile ? "scrollable" : "standard"}
           scrollButtons={isMobile ? "auto" : false}
           aria-label="tabs"
-          sx={{ width: '100%', maxWidth: '100%' }}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            width: '100%',
+            maxWidth: '100%',
+            '& .MuiTabs-indicator': { height: 3, borderRadius: '3px 3px 0 0', backgroundColor: '#2596be' },
+            '& .MuiTab-root': {
+              fontWeight: 600,
+              letterSpacing: '0.3px',
+              color: '#7c93a0',
+              '&.Mui-selected': { color: '#1b7d9c' },
+            },
+          }}
         >
           <Tab label="Información Personal" disabled={noSubscription} />
           {!esAsistente && <Tab label="Información Profesional" disabled={noSubscription} />}
@@ -1333,7 +1339,7 @@ export function PerfilPage() {
               flex: 1, 
               width: isMobile ? "100%" : 400, 
               mb: isMobile ? 2 : 0,
-              border: "2px solid #e3f2fd",
+              border: "1px solid #e6eef2", borderRadius: 3,
               "&:hover": {
                 boxShadow: 3,
                 borderColor: "#2596be",
@@ -1349,7 +1355,7 @@ export function PerfilPage() {
             sx={{ 
               flex: 2,
               width: '100%',
-              border: "2px solid #e3f2fd",
+              border: "1px solid #e6eef2", borderRadius: 3,
               "&:hover": {
                 boxShadow: 3,
                 borderColor: "#2596be",
@@ -1464,7 +1470,7 @@ export function PerfilPage() {
           sx={{ flex: 1,
            width: isMobile ? "100%" : "auto", 
            mb: isMobile ? 2 : 0,
-           border: "2px solid #e3f2fd",
+           border: "1px solid #e6eef2", borderRadius: 3,
             "&:hover": {
               boxShadow: 3,
               borderColor: "#2596be",
@@ -1536,7 +1542,7 @@ export function PerfilPage() {
           <Card 
           sx={{ flex: 1, 
             width: '100%',
-            border: "2px solid #e3f2fd",
+            border: "1px solid #e6eef2", borderRadius: 3,
             "&:hover": {
               boxShadow: 3,
               borderColor: "#2596be",
@@ -1848,97 +1854,93 @@ export function PerfilPage() {
           ) : (
             <Box>
               {user.servicios.map((servicio, index) => (
-                <Card 
-                  key={index} 
-                  variant="outlined" 
-                  sx={{ 
+                <Card
+                  key={index}
+                  variant="outlined"
+                  sx={{
                     mb: 2,
-                    border: "2px solid #e3f2fd",
+                    borderRadius: 3,
+                    border: "1px solid #e6eef2",
+                    boxShadow: "none",
                     "&:hover": {
-                      boxShadow: 3,
-                      borderColor: "#2596be",
+                      boxShadow: "0 6px 24px rgba(37,150,190,0.10)",
+                      borderColor: "#bfe3ef",
                     },
-                    transition: "all 0.3s ease",
+                    transition: "all 0.25s ease",
                   }}
                 >
                   <CardContent sx={{ pb: 2 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <EditIcon sx={{color:'#2596be'}} />
-                        <Typography variant="h6" fontWeight={600}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={servicio.descripcion ? 1.5 : 2.5}>
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Box sx={{ width: 38, height: 38, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(37,150,190,0.10)' }}>
+                          <MedicalServicesIcon sx={{ color: '#2596be', fontSize: 20 }} />
+                        </Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#143b46' }}>
                           {servicio.tipo}
                         </Typography>
                       </Box>
-                      <Box display="flex" gap={1}>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleEditServicio(servicio, index)} 
-                          sx={{ color: "#1976d2" }}
+                      <Box display="flex" gap={0.5}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditServicio(servicio, index)}
+                          sx={{ color: "#90a4ae", "&:hover": { color: "#2596be", bgcolor: "rgba(37,150,190,0.08)" } }}
                           disabled={deletingServicioIndex === index}
                         >
-                          <EditIcon />
+                          <EditIcon fontSize="small" />
                         </IconButton>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleDeleteServicio(index)} 
-                          sx={{ color: "#d32f2f" }}
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteServicio(index)}
+                          sx={{ color: "#90a4ae", "&:hover": { color: "#d32f2f", bgcolor: "rgba(211,47,47,0.08)" } }}
                           disabled={deletingServicioIndex === index}
                         >
-                          <DeleteIcon />
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Box>
                     </Box>
-                    
+
                     {servicio.descripcion && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
                         {servicio.descripcion}
                       </Typography>
                     )}
-                    
-                    <Box display="flex" flexWrap="wrap" gap={3}>
+
+                    <Box display="flex" flexWrap="wrap" sx={{ gap: { xs: 2.5, sm: 4 }, rowGap: 2.5 }}>
                       <Box>
-                        <Box display="flex" alignItems="center" gap={1} mb={1}>
-                          <AccessTimeIcon fontSize="small" color="action" />
-                          <Typography variant="body2" color="textSecondary">
-                            Duración:
-                          </Typography>
+                        <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+                          <AccessTimeIcon sx={{ fontSize: 15, color: '#b0bec5' }} />
+                          <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#90a4ae' }}>Duración</Typography>
                         </Box>
-                        <Chip label={servicio.duracion} size="small" color="primary" variant="outlined" />
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.4, borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700, lineHeight: 1.7, bgcolor: 'rgba(37,150,190,0.10)', color: '#1b7d9c' }}>{servicio.duracion}</Box>
                       </Box>
-                      
+
                       <Box>
-                        <Box display="flex" alignItems="center" gap={1} mb={1}>
-                          <Typography variant="body2" color="textSecondary">
-                            💰 Precio:
-                          </Typography>
+                        <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+                          <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#90a4ae' }}>Precio</Typography>
                         </Box>
-                        <Chip label={`$${servicio.precio}`} size="small" color="success" variant="outlined" />
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', px: 1.25, py: 0.4, borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700, lineHeight: 1.7, bgcolor: 'rgba(22,163,74,0.10)', color: '#15803d' }}>{`$${servicio.precio}`}</Box>
                       </Box>
-                      
+
                       <Box>
-                        <Box display="flex" alignItems="center" gap={1} mb={1}>
-                          <Typography variant="body2" color="textSecondary">
-                            Modalidad:
-                          </Typography>
+                        <Box display="flex" alignItems="center" gap={0.75} mb={0.75}>
+                          <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#90a4ae' }}>Modalidad</Typography>
                         </Box>
-                        <Chip 
-                          icon={(() => {
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.4, borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700, lineHeight: 1.7, bgcolor: 'rgba(233,30,99,0.08)', color: '#c2185b' }}>
+                          {(() => {
                             const m = (servicio?.modalidad || '').toString();
                             const hasPres = m.includes('Presencial');
                             const hasDom = m.includes('Domicilio');
                             const hasTele = m.includes('Telemedicina');
                             const count = [hasPres, hasTele, hasDom].filter(Boolean).length;
-                            if (count >= 2) return <EditIcon />;
-                            if (hasPres) return <PlaceIcon />;
-                            if (hasTele) return <VideoCameraFrontIcon />;
-                            if (hasDom) return <HomeWorkIcon />;
-                            return <EditIcon />;
-                          })()} 
-                          label={servicio.modalidad} 
-                          size="small" 
-                          color="secondary" 
-                          variant="outlined" 
-                        />
+                            const ico = { fontSize: 15 };
+                            if (count >= 2) return <QueueIcon sx={ico} />;
+                            if (hasPres) return <PlaceIcon sx={ico} />;
+                            if (hasTele) return <VideoCameraFrontIcon sx={ico} />;
+                            if (hasDom) return <HomeWorkIcon sx={ico} />;
+                            return <PlaceIcon sx={ico} />;
+                          })()}
+                          {servicio.modalidad}
+                        </Box>
                       </Box>
                     </Box>
                   </CardContent>

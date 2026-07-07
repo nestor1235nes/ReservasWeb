@@ -146,93 +146,150 @@ function resolveReminderTemplateKey(tipo) {
 }
 
 /**
- * Programar recordatorios para una reserva recién creada
- * Esta función se llama después de crear una reserva
+ * Programar el recordatorio AUTOMÁTICO de la reserva.
+ *
+ * Separación de responsabilidades:
+ * - Mensaje INMEDIATO al registrar/reagendar (informativo o confirmación): se envía de forma
+ *   síncrona con enviarMensajeRegistroInmediato() desde el controlador de reservas.
+ * - Mensaje AUTOMÁTICO: única confirmación 24h antes de la cita (recordatorio_24h).
+ *
+ * Se reprograma de forma idempotente: cancela recordatorios pendientes previos de la reserva
+ * (re-agendamiento) y deja un único recordatorio_24h pendiente cuando faltan >= 24h.
  */
 export async function programarRecordatorios(reservaId, profesionalId, pacienteId, fechaCita, horaCita) {
     try {
         const now = new Date();
         const fechaCitaDate = new Date(fechaCita);
-        
-        // Calcular diferencia en horas
-        const diffMs = fechaCitaDate.getTime() - now.getTime();
-        const diffHours = diffMs / (1000 * 60 * 60);
-        
-        const recordatoriosACrear = [];
-        
-        if (diffHours <= 0) {
-            // La cita ya pasó, no programar nada
-            return { ok: true, message: 'Cita en el pasado, no se programaron recordatorios' };
-        }
-        
+        // siguienteCita se guarda a medianoche local; combinar con la hora (HH:mm) para
+        // ubicar el datetime real de la cita y programar el recordatorio 24h con precisión.
+        const [hhCita, mmCita] = String(horaCita || '00:00').split(':').map(Number);
+        const citaDateTime = isNaN(fechaCitaDate.getTime())
+            ? fechaCitaDate
+            : new Date(fechaCitaDate.getFullYear(), fechaCitaDate.getMonth(), fechaCitaDate.getDate(), hhCita || 0, mmCita || 0);
+        const diffHours = (citaDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        // Cancelar cualquier recordatorio pendiente previo de esta reserva (re-agendamiento).
+        await ScheduledReminder.updateMany(
+            { reserva: reservaId, estado: 'pendiente' },
+            { $set: { estado: 'cancelado' } }
+        );
+
+        // Si la cita ya pasó o faltan < 24h, no hay recordatorio automático:
+        // - Cita pasada: nada que recordar.
+        // - < 24h: la confirmación ya se envió de inmediato al registrar/reagendar.
         if (diffHours < 24) {
-            // Faltan menos de 24 horas: enviar mensaje de registro con link de confirmación AHORA
-            recordatoriosACrear.push({
-                reserva: reservaId,
-                paciente: pacienteId,
-                profesional: profesionalId,
-                tipo: 'registro_confirmacion',
-                fechaProgramada: now, // Enviar inmediatamente
-                fechaCita: fechaCitaDate,
-                horaCita
-            });
-        } else {
-            // Faltan más de 24 horas: enviar mensaje informativo AHORA
-            recordatoriosACrear.push({
-                reserva: reservaId,
-                paciente: pacienteId,
-                profesional: profesionalId,
-                tipo: 'registro_informativo',
-                fechaProgramada: now, // Enviar inmediatamente
-                fechaCita: fechaCitaDate,
-                horaCita
-            });
-            
-            // Programar recordatorio 48 horas antes
-            if (diffHours >= 48) {
-                const fecha48h = new Date(fechaCitaDate.getTime() - (48 * 60 * 60 * 1000));
-                recordatoriosACrear.push({
-                    reserva: reservaId,
-                    paciente: pacienteId,
-                    profesional: profesionalId,
-                    tipo: 'recordatorio_48h',
-                    fechaProgramada: fecha48h,
-                    fechaCita: fechaCitaDate,
-                    horaCita
-                });
-            }
-            
-            // Programar recordatorio 24 horas antes
-            const fecha24h = new Date(fechaCitaDate.getTime() - (24 * 60 * 60 * 1000));
-            recordatoriosACrear.push({
-                reserva: reservaId,
-                paciente: pacienteId,
-                profesional: profesionalId,
-                tipo: 'recordatorio_24h',
-                fechaProgramada: fecha24h,
-                fechaCita: fechaCitaDate,
-                horaCita
-            });
+            return {
+                ok: true,
+                message: diffHours <= 0
+                    ? 'Cita en el pasado, no se programaron recordatorios'
+                    : 'Cita en < 24h: la confirmación se envía de inmediato, sin recordatorio automático',
+            };
         }
-        
-        // Crear los recordatorios en la base de datos
-        const creados = await ScheduledReminder.insertMany(recordatoriosACrear, { ordered: false }).catch(err => {
-            // Ignorar errores de duplicados
-            if (err.code === 11000) {
-                console.log('Algunos recordatorios ya existían, ignorando duplicados');
-                return err.insertedDocs || [];
-            }
-            throw err;
-        });
-        
-        return { 
-            ok: true, 
-            message: `Se programaron ${Array.isArray(creados) ? creados.length : recordatoriosACrear.length} recordatorios`,
-            recordatorios: recordatoriosACrear.map(r => ({ tipo: r.tipo, fechaProgramada: r.fechaProgramada }))
+
+        const fecha24h = new Date(citaDateTime.getTime() - (24 * 60 * 60 * 1000));
+        const doc = {
+            reserva: reservaId,
+            paciente: pacienteId,
+            profesional: profesionalId,
+            tipo: 'recordatorio_24h',
+            fechaProgramada: fecha24h,
+            fechaCita: fechaCitaDate,
+            horaCita,
         };
+
+        try {
+            await ScheduledReminder.create(doc);
+        } catch (err) {
+            // El índice único parcial {reserva, tipo} cubre estados pendiente|enviado.
+            // Tras cancelar los pendientes, un 11000 solo puede venir de uno ya 'enviado'
+            // (programación anterior): lo reactivamos con la nueva fecha.
+            if (err.code === 11000) {
+                await ScheduledReminder.findOneAndUpdate(
+                    { reserva: reservaId, tipo: 'recordatorio_24h', estado: 'enviado' },
+                    { $set: { estado: 'pendiente', fechaProgramada: fecha24h, fechaCita: fechaCitaDate, horaCita, intentos: 0, resultado: undefined } }
+                );
+            } else {
+                throw err;
+            }
+        }
+
+        return { ok: true, message: 'Recordatorio 24h programado', fechaProgramada: fecha24h };
     } catch (error) {
         console.error('Error programando recordatorios:', error);
         return { ok: false, error: error.message };
+    }
+}
+
+/**
+ * Enviar de inmediato el mensaje de registro de cita (síncrono, tras una acción del usuario).
+ * - Si faltan < 24h para la cita: mensaje de CONFIRMACIÓN con enlace (registro_confirmacion).
+ * - Si faltan >= 24h: mensaje INFORMATIVO sin enlace (registro_informativo). La confirmación
+ *   con enlace llegará automáticamente 24h antes vía el recordatorio programado.
+ *
+ * No envía si la cita ya está confirmada/cancelada/completada o si ya pasó.
+ */
+export async function enviarMensajeRegistroInmediato(reserva, profesional, paciente) {
+    try {
+        if (!reserva || !profesional || !paciente) {
+            return { ok: false, reason: 'missing_data' };
+        }
+        if (['cancelled', 'completed', 'confirmed'].includes(reserva.confirmStatus)) {
+            return { ok: false, reason: `estado_${reserva.confirmStatus}` };
+        }
+
+        const fechaCita = reserva.siguienteCita;
+        if (!fechaCita) return { ok: false, reason: 'sin_fecha' };
+
+        // siguienteCita se guarda a medianoche local; hay que combinarla con la hora (HH:mm)
+        // para obtener el datetime real de la cita y calcular bien cuánto falta.
+        const base = new Date(fechaCita);
+        if (isNaN(base.getTime())) return { ok: false, reason: 'sin_fecha' };
+        const [hh, mm] = String(reserva.hora || '00:00').split(':').map(Number);
+        const citaDateTime = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh || 0, mm || 0);
+
+        const diffHours = (citaDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (diffHours <= 0) return { ok: false, reason: 'cita_pasada' };
+
+        const tipo = diffHours < 24 ? 'registro_confirmacion' : 'registro_informativo';
+        const necesitaLink = tipo === 'registro_confirmacion';
+
+        let confirmLink = '';
+        if (necesitaLink) {
+            confirmLink = await ensureConfirmationToken(reserva);
+        }
+
+        // Resolver plantillas efectivas (defaults < usuario < sucursal)
+        let sucursal = null;
+        const sucursalId = reserva?.sucursal || profesional?.sucursal;
+        if (sucursalId) {
+            try { sucursal = await Sucursal.findById(sucursalId).lean(); } catch { sucursal = null; }
+        }
+
+        const templates = mergeTemplates({
+            defaults: DEFAULT_MESSAGE_TEMPLATES,
+            userTemplates: profesional?.messageTemplates,
+            sucursalTemplates: sucursal?.messageTemplates,
+        });
+
+        const key = resolveReminderTemplateKey(tipo);
+        const template = key ? (templates?.reminders?.[key] || '') : '';
+
+        const mensaje = renderMessageTemplate(template, {
+            nombre: paciente.nombre || 'Paciente',
+            profesional: profesional.username || 'su profesional',
+            fecha: formatFecha(fechaCita),
+            hora: reserva.hora,
+            dia: getNombreDia(fechaCita),
+            enlaceConfirmacion: confirmLink || '',
+            servicio: reserva?.servicio || '',
+            sucursal: sucursal?.nombre || '',
+        });
+
+        const resultado = await enviarWhatsApp(profesional, paciente.telefono, mensaje);
+        return { ...resultado, tipo };
+    } catch (error) {
+        console.error('Error en enviarMensajeRegistroInmediato:', error);
+        return { ok: false, reason: 'exception', detail: error.message };
     }
 }
 
@@ -241,6 +298,17 @@ export async function programarRecordatorios(reservaId, profesionalId, pacienteI
  */
 async function procesarRecordatorio(reminder) {
     try {
+        // Tipos que ya NO se envían por la cola (ahora son inmediatos/eliminados):
+        // - registro_informativo / registro_confirmacion: se envían de forma síncrona al registrar.
+        // - recordatorio_48h: eliminado (solo queda la confirmación 24h).
+        // Cualquier registro de estos tipos en la cola es residual: se omite sin enviar.
+        if (['registro_informativo', 'registro_confirmacion', 'recordatorio_48h'].includes(reminder.tipo)) {
+            reminder.estado = 'omitido';
+            reminder.resultado = { ok: true, reason: 'tipo_obsoleto' };
+            await reminder.save();
+            return { ok: true, reason: 'tipo_obsoleto' };
+        }
+
         // Recargar la reserva para verificar estado actual
         const reserva = await Reserva.findById(reminder.reserva);
         if (!reserva) {
@@ -249,7 +317,24 @@ async function procesarRecordatorio(reminder) {
             await reminder.save();
             return { ok: false, reason: 'reserva_not_found' };
         }
-        
+
+        // No enviar recordatorios de citas que ya pasaron (protege contra colas atrasadas).
+        const citaPasada = (() => {
+            try {
+                const base = new Date(reminder.fechaCita);
+                if (isNaN(base.getTime())) return false;
+                const [hh, mm] = String(reminder.horaCita || '00:00').split(':').map(Number);
+                const citaDateTime = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hh || 0, mm || 0);
+                return citaDateTime.getTime() < Date.now();
+            } catch { return false; }
+        })();
+        if (citaPasada) {
+            reminder.estado = 'omitido';
+            reminder.resultado = { ok: true, reason: 'cita_pasada' };
+            await reminder.save();
+            return { ok: true, reason: 'cita_pasada' };
+        }
+
         // Si la cita fue cancelada, no enviar recordatorio
         if (reserva.confirmStatus === 'cancelled') {
             reminder.estado = 'cancelado';
@@ -417,6 +502,45 @@ export async function procesarRecordatoriosPendientes() {
         console.error('Error procesando recordatorios pendientes:', error);
         return { ok: false, error: error.message };
     }
+}
+
+// Scheduler interno: procesa la cola de recordatorios periódicamente.
+let _schedulerStarted = false;
+let _schedulerRunning = false;
+
+/**
+ * Inicia un scheduler interno (setInterval) que procesa los recordatorios pendientes.
+ *
+ * IMPORTANTE (Cloud Run / serverless): este intervalo solo corre mientras la instancia
+ * esté viva. Si el servicio escala a cero, configura `min-instances >= 1` o, como
+ * alternativa, un disparador externo (Cloud Scheduler) a GET /api/reminders/process.
+ */
+export function startReminderScheduler(intervalMs = 60_000) {
+    if (_schedulerStarted) return;
+    _schedulerStarted = true;
+
+    const tick = async () => {
+        if (_schedulerRunning) return; // evitar solapamiento entre ejecuciones
+        _schedulerRunning = true;
+        try {
+            const r = await procesarRecordatoriosPendientes();
+            if (r?.enviados) {
+                console.log(`[reminder-scheduler] enviados=${r.enviados} fallidos=${r.fallidos || 0} omitidos=${r.omitidos || 0}`);
+            }
+        } catch (e) {
+            console.error('[reminder-scheduler] error:', e?.message || e);
+        } finally {
+            _schedulerRunning = false;
+        }
+    };
+
+    const timer = setInterval(tick, intervalMs);
+    if (timer.unref) timer.unref();
+    // Verificación INMEDIATA al encender la máquina: como el server escala a cero,
+    // cada cold start revisa de inmediato si hay mensajes pendientes por enviar.
+    // (startReminderScheduler se llama después de connectDB(), así que Mongo ya está listo.)
+    tick();
+    console.log(`[reminder-scheduler] iniciado (verificación inmediata + cada ${Math.round(intervalMs / 1000)}s)`);
 }
 
 /**

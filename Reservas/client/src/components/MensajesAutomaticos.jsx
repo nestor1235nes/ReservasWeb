@@ -41,24 +41,19 @@ const previewSample = {
 const DEFAULT_TEMPLATES = {
   reminders: {
     registroInformativo:
-      `Hola {nombre}, su cita ha sido registrada exitosamente para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
-      `Se le enviará un recordatorio 48 horas antes de su cita para confirmar su asistencia.\n\n` +
+      `Hola {nombre}, hemos agendado su cita para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+      `Le enviaremos un mensaje para recordarle y confirmar su asistencia 24 horas antes de su cita.\n\n` +
       `Gracias por su preferencia.`,
     registroConfirmacion:
-      `Hola {nombre}, su cita ha sido registrada para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+      `Hola {nombre}, gracias por agendar su cita para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
       `Por favor, confirme su asistencia a través del siguiente enlace:\n` +
       `{enlaceConfirmacion}\n\n` +
       `Gracias por su preferencia.`,
-    recordatorio48h:
-      `Hola {nombre}, le recordamos que tiene una cita programada para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+    recordatorio24h:
+      `Hola {nombre}, le recordamos que tiene una cita MAÑANA a las {hora} con {profesional}.\n\n` +
       `Por favor, confirme su asistencia a través del siguiente enlace:\n` +
       `{enlaceConfirmacion}\n\n` +
       `Si no puede asistir, le agradecemos cancelar su cita para liberar el espacio a otro paciente.`,
-    recordatorio24h:
-      `Hola {nombre}, le recordamos que MAÑANA tiene una cita a las {hora} con {profesional}.\n\n` +
-      `Su cita aún no ha sido confirmada. Por favor, confirme su asistencia:\n` +
-      `{enlaceConfirmacion}\n\n` +
-      `Si no puede asistir, le agradecemos cancelar su cita.`,
   },
   waitlist: {
     offer:
@@ -87,7 +82,6 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
       reminders: {
         registroInformativo: '',
         registroConfirmacion: '',
-        recordatorio48h: '',
         recordatorio24h: '',
       },
       waitlist: {
@@ -95,6 +89,12 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
       },
     },
   });
+  // Credenciales WhatsApp propias de la sucursal (opcional). El token solo se envía si se (re)escribe.
+  const [waNumber, setWaNumber] = useState('');
+  const [waIdInstance, setWaIdInstance] = useState('');
+  const [waToken, setWaToken] = useState('');
+  const [waConfigured, setWaConfigured] = useState(false);
+  const [waMasked, setWaMasked] = useState('');
   const activeFieldRef = useRef(null);
   const [activeField, setActiveField] = useState('messageTemplates.reminders.registroInformativo');
   const [helpOpen, setHelpOpen] = useState(false);
@@ -137,7 +137,6 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
         reminders: {
           registroInformativo: source?.messageTemplates?.reminders?.registroInformativo || DEFAULT_TEMPLATES.reminders.registroInformativo,
           registroConfirmacion: source?.messageTemplates?.reminders?.registroConfirmacion || DEFAULT_TEMPLATES.reminders.registroConfirmacion,
-          recordatorio48h: source?.messageTemplates?.reminders?.recordatorio48h || DEFAULT_TEMPLATES.reminders.recordatorio48h,
           recordatorio24h: source?.messageTemplates?.reminders?.recordatorio24h || DEFAULT_TEMPLATES.reminders.recordatorio24h,
         },
         waitlist: {
@@ -152,6 +151,16 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
     formData?.defaultMessage,
     formData?.messageTemplates,
   ]);
+
+  // Sincroniza las credenciales WhatsApp propias de la sucursal (si aplica)
+  useEffect(() => {
+    if (!useSucursalConfig) return;
+    setWaNumber(sucursalData?.whatsappNumber || '');
+    setWaIdInstance(sucursalData?.idInstance || '');
+    setWaConfigured(!!sucursalData?.whatsappConfigured);
+    setWaMasked(sucursalData?.apiTokenInstanceMasked || '');
+    setWaToken('');
+  }, [useSucursalConfig, sucursalData?.whatsappNumber, sucursalData?.idInstance, sucursalData?.whatsappConfigured, sucursalData?.apiTokenInstanceMasked]);
 
   const propagate = (name, value) => {
     // notificar al padre (PerfilPage) para mantener un solo origen de verdad
@@ -345,6 +354,13 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
   const cancelEdit = () => {
     setError(null);
     setEditing(false);
+    if (useSucursalConfig) {
+      setWaNumber(sucursalData?.whatsappNumber || '');
+      setWaIdInstance(sucursalData?.idInstance || '');
+      setWaConfigured(!!sucursalData?.whatsappConfigured);
+      setWaMasked(sucursalData?.apiTokenInstanceMasked || '');
+      setWaToken('');
+    }
     // revertir a props
     const source = useSucursalConfig ? sucursalData : formData;
     setLocalData({
@@ -353,7 +369,6 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
         reminders: {
           registroInformativo: source?.messageTemplates?.reminders?.registroInformativo || DEFAULT_TEMPLATES.reminders.registroInformativo,
           registroConfirmacion: source?.messageTemplates?.reminders?.registroConfirmacion || DEFAULT_TEMPLATES.reminders.registroConfirmacion,
-          recordatorio48h: source?.messageTemplates?.reminders?.recordatorio48h || DEFAULT_TEMPLATES.reminders.recordatorio48h,
           recordatorio24h: source?.messageTemplates?.reminders?.recordatorio24h || DEFAULT_TEMPLATES.reminders.recordatorio24h,
         },
         waitlist: {
@@ -370,6 +385,32 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
       defaultMessage: localData.defaultMessage,
       messageTemplates: localData.messageTemplates,
     };
+
+    // Credenciales WhatsApp propias (solo sucursal). El NÚMERO es el interruptor:
+    // con número → se exige idInstance + token; sin número → se limpia (envío centralizado).
+    if (useSucursalConfig) {
+      const numero = waNumber.trim();
+      const idIns = waIdInstance.trim();
+      const tokenNuevo = waToken.trim();
+      if (numero) {
+        if (!idIns || !(tokenNuevo || waConfigured)) {
+          setError('Para enviar desde un número propio completa el número, el idInstance y el token.');
+          return;
+        }
+        payload.whatsappNumber = numero;
+        payload.idInstance = idIns;
+        if (tokenNuevo) payload.apiTokenInstance = tokenNuevo; // solo si se (re)escribió
+      } else {
+        if (idIns || tokenNuevo) {
+          setError('Agrega también el número de WhatsApp para usar credenciales propias, o limpia los tres campos para usar el número centralizado.');
+          return;
+        }
+        payload.whatsappNumber = '';
+        payload.idInstance = '';
+        payload.apiTokenInstance = '';
+      }
+    }
+
     try {
       setSaving(true);
       if (useSucursalConfig) {
@@ -621,8 +662,64 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
 
                   <Divider sx={{ my: 1.5 }} />
 
-                  
+
                 </Paper>
+
+                {/* Número propio de WhatsApp (solo sucursal) */}
+                {useSucursalConfig && (
+                  <Paper
+                    variant="outlined"
+                    sx={{ p: 2, borderRadius: 2, borderColor: 'rgba(148, 163, 184, 0.55)' }}
+                  >
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap">
+                      <Typography variant="subtitle1" fontWeight={800}>Número de envío</Typography>
+                      {waConfigured
+                        ? <Chip size="small" label="Número propio" color="success" variant="outlined" />
+                        : <Chip size="small" label="Centralizado" variant="outlined" />}
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, mb: 1.5 }}>
+                      Por defecto, los mensajes se envían desde el número centralizado de la plataforma.
+                      Si agregas un número propio (Green API), debes completar también el idInstance y el token,
+                      y todos los mensajes de esta sucursal se enviarán desde ese número.
+                    </Typography>
+
+                    <Stack spacing={1.5}>
+                      <TextField
+                        label="Número de WhatsApp"
+                        placeholder="569XXXXXXXX"
+                        value={waNumber}
+                        onChange={(e) => setWaNumber(e.target.value)}
+                        disabled={!editingEnabled}
+                        fullWidth
+                        size="small"
+                      />
+                      <TextField
+                        label="idInstance (Green API)"
+                        value={waIdInstance}
+                        onChange={(e) => setWaIdInstance(e.target.value)}
+                        disabled={!editingEnabled}
+                        fullWidth
+                        size="small"
+                      />
+                      <TextField
+                        label="apiTokenInstance (token)"
+                        type="password"
+                        value={waToken}
+                        onChange={(e) => setWaToken(e.target.value)}
+                        disabled={!editingEnabled}
+                        fullWidth
+                        size="small"
+                        placeholder={waConfigured ? `Actual: ${waMasked} (déjalo vacío para mantenerlo)` : ''}
+                        helperText={waConfigured ? 'Escribe un token solo si quieres cambiarlo.' : ''}
+                      />
+                      {editingEnabled && (
+                        <Typography variant="caption" color="text.secondary">
+                          Para volver al número centralizado, borra el número (y los tres campos) y guarda.
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Paper>
+                )}
               </Stack>
 
               {/* Columna derecha: editor */}
@@ -668,26 +765,20 @@ const MensajesAutomaticos = ({ formData, onChange }) => {
                     {tab === 'reminders' && (
                       <Stack spacing={2}>
                         <TemplateCard
-                          title="Registro informativo (más de 24h)"
-                          subtitle="Se envía cuando la cita queda registrada con más de 24h de anticipación."
+                          title="Registro informativo (24h o más)"
+                          subtitle="Se envía de inmediato al agendar cuando faltan 24h o más. Solo informa; la confirmación llega después."
                           name="messageTemplates.reminders.registroInformativo"
                           value={localData.messageTemplates.reminders.registroInformativo}
                         />
                         <TemplateCard
                           title="Registro con confirmación (menos de 24h)"
-                          subtitle="Se envía cuando la cita es pronto y requiere confirmación inmediata."
+                          subtitle="Se envía de inmediato al agendar cuando faltan menos de 24h. Incluye el enlace para confirmar."
                           name="messageTemplates.reminders.registroConfirmacion"
                           value={localData.messageTemplates.reminders.registroConfirmacion}
                         />
                         <TemplateCard
-                          title="Recordatorio 48h (con confirmación)"
-                          subtitle="Se envía 48h antes cuando aún no hay confirmación."
-                          name="messageTemplates.reminders.recordatorio48h"
-                          value={localData.messageTemplates.reminders.recordatorio48h}
-                        />
-                        <TemplateCard
-                          title="Recordatorio 24h (si no confirmó)"
-                          subtitle="Se envía 24h antes si la cita sigue sin confirmación."
+                          title="Confirmación 24h antes"
+                          subtitle="Único recordatorio automático: se envía 24h antes para confirmar la asistencia (si la cita se agendó con más de 24h)."
                           name="messageTemplates.reminders.recordatorio24h"
                           value={localData.messageTemplates.reminders.recordatorio24h}
                         />

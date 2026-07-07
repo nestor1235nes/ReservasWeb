@@ -133,11 +133,9 @@ const CalendarScreen = ({ navigation }) => {
     return list.filter((r) => getReservaDateKey(r?.siguienteCita) === ymd);
   }, [reservasAll, blockDateYmd]);
 
-  const hasWhatsApp = useMemo(() => {
-    const idInstance = user?.sucursal?.idInstance || user?.idInstance;
-    const apiTokenInstance = user?.sucursal?.apiTokenInstance || user?.apiTokenInstance;
-    return Boolean(idInstance && apiTokenInstance);
-  }, [user?.sucursal?.idInstance, user?.sucursal?.apiTokenInstance, user?.idInstance, user?.apiTokenInstance]);
+  // Credenciales centralizadas en la plataforma: el backend resuelve idInstance/apiTokenInstance
+  // (sanitizeUser ya no expone esos campos al cliente).
+  const hasWhatsApp = true;
 
   const reservasAfectadas = useMemo(() => {
     if (blockMode === 'times') {
@@ -704,21 +702,27 @@ const CalendarScreen = ({ navigation }) => {
           if (!validPhone) {
             showAlert(`Cita actualizada. Teléfono no válido para WhatsApp: "${rawPhone || ''}"`, 'warning');
           } else {
-            const needsLink = /\{enlaceconfirmacion\}/i.test(template) || /\{enlaceConfirmacion\}/.test(template);
-            const link = needsLink ? await fetchConfirmationLink(selectedReserva?._id) : '';
-            const reservaForMsg = {
-              ...selectedReserva,
-              siguienteCita: editDateYmd,
-              hora: editHour,
-            };
-            const finalMessage = buildWhatsAppMessage(template, reservaForMsg, link);
-            if (finalMessage) {
-              const resp = await sendWhatsAppRequest({ phoneNumber, message: finalMessage });
-              if (resp?.data?.ok) {
-                showAlert('WhatsApp enviado al paciente', 'success');
-              } else {
-                showAlert('Cita actualizada, pero WhatsApp falló', 'warning');
+            // La cita ya se actualizó; un fallo del WhatsApp no debe reportarse como error del reagendado.
+            try {
+              const needsLink = /\{enlaceconfirmacion\}/i.test(template) || /\{enlaceConfirmacion\}/.test(template);
+              const link = needsLink ? await fetchConfirmationLink(selectedReserva?._id) : '';
+              const reservaForMsg = {
+                ...selectedReserva,
+                siguienteCita: editDateYmd,
+                hora: editHour,
+              };
+              const finalMessage = buildWhatsAppMessage(template, reservaForMsg, link);
+              if (finalMessage) {
+                const resp = await sendWhatsAppRequest({ phoneNumber, message: finalMessage });
+                if (resp?.data?.ok) {
+                  showAlert('WhatsApp enviado al paciente', 'success');
+                } else {
+                  showAlert('Cita actualizada, pero WhatsApp falló', 'warning');
+                }
               }
+            } catch (waError) {
+              const waMsg = waError?.response?.data?.message || 'no se pudo enviar el mensaje';
+              showAlert(`Cita actualizada, pero WhatsApp falló: ${waMsg}`, 'warning');
             }
           }
         }

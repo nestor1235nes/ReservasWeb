@@ -1,13 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { 
-  loginRequest, 
-  registerRequest, 
-  verifyTokenRequest, 
+import {
+  loginRequest,
+  registerRequest,
+  verifyTokenRequest,
   logoutRequest,
-  updatePerfilRequest 
+  updatePerfilRequest
 } from '../api/auth';
 import { getMeRequest, updateMeRequest } from '../api/profile';
+import { setUnauthorizedHandler } from '../api/axios';
 import { useAlert } from './AlertContext';
 
 const AuthContext = createContext();
@@ -36,6 +37,24 @@ export const AuthProvider = ({ children }) => {
       return () => clearTimeout(timer);
     }
   }, [errors]);
+
+  // Ref para que el handler de 401 (capa de red) sepa si había sesión activa.
+  const isAuthRef = useRef(false);
+  useEffect(() => {
+    isAuthRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
+  // Registrar el manejador global de 401: si caduca/invalida el token, cerrar
+  // sesión y dejar que RootNavigator redirija a Login (evita "sesión zombie").
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (!isAuthRef.current) return; // sin sesión activa: evitar avisos al iniciar
+      setUser(null);
+      setIsAuthenticated(false);
+      showAlert('Tu sesión expiró. Inicia sesión nuevamente.', 'info');
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [showAlert]);
 
   // Verificar token al iniciar la app
   useEffect(() => {

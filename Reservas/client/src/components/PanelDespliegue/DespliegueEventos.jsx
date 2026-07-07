@@ -42,6 +42,7 @@ import ReactQuill from 'react-quill';
 import '../ui/AgregarSesionCSS.css';
 import MostrarImagenes from '../MostrarImagenes';
 import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import localeData from 'dayjs/plugin/localeData';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { useDropzone } from 'react-dropzone';
@@ -545,7 +546,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   };
 
   const handleSaveClick = () => {
-    if (editSection === 'cita' && (user.idInstance || esAsistente)) {
+    // Al reagendar siempre abrimos el modal para personalizar el mensaje de WhatsApp.
+    // Las credenciales son centralizadas (las resuelve el backend), no dependen del usuario.
+    if (editSection === 'cita') {
       setOpenDialog(true);
     } else {
       handleDialogClose(true);
@@ -587,30 +590,25 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             event.profesional = profesionalActual;
           }
 
-            // WhatsApp-only: intenta enviar mensaje usando el texto ingresado o el mensaje por defecto (sucursal si aplica)
+            // WhatsApp: el backend usa las credenciales centralizadas de la plataforma.
+            // No dependemos de user.idInstance/apiTokenInstance (ya no existen por usuario).
             const fallbackDefault = (user?.sucursal?.defaultMessage && user.sucursal.defaultMessage.trim()) || (user?.defaultMessage && user.defaultMessage.trim()) || '';
             const template = (mensajePaciente && mensajePaciente.trim()) || fallbackDefault || '';
             if (template) {
-              const waId = user?.sucursal?.idInstance || user?.idInstance;
-              const waToken = user?.sucursal?.apiTokenInstance || user?.apiTokenInstance;
-              if (waId && waToken) {
-                // Validación simple de teléfono antes de enviar
-                const phone = event?.paciente?.telefono || '';
-                const validPhone = /^569\d{8}$/.test(String(phone));
-                if (!validPhone) {
-                  showAlert('warning', `El número del paciente no es válido para WhatsApp: "${phone}". Formato esperado: 569XXXXXXXX.`);
-                }
-                const report = await sendWhatsAppMessage([event], template, user);
-                if (report?.sent) {
-                  const msg = `WhatsApp enviado a ${report.sent} paciente(s)` + (report.failed ? `, ${report.failed} fallo(s)` : '');
-                  showAlert('success', msg);
-                } else {
-                  const detail = report?.details?.[0]?.reason || 'desconocido';
-                  showAlert('warning', `No se pudo enviar WhatsApp (motivo: ${detail}). Revisa la configuración de WhatsApp de la plataforma y el formato de teléfono (569XXXXXXXX).`);
-                  if (report?.details) console.warn('Detalles envío WhatsApp:', report.details);
-                }
+              // Validación simple de teléfono antes de enviar
+              const phone = event?.paciente?.telefono || '';
+              const validPhone = /^569\d{8}$/.test(String(phone));
+              if (!validPhone) {
+                showAlert('warning', `El número del paciente no es válido para WhatsApp: "${phone}". Formato esperado: 569XXXXXXXX.`);
+              }
+              const report = await sendWhatsAppMessage([event], template, user);
+              if (report?.sent) {
+                const msg = `WhatsApp enviado a ${report.sent} paciente(s)` + (report.failed ? `, ${report.failed} fallo(s)` : '');
+                showAlert('success', msg);
               } else {
-                showAlert('warning', user?.sucursal ? 'Green API no está configurado en la sucursal (idInstance y apiTokenInstance).' : 'Green API no está configurado (idInstance y apiTokenInstance).');
+                const detail = report?.details?.[0]?.reason || 'desconocido';
+                showAlert('warning', `No se pudo enviar WhatsApp (motivo: ${detail}). Revisa la configuración de WhatsApp de la plataforma (/admin/whatsapp) y el formato de teléfono (569XXXXXXXX).`);
+                if (report?.details) console.warn('Detalles envío WhatsApp:', report.details);
               }
             } else {
               // No hay mensaje ni por defecto; informar pero no bloquear el guardado
@@ -1034,7 +1032,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   }
                 }}
               />
-              {user?.idInstance && (
+              {(
                 <Box mb={1} display="flex" flexWrap="wrap" gap={0.5} alignItems="center">
                   {PLACEHOLDERS.map(ph => (
                     <Chip key={ph.token} size="small" label={ph.token} onClick={() => handleInsertPlaceholder(ph.token)} clickable />
@@ -1343,7 +1341,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                                   overflow: 'hidden'
                                 }}
                               >
-                                <ReactQuill value={currentCase?.anamnesis || 'Sin información registrada'} readOnly={true} theme="bubble" />
+                                <ReactQuill value={sanitizeHtml(currentCase?.anamnesis || 'Sin información registrada')} readOnly={true} theme="bubble" />
                               </Box>
                             </Box>
 

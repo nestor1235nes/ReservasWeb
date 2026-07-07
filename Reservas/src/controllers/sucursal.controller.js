@@ -5,6 +5,25 @@ import User from "../models/user.model.js";
 
 const isObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
 
+// Enmascara el token Green API para no exponerlo al cliente.
+const maskToken = (token) => {
+    const t = String(token || '');
+    if (!t) return '';
+    if (t.length <= 8) return '********';
+    return `${t.slice(0, 4)}…${t.slice(-4)}`;
+};
+
+// Devuelve la sucursal sin exponer el apiTokenInstance en claro.
+// Agrega `whatsappConfigured` y `apiTokenInstanceMasked` para la UI.
+const sanitizeSucursal = (doc) => {
+    if (!doc) return doc;
+    const s = doc.toObject ? doc.toObject() : { ...doc };
+    s.whatsappConfigured = !!(s.idInstance && s.apiTokenInstance);
+    s.apiTokenInstanceMasked = maskToken(s.apiTokenInstance);
+    delete s.apiTokenInstance;
+    return s;
+};
+
 const slugify = (value) => {
     return (value || '')
         .toString()
@@ -48,7 +67,7 @@ export const obtenerSucursales = async (req, res) => {
                 await s.save();
             }
         }
-        res.status(200).json(sucursales);
+        res.status(200).json(sucursales.map(sanitizeSucursal));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -71,7 +90,7 @@ export const obtenerSucursalUsuario = async (req, res) => {
             user.sucursal.slug = slug;
             await user.sucursal.save();
         }
-        res.status(200).json(user.sucursal);
+        res.status(200).json(sanitizeSucursal(user.sucursal));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -117,9 +136,45 @@ export const actualizarSucursal = async (req, res) => {
             });
         }
 
-        // Desde ahora las credenciales GreenAPI son globales (plataforma) y no se editan por sucursal.
-        delete payload.idInstance;
-        delete payload.apiTokenInstance;
+        // Credenciales WhatsApp propias de la sucursal (opcional).
+        // Regla: si se define un número, se exige idInstance + token. Si todo queda
+        // vacío, se limpian y la sucursal vuelve al envío centralizado de la plataforma.
+        const tocaCredenciales =
+            Object.prototype.hasOwnProperty.call(payload, 'whatsappNumber') ||
+            Object.prototype.hasOwnProperty.call(payload, 'idInstance') ||
+            Object.prototype.hasOwnProperty.call(payload, 'apiTokenInstance');
+
+        if (tocaCredenciales) {
+            const numero = String(
+                (Object.prototype.hasOwnProperty.call(payload, 'whatsappNumber') ? payload.whatsappNumber : existing.whatsappNumber) ?? ''
+            ).trim();
+            const idIns = String(
+                (Object.prototype.hasOwnProperty.call(payload, 'idInstance') ? payload.idInstance : existing.idInstance) ?? ''
+            ).trim();
+            // El token solo se actualiza si llega uno nuevo no vacío; si no, se conserva el guardado
+            // (el cliente recibe el token enmascarado y no lo reenvía salvo que el admin lo cambie).
+            const tokenNuevo = Object.prototype.hasOwnProperty.call(payload, 'apiTokenInstance')
+                ? String(payload.apiTokenInstance ?? '').trim()
+                : '';
+            const tokenFinal = tokenNuevo || String(existing.apiTokenInstance ?? '').trim();
+
+            // El número es el interruptor: con número se exige idInstance + token.
+            if (numero) {
+                if (!idIns || !tokenFinal) {
+                    return res.status(400).json({
+                        message: 'Para enviar desde un número propio debes completar el número, el idInstance y el token.',
+                    });
+                }
+                payload.whatsappNumber = numero;
+                payload.idInstance = idIns;
+                payload.apiTokenInstance = tokenFinal;
+            } else {
+                // Sin número → limpiar y volver al envío centralizado de la plataforma.
+                payload.whatsappNumber = '';
+                payload.idInstance = '';
+                payload.apiTokenInstance = '';
+            }
+        }
         // Mantener slug estable: solo generarlo si aún no existe
         if (!existing.slug) {
             payload.slug = await buildUniqueSucursalSlug({ base: payload.nombre || existing.nombre, currentId: id });
@@ -143,7 +198,7 @@ export const actualizarSucursal = async (req, res) => {
             }
         }
 
-        res.status(200).json(sucursal);
+        res.status(200).json(sanitizeSucursal(sucursal));
     }
     catch (error) {
         res.status(500).json({ message: error.message });

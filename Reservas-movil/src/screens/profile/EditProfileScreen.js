@@ -33,6 +33,7 @@ export default function EditProfileScreen() {
       cita_virtual: !!user?.cita_virtual,
       cita_domicilio: !!user?.cita_domicilio,
       adminAtiendePersonas: !!user?.adminAtiendePersonas,
+      waitlistEnabled: !!user?.waitlistEnabled,
     }),
     [user]
   );
@@ -57,6 +58,7 @@ export default function EditProfileScreen() {
         cita_virtual: values.cita_virtual,
         cita_domicilio: values.cita_domicilio,
         adminAtiendePersonas: values.adminAtiendePersonas,
+        waitlistEnabled: values.waitlistEnabled,
       });
     } finally {
       setSaving(false);
@@ -218,6 +220,23 @@ export default function EditProfileScreen() {
           />
         </View>
 
+        <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Lista de espera</Text>
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Habilitar lista de espera</Text>
+          <Controller
+            control={control}
+            name="waitlistEnabled"
+            render={({ field: { onChange, value } }) => (
+              <Switch value={value} onValueChange={onChange} />
+            )}
+          />
+        </View>
+        <Text style={styles.hintText}>
+          Si no tienes horas disponibles, tus pacientes podrán unirse a una lista de espera al
+          reservar y recibirán una oferta por WhatsApp cuando se libere un cupo. Requiere plan
+          Standard o Teams.
+        </Text>
+
         <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Administración</Text>
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>Admin atiende personas</Text>
@@ -264,5 +283,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   switchLabel: { color: colors.textPrimary, fontSize: 15, fontWeight: '500' },
+  hintText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: -4,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

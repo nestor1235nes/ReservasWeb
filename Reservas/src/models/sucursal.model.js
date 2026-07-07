@@ -103,6 +103,12 @@ const SucursalSchema = new mongoose.Schema({
     },
 
     ///////////Configuracion de wsp/////////////
+    // Número propio de la sucursal para enviar WhatsApp (opcional).
+    // Si está definido junto a idInstance + apiTokenInstance, los mensajes de la
+    // sucursal se envían desde este número; si no, se usa el número centralizado.
+    whatsappNumber: {
+        type: String,
+    },
     idInstance: {
         type: String,
     },

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PasswordRequirements from './ui/PasswordRequirements';
 import { changePasswordRequest } from '../api/auth';
 
@@ -42,14 +43,19 @@ export default function ChangePasswordSection({ userEmail }) {
   };
 
   return (
-    <Card sx={{ borderRadius: 2, border: '2px solid #e3f2fd', boxShadow: 2, '&:hover': { boxShadow: 3, borderColor: primary }, transition: 'all 0.3s ease' }}>
+    <Card variant="outlined" sx={{ borderRadius: 3, border: '1px solid #e6eef2', boxShadow: 'none', '&:hover': { boxShadow: '0 6px 24px rgba(37,150,190,0.10)', borderColor: '#bfe3ef' }, transition: 'all 0.25s ease' }}>
       <CardContent>
         <Stack spacing={2.5}>
-          <Box>
-            <Typography variant="h6" fontWeight={800} sx={{ color: primary }}>Cambiar contraseña</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {userEmail ? `Cuenta: ${userEmail}` : 'Actualiza tu contraseña de acceso.'}
-            </Typography>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <Box sx={{ width: 38, height: 38, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(37,150,190,0.10)' }}>
+              <LockOutlinedIcon sx={{ color: primary, fontSize: 20 }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#143b46' }}>Cambiar contraseña</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {userEmail ? `Cuenta: ${userEmail}` : 'Actualiza tu contraseña de acceso.'}
+              </Typography>
+            </Box>
           </Box>
 
           {error && <Alert severity="error" variant="outlined" sx={{ borderColor: 'error.main' }}>{error}</Alert>}

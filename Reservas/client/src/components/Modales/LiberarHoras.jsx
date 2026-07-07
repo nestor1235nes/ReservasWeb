@@ -33,7 +33,8 @@ const LiberarHoras = ({ open, onClose, fetchReservas, gapi }) => {
     const [reservasDelDia, setReservasDelDia] = useState([]);
     const [loadingReservas, setLoadingReservas] = useState(false);
 
-    const hasWhatsApp = Boolean((user?.sucursal?.idInstance || user?.idInstance) && (user?.sucursal?.apiTokenInstance || user?.apiTokenInstance));
+    // Credenciales centralizadas en la plataforma: el backend resuelve idInstance/apiTokenInstance.
+    const hasWhatsApp = true;
     const reservasAfectadas = blockMode === 'times'
         ? reservasDelDia.filter(r => selectedTimes.includes(r?.hora))
         : reservasDelDia;

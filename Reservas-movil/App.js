@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider } from './src/context/AuthContext';
 import { AlertProvider } from './src/context/AlertContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import GlobalLoadingOverlay from './src/components/GlobalLoadingOverlay';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <AuthProvider>
             <StatusBar style="auto" />
             <RootNavigator />
+            <GlobalLoadingOverlay />
           </AuthProvider>
         </AlertProvider>
       </NavigationContainer>

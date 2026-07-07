@@ -2,6 +2,7 @@ import api from '../api/axios';
 
 export const PLACEHOLDERS = [
   { token: '{nombre}', descripcion: 'Nombre del paciente' },
+  { token: '{dia}', descripcion: 'Día de la semana de la cita' },
   { token: '{fecha}', descripcion: 'Fecha de la cita (DD-MM-YYYY)' },
   { token: '{hora}', descripcion: 'Hora de la cita (HH:mm)' },
   { token: '{servicio}', descripcion: 'Servicio agendado' },
@@ -29,6 +30,23 @@ export async function fetchConfirmationLink(reservaId) {
     return '';
   }
 }
+
+const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+const formatDia = (fecha) => {
+  try {
+    if (!fecha) return '';
+    if (typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}/.test(fecha)) {
+      const [y, m, d] = fecha.slice(0, 10).split('-').map(Number);
+      return DIAS_SEMANA[new Date(y, m - 1, d).getDay()] || '';
+    }
+    const dt = new Date(fecha);
+    if (Number.isNaN(dt.getTime())) return '';
+    return DIAS_SEMANA[dt.getDay()] || '';
+  } catch {
+    return '';
+  }
+};
 
 const formatFecha = (fecha) => {
   try {
@@ -61,6 +79,7 @@ export function buildWhatsAppMessage(template, reserva, link = '') {
 
   const map = {
     '{nombre}': reserva?.paciente?.nombre || '',
+    '{dia}': formatDia(reserva?.siguienteCita),
     '{fecha}': formatFecha(reserva?.siguienteCita),
     '{hora}': reserva?.hora || '',
     '{servicio}': reserva?.servicio || reserva?.tipoCita || '',

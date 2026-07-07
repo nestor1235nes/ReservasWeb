@@ -38,39 +38,44 @@ import { updateConfirmStatus as updateConfirmStatusApi, generateConfirmLink } fr
 import FullPageLoader from "../components/ui/FullPageLoader";
 
 const statusMap = {
-  confirmed: { color: "success", label: "Confirmada", icon: <CheckCircleIcon fontSize="small" /> },
-  pending: { color: "warning", label: "Pendiente", icon: <WarningAmberIcon fontSize="small" /> },
-  cancelled: { color: "error", label: "Cancelada", icon: <CancelIcon fontSize="small" /> },
-  reschedule_requested: { color: "info", label: "Solicitud Cambio", icon: <WarningAmberIcon fontSize="small" /> },
-  completed: { color: "success", label: "Completada", icon: <CheckCircleIcon fontSize="small" /> }
+  confirmed: { label: "Confirmada", icon: <CheckCircleIcon sx={{ fontSize: 15 }} />, bg: "rgba(22,163,74,0.10)", fg: "#15803d" },
+  pending: { label: "Pendiente", icon: <WarningAmberIcon sx={{ fontSize: 15 }} />, bg: "rgba(245,158,11,0.12)", fg: "#b26a00" },
+  cancelled: { label: "Cancelada", icon: <CancelIcon sx={{ fontSize: 15 }} />, bg: "rgba(211,47,47,0.10)", fg: "#d32f2f" },
+  reschedule_requested: { label: "Solicitud cambio", icon: <WarningAmberIcon sx={{ fontSize: 15 }} />, bg: "rgba(37,150,190,0.10)", fg: "#1b7d9c" },
+  completed: { label: "Completada", icon: <CheckCircleIcon sx={{ fontSize: 15 }} />, bg: "rgba(22,163,74,0.10)", fg: "#15803d" }
 };
 
 function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
-  console.log('Renderizando AppointmentCard para reserva:', reserva);
 
   const tipoAtencionValue = reserva.tipoAtencion || reserva.modalidad;
   const tipoAtencionIcon =
-    tipoAtencionValue === "Telemedicina" ? <VideocamIcon fontSize="small" sx={{ mr: 0.5 }} /> :
-    tipoAtencionValue === "Presencial" ? <PlaceIcon fontSize="small" sx={{ mr: 0.5 }} /> :
-    tipoAtencionValue === "Domicilio" ? <HomeWorkIcon fontSize="small" sx={{ mr: 0.5 }} /> : null;
+    tipoAtencionValue === "Telemedicina" ? <VideocamIcon sx={{ fontSize: 14 }} /> :
+    tipoAtencionValue === "Presencial" ? <PlaceIcon sx={{ fontSize: 14 }} /> :
+    tipoAtencionValue === "Domicilio" ? <HomeWorkIcon sx={{ fontSize: 14 }} /> : null;
 
   const estadoRaw = (reserva.confirmStatus || 'pending').toString().toLowerCase();
   const status = statusMap[estadoRaw] || statusMap.pending;
+
+  const modalidadLabel = reserva.tipoAtencion || reserva.modalidad || 'Sin modalidad';
+  const pillCyanTint = { display: 'inline-flex', alignItems: 'center', gap: 0.4, px: 1.1, py: 0.4, borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700, lineHeight: 1.5, bgcolor: 'rgba(37,150,190,0.10)', color: '#1b7d9c' };
+  const pillOutline = { display: 'inline-flex', alignItems: 'center', px: 1.1, py: 0.4, borderRadius: '999px', fontSize: '0.74rem', fontWeight: 600, lineHeight: 1.5, border: '1px solid #dbe6ec', color: '#546e7a', bgcolor: '#fff' };
 
   return (
     <Card
       variant="outlined"
       sx={{
         mb: 1.5,
+        borderRadius: 3,
+        border: '1px solid #e6eef2',
+        boxShadow: 'none',
         cursor: 'pointer',
-        transition: 'box-shadow 0.2s, border-color 0.2s, background 0.2s',
+        transition: 'box-shadow 0.2s, border-color 0.2s',
         '&:hover': {
-          boxShadow: 4,
-          borderColor: 'primary.main',
-          backgroundColor: 'rgba(37,150,190,0.08)',
+          boxShadow: '0 6px 20px rgba(37,150,190,0.10)',
+          borderColor: '#bfe3ef',
         },
       }}
       onClick={onClick}
@@ -78,15 +83,16 @@ function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
       <CardContent sx={{ display: 'flex', alignItems: 'flex-start', p: { xs: 1.5, sm: 2 } }}>
         <Box
           sx={{
-            bgcolor: "primary.light",
-            color: "primary.main",
-            borderRadius: "50%",
-            width: { xs: 40, sm: 48 },
-            height: { xs: 40, sm: 48 },
+            bgcolor: "rgba(37,150,190,0.10)",
+            color: "#2596be",
+            borderRadius: 2.5,
+            width: { xs: 42, sm: 48 },
+            height: { xs: 42, sm: 48 },
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            mr: { xs: 1.5, sm: 2 }
+            mr: { xs: 1.5, sm: 2 },
+            flexShrink: 0,
           }}
         >
           <AccessTimeIcon />
@@ -94,48 +100,27 @@ function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
         <Box flex={1} minWidth={0}>
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }} gap={1}>
             <Box>
-              <Typography fontWeight={600}>
+              <Typography sx={{ fontWeight: 700, color: '#143b46', fontSize: '1.05rem' }}>
                 {reserva.hora} - {dayjs(reserva.hora, "HH:mm").add(30, "minute").format("HH:mm")}
               </Typography>
-              <Stack direction="row" spacing={1} mt={0.5} sx={{ flexWrap: 'wrap' }}>
-                <Chip
-                  label={reserva.tipoCita || "Consulta"}
-                  size="small"
-                  variant="outlined"
-                  color="primary"
-                />
-                <Chip
-                  icon={tipoAtencionIcon}
-                  label={reserva.tipoAtencion || reserva.modalidad || 'Desconocida'}
-                  size="small"
-                  variant="outlined"
-                  color="info"
-                />
-                {/* Mostrar modalidad si existe como chip adicional */}
-                {reserva.modalidad && reserva.modalidad !== reserva.tipoAtencion && (
-                  <Chip
-                    label={reserva.modalidad}
-                    size="small"
-                    variant="outlined"
-                    color="secondary"
-                  />
-                )}
+              <Stack direction="row" mt={0.75} sx={{ flexWrap: 'wrap', gap: 0.75 }}>
+                <Box component="span" sx={pillOutline}>{reserva.tipoCita || "Consulta"}</Box>
+                <Box component="span" sx={pillCyanTint}>
+                  {tipoAtencionIcon}{modalidadLabel}
+                </Box>
               </Stack>
             </Box>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' } }}>
-              <Chip
-                icon={status.icon}
-                label={status.label}
-                color={status.color}
-                size="small"
-                sx={{ fontWeight: 600 }}
-              />
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' } }}>
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.5, borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700, bgcolor: status.bg, color: status.fg }}>
+                {status.icon}{status.label}
+              </Box>
               {/* Menu para cambiar estado */}
               <IconButton
                 size="small"
                 onClick={(e) => { e.stopPropagation(); handleMenuOpen(e); }}
                 aria-controls={anchorEl ? 'estado-menu' : undefined}
                 aria-haspopup="true"
+                sx={{ color: '#90a4ae', '&:hover': { color: '#2596be', bgcolor: 'rgba(37,150,190,0.08)' } }}
               >
                 <MoreVertIcon fontSize="small" />
               </IconButton>
@@ -154,12 +139,12 @@ function AppointmentCard({ reserva, onClick, onChangeEstado, onCopyLink }) {
               </Menu>
             </Stack>
           </Stack>
-          <Stack direction="row" alignItems="center" mt={2}>
-            <Avatar sx={{ width: 32, height: 32, mr: 1 }}>
+          <Stack direction="row" alignItems="center" mt={2} sx={{ pt: 2, borderTop: '1px solid #f1f5f7' }}>
+            <Avatar sx={{ width: 36, height: 36, mr: 1.25, bgcolor: 'rgba(37,150,190,0.12)', color: '#1b7d9c', fontWeight: 700, fontSize: '0.95rem', textTransform: 'uppercase' }}>
               {reserva.paciente?.nombre?.[0] || "?"}
             </Avatar>
             <Box minWidth={0}>
-              <Typography variant="body2" fontWeight={500}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: '#37474f' }}>
                 {reserva.paciente?.nombre}
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: { xs: '68vw', sm: '40vw' } }}>
@@ -326,14 +311,21 @@ export default function TodayPage() {
               sx={{ pb: 0 }}
               title={null}
           />
-          <Box sx={{ width: '100%', mt:-2, backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0', overflowX: 'auto' }}>
+          <Box sx={{ width: '100%', mt:-2, backgroundColor: '#ffffff', borderBottom: '1px solid #e6eef2', overflowX: 'auto' }}>
               <Tabs
                 value={tab}
                 onChange={(_, v) => setTab(v)}
                 variant={isMobile ? 'scrollable' : 'standard'}
                 scrollButtons={isMobile ? 'auto' : false}
                 aria-label="tabs"
-                sx={{ width: '100%', maxWidth: '100%' }}
+                textColor="primary"
+                indicatorColor="primary"
+                sx={{
+                  width: '100%',
+                  maxWidth: '100%',
+                  '& .MuiTabs-indicator': { height: 3, borderRadius: '3px 3px 0 0', backgroundColor: '#2596be' },
+                  '& .MuiTab-root': { fontWeight: 600, letterSpacing: '0.3px', color: '#7c93a0', '&.Mui-selected': { color: '#1b7d9c' } },
+                }}
               >
                 <Tab label="Todas" />
                 <Tab label="Confirmadas" />
@@ -343,7 +335,7 @@ export default function TodayPage() {
           </Box>
           <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" mb={1} mt={2}>
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#90a4ae', mb: 1.5, mt: 2 }}>
                 Mañana
               </Typography>
               {morning.length === 0 ? (
@@ -357,7 +349,7 @@ export default function TodayPage() {
               )}
             </Box>
             <Box mt={3}>
-              <Typography variant="subtitle2" color="text.secondary" mb={1}>
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#90a4ae', mb: 1.5 }}>
                 Tarde
               </Typography>
               {afternoon.length === 0 ? (

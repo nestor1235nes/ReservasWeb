@@ -1,8 +1,8 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
-import { ActivityIndicator, View } from 'react-native';
-import { colors } from '../theme';
+import { View } from 'react-native';
+import VitalinkLoader from '../components/VitalinkLoader';
 
 // Screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -16,8 +16,8 @@ const RootNavigator = () => {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <VitalinkLoader />
       </View>
     );
   }

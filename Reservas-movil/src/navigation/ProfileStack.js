@@ -8,6 +8,14 @@ import ServiceFormScreen from '../screens/profile/ServiceFormScreen';
 import TimetableScreen from '../screens/profile/TimetableScreen';
 import EditTimetableBlockScreen from '../screens/profile/EditTimetableBlockScreen';
 import PrivacySecurityScreen from '../screens/profile/PrivacySecurityScreen';
+import MessageTemplatesScreen from '../screens/profile/MessageTemplatesScreen';
+import MyLinkScreen from '../screens/profile/MyLinkScreen';
+import SucursalConfigScreen from '../screens/empresa/SucursalConfigScreen';
+import SucursalLinkScreen from '../screens/empresa/SucursalLinkScreen';
+import BoxesScreen from '../screens/empresa/BoxesScreen';
+import BoxFormScreen from '../screens/empresa/BoxFormScreen';
+import BoxAgendaScreen from '../screens/empresa/BoxAgendaScreen';
+import BoxOcupacionFormScreen from '../screens/empresa/BoxOcupacionFormScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -43,6 +51,50 @@ export default function ProfileStack() {
         name="PrivacySecurity"
         component={PrivacySecurityScreen}
         options={{ title: 'Privacidad y seguridad' }}
+      />
+      <Stack.Screen
+        name="MessageTemplates"
+        component={MessageTemplatesScreen}
+        options={{ title: 'Mensajes automáticos' }}
+      />
+      <Stack.Screen
+        name="MyLink"
+        component={MyLinkScreen}
+        options={{ title: 'Mi enlace' }}
+      />
+      <Stack.Screen
+        name="SucursalConfig"
+        component={SucursalConfigScreen}
+        options={{ title: 'Configuración de empresa' }}
+      />
+      <Stack.Screen
+        name="SucursalLink"
+        component={SucursalLinkScreen}
+        options={{ title: 'Enlace de empresa' }}
+      />
+      <Stack.Screen
+        name="Boxes"
+        component={BoxesScreen}
+        options={{ title: 'Boxes' }}
+      />
+      <Stack.Screen
+        name="BoxForm"
+        component={BoxFormScreen}
+        options={({ route }) => ({
+          title: route.params?.mode === 'edit' ? 'Editar Box' : 'Nuevo Box',
+        })}
+      />
+      <Stack.Screen
+        name="BoxAgenda"
+        component={BoxAgendaScreen}
+        options={{ title: 'Agenda del box' }}
+      />
+      <Stack.Screen
+        name="BoxOcupacionForm"
+        component={BoxOcupacionFormScreen}
+        options={({ route }) => ({
+          title: route.params?.mode === 'edit' ? 'Editar reserva' : 'Reservar box',
+        })}
       />
       <Stack.Screen
         name="ServiceForm"

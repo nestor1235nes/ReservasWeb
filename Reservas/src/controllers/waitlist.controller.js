@@ -71,18 +71,31 @@ const formatFecha = (fecha) => {
     } catch { return ''; }
 };
 
+// ¿Suscripción vigente? (igual criterio que subscription.controller)
+const hasActiveSubscription = (end) => !!end && new Date(end) > new Date();
+
 // Verificar si un profesional tiene lista de espera habilitada
 const checkWaitlistEnabled = async (profesionalId) => {
-    const profesional = await User.findById(profesionalId).populate('suscriptionPlan');
+    const profesional = await User.findById(profesionalId)
+        .populate('suscriptionPlan')
+        .populate({ path: 'sucursal', populate: { path: 'suscriptionPlan' } });
     if (!profesional) return { enabled: false, reason: 'professional_not_found' };
-    
+
+    // Resolver el plan EFECTIVO: individual (USER) o de la empresa (SUCURSAL),
+    // siempre que la suscripción correspondiente esté vigente.
+    let planName = null;
+    if (profesional.suscriptionPlan && hasActiveSubscription(profesional.suscriptionEndDate)) {
+        planName = profesional.suscriptionPlan?.name;
+    } else if (profesional.sucursal?.suscriptionPlan && hasActiveSubscription(profesional.sucursal?.suscriptionEndDate)) {
+        planName = profesional.sucursal?.suscriptionPlan?.name;
+    }
+
     // Verificar suscripción Standard o Teams
-    const planName = profesional.suscriptionPlan?.name;
     const isValidPlan = planName === 'Standard' || planName === 'Teams';
-    
+
     if (!isValidPlan) return { enabled: false, reason: 'plan_not_allowed' };
     if (!profesional.waitlistEnabled) return { enabled: false, reason: 'waitlist_disabled' };
-    
+
     return { enabled: true, profesional };
 };
 

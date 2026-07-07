@@ -3,10 +3,11 @@ import Reserva from '../models/ficha.model.js';
 import { FRONTEND_URL } from '../config.js';
 import { processCancelledAppointment } from './waitlist.controller.js';
 import { cancelarRecordatoriosDeReserva, omitirRecordatoriosPorConfirmacion } from './reminder.controller.js';
-import { 
-  createCancelledAppointmentNotification, 
-  createConfirmedAppointmentNotification 
+import {
+  createCancelledAppointmentNotification,
+  createConfirmedAppointmentNotification
 } from './notification.controller.js';
+import { canManageReserva } from '../libs/reservaAccess.js';
 // Email sending disabled: confirmation links are shared via WhatsApp only
 
 const TOKEN_BYTES = 24; // 32 chars aprox en base64url
@@ -20,6 +21,9 @@ export const generateConfirmationLink = async (req, res) => {
     const { id } = req.params; // id de la reserva
     const reserva = await Reserva.findById(id).populate('paciente').populate('profesional');
     if (!reserva) return res.status(404).json({ message: 'Reserva no encontrada' });
+    if (!(await canManageReserva(req.user?.id, reserva))) {
+      return res.status(403).json({ message: 'No autorizado para esta reserva' });
+    }
 
     // Generar nuevo token
     const raw = base64UrlEncode(crypto.randomBytes(TOKEN_BYTES));
@@ -156,6 +160,9 @@ export const resendLink = async (req, res) => {
     const { id } = req.params;
     const reserva = await Reserva.findById(id);
     if (!reserva) return res.status(404).json({ message: 'Reserva no encontrada' });
+    if (!(await canManageReserva(req.user?.id, reserva))) {
+      return res.status(403).json({ message: 'No autorizado para esta reserva' });
+    }
     if (!reserva.confirmTokenHash || !reserva.confirmTokenExpires || reserva.confirmTokenExpires < new Date()) {
       // regenerar
       const raw = base64UrlEncode(crypto.randomBytes(TOKEN_BYTES));
@@ -186,7 +193,10 @@ export const updateConfirmStatus = async (req, res) => {
     }
     const reserva = await Reserva.findById(id);
     if (!reserva) return res.status(404).json({ message: 'Reserva no encontrada' });
-    
+    if (!(await canManageReserva(req.user?.id, reserva))) {
+      return res.status(403).json({ message: 'No autorizado para esta reserva' });
+    }
+
     const previousStatus = reserva.confirmStatus;
     reserva.confirmStatus = status;
     

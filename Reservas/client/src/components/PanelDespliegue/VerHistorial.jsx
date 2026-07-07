@@ -12,6 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import '../ui/VerDetalles.css';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
@@ -319,7 +320,7 @@ const VerHistorial = ({ open, onClose, paciente, profesionalId, initialClinicalC
             </Box>
             <Box display="flex" flexDirection="column" p={0} minHeight={'25pc'} maxHeight={'25pc'} flexGrow={1} backgroundColor="white" borderRadius={1} boxShadow={5} m={1} overflow={"auto"}>
               <ReactQuill
-                value={selectedSesion.notas}
+                value={sanitizeHtml(selectedSesion.notas)}
                 readOnly={true}
                 theme="bubble"
               />
@@ -439,7 +440,7 @@ const VerHistorial = ({ open, onClose, paciente, profesionalId, initialClinicalC
                   }}
                 >
                   <ReactQuill
-                    value={selectedCase?.anamnesis || 'Sin información registrada'}
+                    value={sanitizeHtml(selectedCase?.anamnesis || 'Sin información registrada')}
                     readOnly={true}
                     theme="bubble"
                   />

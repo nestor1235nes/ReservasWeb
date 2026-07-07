@@ -3,27 +3,21 @@
 export const DEFAULT_MESSAGE_TEMPLATES = {
   reminders: {
     registroInformativo:
-      `Hola {nombre}, su cita ha sido registrada exitosamente para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
-      `Se le enviará un recordatorio 48 horas antes de su cita para confirmar su asistencia.\n\n` +
+      `Hola {nombre}, hemos agendado su cita para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+      `Le enviaremos un mensaje para recordarle y confirmar su asistencia 24 horas antes de su cita.\n\n` +
       `Gracias por su preferencia.`,
 
     registroConfirmacion:
-      `Hola {nombre}, su cita ha sido registrada para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+      `Hola {nombre}, gracias por agendar su cita para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
       `Por favor, confirme su asistencia a través del siguiente enlace:\n` +
       `{enlaceConfirmacion}\n\n` +
       `Gracias por su preferencia.`,
 
-    recordatorio48h:
-      `Hola {nombre}, le recordamos que tiene una cita programada para el {dia} {fecha} a las {hora} con {profesional}.\n\n` +
+    recordatorio24h:
+      `Hola {nombre}, le recordamos que tiene una cita MAÑANA a las {hora} con {profesional}.\n\n` +
       `Por favor, confirme su asistencia a través del siguiente enlace:\n` +
       `{enlaceConfirmacion}\n\n` +
       `Si no puede asistir, le agradecemos cancelar su cita para liberar el espacio a otro paciente.`,
-
-    recordatorio24h:
-      `Hola {nombre}, le recordamos que MAÑANA tiene una cita a las {hora} con {profesional}.\n\n` +
-      `Su cita aún no ha sido confirmada. Por favor, confirme su asistencia:\n` +
-      `{enlaceConfirmacion}\n\n` +
-      `Si no puede asistir, le agradecemos cancelar su cita.`,
   },
 
   waitlist: {

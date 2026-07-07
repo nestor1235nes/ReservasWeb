@@ -50,13 +50,20 @@ export async function resolveWhatsAppCredentialsForUser(user) {
   const sucursalId = user?.sucursal?._id || user?.sucursal || null;
   if (sucursalId) {
     const sucursal = await Sucursal.findById(sucursalId);
+
+    // Si la sucursal tiene credenciales Green API propias, se envía desde SU número.
+    // Si no, se usa el número centralizado de la plataforma (comportamiento por defecto).
+    const sucIdInstance = (sucursal?.idInstance || '').trim();
+    const sucToken = (sucursal?.apiTokenInstance || '').trim();
+    const usaPropias = !!(sucIdInstance && sucToken);
+
     return {
       source: 'SUCURSAL',
-      idInstance: platform?.idInstance || null,
-      apiTokenInstance: platform?.apiTokenInstance || null,
+      idInstance: usaPropias ? sucIdInstance : (platform?.idInstance || null),
+      apiTokenInstance: usaPropias ? sucToken : (platform?.apiTokenInstance || null),
       defaultMessage: sucursal?.defaultMessage || null,
       reminderMessage: sucursal?.reminderMessage || null,
-      credentialsSource: platform?.source || null,
+      credentialsSource: usaPropias ? 'SUCURSAL_OWN' : (platform?.source || null),
       sucursal,
     };
   }

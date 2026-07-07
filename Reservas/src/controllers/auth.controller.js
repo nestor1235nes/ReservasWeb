@@ -11,8 +11,13 @@ const client = new OAuth2Client(CLIENT_ID);
 const sanitizeUser = (userDoc) => {
   if (!userDoc) return null;
   const u = userDoc.toObject ? userDoc.toObject() : userDoc;
-  // Nunca exponer password hash
+  // Nunca exponer credenciales/secretos al cliente
   delete u.password;
+  delete u.idInstance;
+  delete u.apiTokenInstance;
+  delete u.__v;
+  // Exponer siempre `id` además de `_id` (el frontend usa user.id)
+  if (u._id && u.id === undefined) u.id = u._id;
   return u;
 };
 
@@ -144,12 +149,7 @@ export const googleAuth = async (req, res) => {
       path: '/',
     });
 
-    res.json({
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      token: accessToken,
-    });
+    res.json({ ...sanitizeUser(user), token: accessToken });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -247,34 +247,8 @@ export const register = async (req, res) => {
       path: '/',
     });
 
-    res.json({
-      id: userSaved._id,
-      username: userSaved.username,
-      email: userSaved.email,
-      celular: userSaved.celular,
-      fotoPerfil: userSaved.fotoPerfil,
-      especialidad: userSaved.especialidad,
-      especialidad_principal: userSaved.especialidad_principal,
-      experiencia: userSaved.experiencia,
-      descripcion: userSaved.descripcion,
-      timetable: userSaved.timetable,
-      sucursal: userSaved.sucursal,
-      cita_presencial: userSaved.cita_presencial,
-      cita_virtual: userSaved.cita_virtual,
-      cita_domicilio: userSaved.cita_domicilio,
-      servicios: userSaved.servicios,
-      notifications: userSaved.notifications,
-      defaultMessage: userSaved.defaultMessage,
-      reminderMessage: userSaved.reminderMessage,
-      direccion: userSaved.direccion,
-      pacientes: userSaved.pacientes,
-      adminAtiendePersonas: userSaved.adminAtiendePersonas,
-      miEnlace: userSaved.miEnlace,
-      bookingTemplate: userSaved.bookingTemplate,
-      googleEmail: userSaved.googleEmail,
-      token,
-      googleEmail: userSaved.googleEmail,
-    });
+    // Devolver el usuario completo (sin secretos) para no omitir campos del modelo.
+    res.json({ ...sanitizeUser(userSaved), token });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -344,44 +318,20 @@ export const login = async (req, res) => {
       path: '/',
     });
 
-    res.json({
-      id: userFound._id,
-      username: userFound.username,
-      email: userFound.email,
-      celular: userFound.celular,
-      fotoPerfil: userFound.fotoPerfil,
-      especialidad: userFound.especialidad,
-      especialidad_principal: userFound.especialidad_principal,
-      experiencia: userFound.experiencia,
-      descripcion: userFound.descripcion,
-      timetable: userFound.timetable,
-      sucursal: userFound.sucursal,
-      cita_presencial: userFound.cita_presencial,
-      cita_virtual: userFound.cita_virtual,
-      cita_domicilio: userFound.cita_domicilio,
-      servicios: userFound.servicios,
-      notifications: userFound.notifications,
-      defaultMessage: userFound.defaultMessage,
-      reminderMessage: userFound.reminderMessage,
-      direccion: userFound.direccion,
-      googleMaps: userFound.googleMaps,
-      maps: userFound.maps,
-      pacientes: userFound.pacientes,
-      adminAtiendePersonas: userFound.adminAtiendePersonas,
-      miEnlace: userFound.miEnlace,
-      bookingTemplate: userFound.bookingTemplate,
-  googleEmail: userFound.googleEmail,
-      token,
-      googleEmail: userFound.googleEmail,
-
-    });
+    // Devolver el usuario completo (sin secretos) para no omitir campos del modelo.
+    res.json({ ...sanitizeUser(userFound), token });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
 };
 
 export const verifyToken = async (req, res) => {
-  const { token } = req.cookies;
+  // Cookie httpOnly (web) o Authorization: Bearer (app móvil / fallback web).
+  let token = req.cookies?.token;
+  if (!token && req.headers?.authorization) {
+    const authHeader = String(req.headers.authorization);
+    if (authHeader.toLowerCase().startsWith('bearer ')) token = authHeader.slice(7);
+  }
   if (!token) return res.send(false);
 
   jwt.verify(token, TOKEN_SECRET, async (error, user) => {
@@ -390,35 +340,8 @@ export const verifyToken = async (req, res) => {
     const userFound = await User.findById(user.id).populate('sucursal');
     if (!userFound) return res.sendStatus(401);
 
-    return res.json({
-      id: userFound._id,
-      username: userFound.username,
-      email: userFound.email,
-      celular: userFound.celular,
-      fotoPerfil: userFound.fotoPerfil,
-      especialidad: userFound.especialidad,
-      especialidad_principal: userFound.especialidad_principal,
-      experiencia: userFound.experiencia,
-      descripcion: userFound.descripcion,
-      timetable: userFound.timetable,
-      sucursal: userFound.sucursal,
-      cita_presencial: userFound.cita_presencial,
-      cita_virtual: userFound.cita_virtual,
-      cita_domicilio: userFound.cita_domicilio,
-      servicios: userFound.servicios,
-      notifications: userFound.notifications,
-      defaultMessage: userFound.defaultMessage,
-      reminderMessage: userFound.reminderMessage,
-      messageTemplates: userFound.messageTemplates,
-      direccion: userFound.direccion,
-      googleMaps: userFound.googleMaps,
-      maps: userFound.maps,
-      pacientes: userFound.pacientes,
-      adminAtiendePersonas: userFound.adminAtiendePersonas,
-      miEnlace: userFound.miEnlace,
-      bookingTemplate: userFound.bookingTemplate,
-      googleEmail: userFound.googleEmail,
-    });
+    // Devolver el usuario completo (sin secretos) para no omitir campos del modelo.
+    return res.json(sanitizeUser(userFound));
   });
 };
 
@@ -491,7 +414,7 @@ export const updatePerfil = async (req, res) => {
     }
 
     const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('sucursal');
-    res.json(updated);
+    res.json(sanitizeUser(updated));
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -512,7 +435,7 @@ export const deleteBloqueHorario = async (req, res) => {
     
     user.timetable.splice(index, 1);
     const updatedUser = await user.save();
-    res.json(updatedUser);
+    res.json(sanitizeUser(updatedUser));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -536,7 +459,7 @@ export const addServicio = async (req, res) => {
 
     user.servicios.push(nuevoServicio);
     const updatedUser = await user.save();
-    res.json(updatedUser);
+    res.json(sanitizeUser(updatedUser));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -557,7 +480,7 @@ export const deleteServicio = async (req, res) => {
     
     user.servicios.splice(index, 1);
     const updatedUser = await user.save();
-    res.json(updatedUser);
+    res.json(sanitizeUser(updatedUser));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -588,7 +511,7 @@ export const updateServicio = async (req, res) => {
     };
 
     const updatedUser = await user.save();
-    res.json(updatedUser);
+    res.json(sanitizeUser(updatedUser));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -601,7 +524,7 @@ export const updateNotifications = async (req, res) => {
       { $push: { notifications: req.body.data } }, 
       { new: true }
     );
-    res.json(updated);
+    res.json(sanitizeUser(updated));
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -614,7 +537,7 @@ export const deleteNotifications = async (req, res) => {
       { notifications: [] }, 
       { new: true }
     );
-    res.json(updated);
+    res.json(sanitizeUser(updated));
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -667,7 +590,7 @@ export const getAllProfiles = async (req, res) => {
       return false;
     });
 
-    res.status(200).json(filtrados);
+    res.status(200).json(filtrados.map(sanitizeUser));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -677,7 +600,7 @@ export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).populate('sucursal');
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
+    res.json(sanitizeUser(user));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -691,7 +614,7 @@ export const updateConfiguracion = async (req, res) => {
       { cita_presencial, cita_virtual, cita_domicilio },
       { new: true }
     );
-    res.json(updated);
+    res.json(sanitizeUser(updated));
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -760,7 +683,7 @@ export const getBySlug = async (req, res) => {
       }
     ]);
     if (!user) return res.status(404).json({ message: 'No encontrado' });
-    res.json(user);
+    res.json(sanitizeUser(user));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

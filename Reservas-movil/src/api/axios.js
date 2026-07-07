@@ -1,7 +1,22 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
+import { loadingBus } from '../utils/loadingBus';
 
 const DEFAULT_TIMEOUT_MS = 15000;
+
+// Overlay global de carga: se muestra automáticamente en métodos mutantes.
+// Umbral de 250ms para no parpadear en requests rápidos.
+// Opt-out por llamada: { skipLoader: true }; texto propio: { loaderMessage: '...' }.
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const LOADER_DELAY_MS = 250;
+
+// Handler opcional para cerrar la sesión globalmente cuando el backend responde 401.
+// Lo registra AuthContext; permite que la capa de red (fuera de React) avise a la UI
+// para que el RootNavigator redirija a Login y no quede una "sesión zombie".
+let unauthorizedHandler = null;
+export const setUnauthorizedHandler = (fn) => {
+  unauthorizedHandler = typeof fn === 'function' ? fn : null;
+};
 
 const encodeQuery = (params) => {
   if (!params || typeof params !== 'object') return '';
@@ -31,6 +46,20 @@ const parseBody = async (response) => {
 
 const request = async (method, path, data, config = {}) => {
   const timeoutMs = config.timeout ?? DEFAULT_TIMEOUT_MS;
+
+  let loaderTimer = null;
+  let loaderShown = false;
+  if (MUTATING_METHODS.has(method) && !config.skipLoader) {
+    loaderTimer = setTimeout(() => {
+      loaderShown = true;
+      loadingBus.inc(config.loaderMessage);
+    }, LOADER_DELAY_MS);
+  }
+  const releaseLoader = () => {
+    if (loaderTimer) clearTimeout(loaderTimer);
+    if (loaderShown) loadingBus.dec();
+  };
+
   const token = await SecureStore.getItemAsync('auth_token').catch(() => null);
 
   const headers = {
@@ -63,6 +92,10 @@ const request = async (method, path, data, config = {}) => {
     if (!response.ok) {
       if (response.status === 401) {
         await SecureStore.deleteItemAsync('auth_token').catch(() => null);
+        // Notificar a la app para cerrar sesión y volver a Login (evita sesión zombie).
+        if (unauthorizedHandler) {
+          try { unauthorizedHandler(); } catch { /* noop */ }
+        }
       }
       const error = new Error(
         (responseData && typeof responseData === 'object' && responseData.message) || `HTTP ${response.status}`
@@ -78,6 +111,8 @@ const request = async (method, path, data, config = {}) => {
       error.__where = `api ${method} ${url}`;
     }
     throw error;
+  } finally {
+    releaseLoader();
   }
 };
 
@@ -85,6 +120,7 @@ const api = {
   get: (path, config) => request('GET', path, undefined, config),
   post: (path, data, config) => request('POST', path, data, config),
   put: (path, data, config) => request('PUT', path, data, config),
+  patch: (path, data, config) => request('PATCH', path, data, config),
   delete: (path, config) => request('DELETE', path, undefined, config),
 };
 

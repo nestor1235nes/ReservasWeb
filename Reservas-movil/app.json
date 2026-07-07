@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1976d2"
+      "backgroundColor": "#2596be"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -22,12 +22,12 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-foreground.png",
-        "backgroundColor": "#1976d2"
+        "backgroundColor": "#2596be"
       },
       "splash": {
         "image": "./assets/splash.png",
         "resizeMode": "contain",
-        "backgroundColor": "#1976d2"
+        "backgroundColor": "#2596be"
       },
       "package": "com.tuempresa.reservas"
     },

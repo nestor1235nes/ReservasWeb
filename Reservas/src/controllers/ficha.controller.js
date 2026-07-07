@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { FRONTEND_URL } from "../config.js";
 import { resolveWhatsAppCredentialsForUser } from '../libs/whatsappCredentials.js';
-import { cancelarRecordatoriosDeReserva, programarRecordatorios } from './reminder.controller.js';
+import { cancelarRecordatoriosDeReserva, programarRecordatorios, enviarMensajeRegistroInmediato } from './reminder.controller.js';
 import { createNewAppointmentNotification } from './notification.controller.js';
 
 // Función helper para normalizar el teléfono al formato 569XXXXXXXX
@@ -737,29 +737,25 @@ export const createReserva = async (req, res) => {
                     return res.status(409).json({ message: `No hay cupos disponibles para la hora ${horaValue}.` });
                 }
 
-                // Validar conflictos de tiempo considerando duraciones de servicios e intervalo
+                // Validar sobrecupo considerando duraciones de servicios.
                 const existingReservasForDay = await Reserva.find({
                     profesional: profesionalId,
                     siguienteCita: { $gte: range.start, $lte: range.end },
                     confirmStatus: { $ne: 'cancelled' },
                 }).select('hora servicio');
-                
-                if (reservaExistente?._id) {
-                    // Excluir la reserva actual al verificar conflictos (re-agendamiento)
-                    existingReservasForDay = existingReservasForDay.filter(r => !r._id.equals(reservaExistente._id));
-                }
 
-                // Obtener intervalo del timetable (default 30 min)
-                const timetable = profesionalDoc?.timetable || [];
-                const defaultInterval = timetable.length > 0 ? (timetable[0]?.interval || 30) : 30;
+                // Excluir la reserva actual si es re-agendamiento.
+                const filteredReservas = reservaExistente?._id
+                    ? existingReservasForDay.filter(r => !r._id.equals(reservaExistente._id))
+                    : existingReservasForDay;
 
-                // Verificar si hay conflicto
+                // Verificar sobrecupo: contar cuántas citas se solapan simultáneamente.
                 const startTimeInMinutes = timeToMinutes(horaValue);
                 const serviceTipo = req.body.servicio || 'Consulta';
-                const hasConflict = checkTimeConflict(startTimeInMinutes, serviceTipo, defaultInterval, existingReservasForDay, profesionalDoc?.servicios || []);
+                const hasOverbooking = checkOverbooking(startTimeInMinutes, serviceTipo, capacity, filteredReservas, profesionalDoc?.servicios || []);
 
-                if (hasConflict) {
-                    return res.status(409).json({ message: `No hay disponibilidad a las ${horaValue} considerando la duración del servicio y el intervalo entre citas.` });
+                if (hasOverbooking) {
+                    return res.status(409).json({ message: `No hay disponibilidad a las ${horaValue} considerando la duración del servicio. Todos los cupos están ocupados en ese horario.` });
                 }
             }
         }
@@ -932,6 +928,22 @@ export const createReserva = async (req, res) => {
                     }
                 } catch (e) {
                     console.warn('Error programando recordatorios (createReserva):', e?.message || e);
+                }
+
+                // Enviar de inmediato el mensaje de registro (informativo si >=24h, confirmación si <24h)
+                try {
+                    if (nuevaReserva.siguienteCita && nuevaReserva.hora) {
+                        const profesionalDoc = await User.findById(profesionalId);
+                        const pacienteCompleto = await Paciente.findById(paciente._id);
+                        const rMsg = await enviarMensajeRegistroInmediato(nuevaReserva, profesionalDoc, pacienteCompleto);
+                        if (rMsg.ok) {
+                            console.log('Mensaje inmediato de registro enviado (createReserva):', rMsg.tipo);
+                        } else {
+                            console.warn('No se pudo enviar mensaje inmediato de registro (createReserva):', rMsg);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Error enviando mensaje inmediato de registro (createReserva):', e?.message || e);
                 }
 
                 // Crear notificación de nueva cita para el profesional
@@ -1734,6 +1746,22 @@ export const publicCreateReserva = async (req, res) => {
                     }
                 } catch (e) {
                     console.warn('Error programando recordatorios (publicCreateReserva):', e?.message || e);
+                }
+
+                // Enviar de inmediato el mensaje de registro (informativo si >=24h, confirmación si <24h)
+                try {
+                    if (nuevaReserva.siguienteCita && nuevaReserva.hora) {
+                        const profesionalDoc = await User.findById(profesionalId);
+                        const pacienteCompleto = await Paciente.findById(paciente._id);
+                        const rMsg = await enviarMensajeRegistroInmediato(nuevaReserva, profesionalDoc, pacienteCompleto);
+                        if (rMsg.ok) {
+                            console.log('Mensaje inmediato de registro enviado (public):', rMsg.tipo);
+                        } else {
+                            console.warn('No se pudo enviar mensaje inmediato de registro (public):', rMsg);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Error enviando mensaje inmediato de registro (publicCreateReserva):', e?.message || e);
                 }
 
                 // Crear notificación de nueva cita para el profesional (flujo público)

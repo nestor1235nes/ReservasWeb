@@ -1,12 +1,22 @@
-export const PORT = process.env.PORT || 5000;
-export const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/mern-tasks";
-export const TOKEN_SECRET = process.env.TOKEN_SECRET || "secret";
+// Configuración central de la aplicación.
+//
+// Los valores se leen desde variables de entorno validadas en env.js.
+// NUNCA agregues credenciales reales aquí: deben vivir en el archivo .env
+// (ignorado por git) en desarrollo, o en las variables de entorno del
+// proveedor de hosting (Cloud Run) en producción. Ver .env.template.
+import { env } from "./env.js";
 
-export const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+export const PORT = env.PORT;
+export const MONGODB_URI = env.MONGODB_URI;
+export const TOKEN_SECRET = env.TOKEN_SECRET;
+export const FRONTEND_URL = env.FRONTEND_URL;
 
-// OAuth client used by frontend; backend uses this only to validate Google ID tokens
-export const CLIENT_ID = process.env.CLIENT_ID || "738093538653-biv296rpnonvgfgpsg5033ediogqg5nd.apps.googleusercontent.com";
+// Google OAuth Client ID. Identificador PÚBLICO (se expone en el navegador).
+// env.js conserva el valor actual como respaldo, de modo que el login con
+// Google sigue funcionando aunque no se defina la variable de entorno.
+export const CLIENT_ID = env.CLIENT_ID;
 
-// Daily.co API key (store in env for production). Do NOT commit secrets to source control.
-export const DAILY_API_KEY = process.env.DAILY_API_KEY || "19cd1936a0d5cb810630a0637372e6d695ea4ec2954599e3e8290ca31cb15fcc";
+// Daily.co API key — SECRETO. Debe provenir siempre del entorno.
+// Si falta, los endpoints de telemedicina responden con un error controlado
+// (ver daily.controller.js) en lugar de tumbar el servidor.
+export const DAILY_API_KEY = env.DAILY_API_KEY;
