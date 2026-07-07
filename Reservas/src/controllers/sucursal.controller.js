@@ -320,8 +320,31 @@ export const agregarProfesional = async (req, res) => {
     try {
         const { id } = req.params; // id de la sucursal
         const { profesionalId } = req.body; // id del usuario profesional
-        const sucursal = await Sucursal.findById(id);
+        const sucursal = await Sucursal.findById(id).populate('suscriptionPlan');
         if (!sucursal) return res.status(404).json({ message: "Sucursal no encontrada" });
+
+        // Validación de cupo (plan Teams): el cupo contratado cuenta SOLO
+        // profesionales. Un administrador que activa "atiende personas" también
+        // pasa por aquí, pero NO consume cupo (su cupo es el de admin).
+        const adminIds = new Set((sucursal.administradores || []).map((a) => String(a)));
+        const esAdminDeLaSucursal = adminIds.has(String(profesionalId));
+        const planTeamsActivo =
+            sucursal.suscriptionPlan?.name === 'Teams' &&
+            !!sucursal.suscriptionEndDate &&
+            new Date(sucursal.suscriptionEndDate) > new Date();
+
+        if (!esAdminDeLaSucursal && planTeamsActivo) {
+            const contratados = sucursal.teamConfig?.cantidadProfessionals || 0;
+            const profesionalesPuros = (sucursal.profesionales || []).filter(
+                (p) => !adminIds.has(String(p))
+            );
+            const yaEsta = profesionalesPuros.some((p) => String(p) === String(profesionalId));
+            if (!yaEsta && profesionalesPuros.length >= contratados) {
+                return res.status(400).json({
+                    message: `No puedes añadir más profesionales. Cupos contratados: ${profesionalesPuros.length}/${contratados}.`,
+                });
+            }
+        }
 
         if (!sucursal.profesionales.includes(profesionalId)) {
             sucursal.profesionales.push(profesionalId);
@@ -330,7 +353,7 @@ export const agregarProfesional = async (req, res) => {
         // Actualiza el campo sucursal del usuario profesional
         await User.findByIdAndUpdate(profesionalId, { sucursal: id });
 
-        res.status(200).json(sucursal);
+        res.status(200).json(sanitizeSucursal(sucursal));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

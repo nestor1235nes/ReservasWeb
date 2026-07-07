@@ -102,6 +102,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   // Estados existentes
   const [editSection, setEditSection] = useState(null);
   const [editableFields, setEditableFields] = useState({
+    nombre: event?.paciente?.nombre || '',
     email: event?.paciente?.email || '',
     telefono: event?.paciente?.telefono || '',
     fecha: getInitialDate(event),
@@ -379,6 +380,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
   useEffect(() => {
     // Si cambia el evento (por ejemplo, desde PatientsPage), actualiza los campos editables
     setEditableFields({
+      nombre: event?.paciente?.nombre || '',
       email: event?.paciente?.email || '',
       telefono: event?.paciente?.telefono || '',
       fecha: getInitialDate(event),
@@ -559,10 +561,19 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
     if (confirm) {
       try {
         if (editSection === 'paciente') {
+          // El backend normaliza el nombre a MAYÚSCULAS; se replica aquí para
+          // que el panel refleje el mismo valor sin esperar el refetch.
+          const nombreFinal = String(editableFields.nombre || '').trim().toUpperCase();
+          if (!nombreFinal) {
+            showAlert('warning', 'El nombre del paciente no puede quedar vacío.');
+            return;
+          }
           await updatePaciente(event.paciente._id, {
+            nombre: nombreFinal,
             email: editableFields.email,
             telefono: editableFields.telefono,
           });
+          event.paciente.nombre = nombreFinal;
           event.paciente.email = editableFields.email;
           event.paciente.telefono = editableFields.telefono;
         } else if (editSection === 'cita') {
@@ -681,6 +692,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
 
   const handleCancelClick = () => {
     setEditableFields({
+      nombre: event.paciente.nombre,
       email: event.paciente.email,
       telefono: event.paciente.telefono,
       fecha: getInitialDate(event),
@@ -1153,9 +1165,21 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                       Nombre Completo
                     </Typography>
-                    <Typography variant="body1" fontWeight={600}>
-                      {event.paciente.nombre}
-                    </Typography>
+                    {editSection === 'paciente' ? (
+                      <TextField
+                        name="nombre"
+                        value={editableFields.nombre}
+                        onChange={handleFieldChange}
+                        size="small"
+                        fullWidth
+                        variant="outlined"
+                        inputProps={{ style: { textTransform: 'uppercase' } }}
+                      />
+                    ) : (
+                      <Typography variant="body1" fontWeight={600}>
+                        {event.paciente.nombre}
+                      </Typography>
+                    )}
                   </Paper>
                 </Grid>
                 

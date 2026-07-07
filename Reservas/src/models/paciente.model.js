@@ -76,9 +76,12 @@ const notaClinicaSchema = new mongoose.Schema({
 }, { _id: false });
 
 const PacienteSchema = new mongoose.Schema({
+    // Nombre siempre normalizado a MAYÚSCULAS (setter aplica en save y en updates).
     nombre: {
         type: String,
         required: true,
+        trim: true,
+        uppercase: true,
     },
     rut: {
         type: String,

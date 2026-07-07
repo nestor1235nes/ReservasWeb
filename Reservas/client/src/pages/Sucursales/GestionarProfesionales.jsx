@@ -64,11 +64,19 @@ export default function GestionarProfesionales() {
 
   const isTeamsSucursalPlan = planLevel === "teams" && scope === "SUCURSAL";
   const contractedProfessionals = isTeamsSucursalPlan ? (teamConfig?.cantidadProfessionals || 0) : Infinity;
+  // El cupo contratado (teamConfig.cantidadProfessionals) cuenta SOLO profesionales:
+  // un administrador que además atiende aparece en la lista, pero NO consume cupo.
+  const adminIds = new Set(
+    (sucursal?.administradores || []).map((a) => String(a?._id || a))
+  );
+  const profesionalesPuros = profesionales.filter(
+    (p) => !adminIds.has(String(p?._id || p?.id))
+  );
   const canAddProfessional =
-    !isTeamsSucursalPlan || (contractedProfessionals > 0 && profesionales.length < contractedProfessionals);
+    !isTeamsSucursalPlan || (contractedProfessionals > 0 && profesionalesPuros.length < contractedProfessionals);
   const professionalsTooltipTitle =
     !canAddProfessional && isTeamsSucursalPlan
-      ? `No puedes añadir más profesionales. Cupos contratados: ${profesionales.length}/${contractedProfessionals}`
+      ? `No puedes añadir más profesionales. Cupos contratados: ${profesionalesPuros.length}/${contractedProfessionals}`
       : "";
 
   useEffect(() => {
