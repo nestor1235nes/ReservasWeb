@@ -14,6 +14,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useSucursal } from '../../context/sucursalContext';
 import { useAuth } from '../../context/authContext';
 import { useAlert } from '../../context/AlertContext';
@@ -23,6 +24,8 @@ import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
 import MapboxAddressField from '../../components/ui/MapboxAddressField';
 import MensajesAutomaticos from '../../components/MensajesAutomaticos';
 import { useSubscription } from '../../context/subscriptionContext';
+import PageHeader from '../../components/ui/PageHeader';
+import PageLayout from '../../components/ui/PageLayout';
 
 const splitCsv = (value) => {
   if (!value) return [];
@@ -317,57 +320,38 @@ export default function ConfiguracionSucursal() {
   };
 
   return (
-    <Box
-      maxWidth={isMobile ? '100%' : '100%'}
-      width="100%"
-      mx="auto"
-      minHeight="100%"
-      bgcolor="#f5f7fa"
-      position="relative"
-    >
+    <PageLayout sx={{ minHeight: '100%', position: 'relative' }}>
       <FullPageLoader
         open={loading || saving || logoUploading}
         withinContainer
         message={saving ? 'Guardando cambios…' : (logoUploading ? 'Subiendo logo…' : 'Cargando sucursal…')}
       />
 
-      <Stack
-        direction={isMobile ? 'column' : 'row'}
-        justifyContent="space-between"
-        alignItems={isMobile ? 'stretch' : 'center'}
-        spacing={2}
-        p={2}
-        borderRadius={1}
-        sx={{ background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)' }}
-        mb={0}
-      >
-        <Box>
-          <Typography variant="h5" fontWeight={700} color="white">
-            Configuración de team
-          </Typography>
-          <Typography variant="body2" color="rgba(255,255,255,0.9)">
-            {sucursal?.nombre || '—'}
-          </Typography>
-        </Box>
-        <Stack direction={isMobile ? 'column' : 'row'} spacing={1.5}>
-          <Button
-            variant="contained"
-            onClick={handleRestablecer}
-            sx={{ background: 'white', color: '#2596be', borderRadius: 2 }}
-            disabled={loading || saving}
-          >
-            Restablecer
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleGuardar}
-            sx={{ background: 'white', color: '#2596be', borderRadius: 2 }}
-            disabled={loading || saving || !canEdit}
-          >
-            Guardar cambios
-          </Button>
-        </Stack>
-      </Stack>
+      <PageHeader
+        icon={<SettingsIcon />}
+        title="Configuración de team"
+        subtitle={sucursal?.nombre || '—'}
+        actions={
+          <Stack direction={isMobile ? 'column' : 'row'} spacing={1.5}>
+            <Button
+              variant="contained"
+              onClick={handleRestablecer}
+              sx={{ background: 'white', color: '#2596be', borderRadius: 2 }}
+              disabled={loading || saving}
+            >
+              Restablecer
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleGuardar}
+              sx={{ background: 'white', color: '#2596be', borderRadius: 2 }}
+              disabled={loading || saving || !canEdit}
+            >
+              Guardar cambios
+            </Button>
+          </Stack>
+        }
+      />
 
       <Box
         sx={{
@@ -656,6 +640,6 @@ export default function ConfiguracionSucursal() {
           </Card>
         )}
       </Box>
-    </Box>
+    </PageLayout>
   );
 }

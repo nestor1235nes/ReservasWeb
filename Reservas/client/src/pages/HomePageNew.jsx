@@ -225,7 +225,7 @@ export default function HomePageNew() {
 		const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 	return (
-		<Box sx={{ bgcolor: '#f7fbfd', minHeight: '100vh' }}>
+		<Box sx={{ minHeight: '100vh' }}>
 			{/* Top bar (reusable) */}
 			<TopAppBar />
 
@@ -324,7 +324,6 @@ export default function HomePageNew() {
 									sx={{
 										border: '2px solid #e3f2fd',
 										'&:hover': { boxShadow: 3, borderColor: '#2596be' },
-										borderRadius: 3,
 									}}
 								>
 									<CardContent>
@@ -371,7 +370,6 @@ export default function HomePageNew() {
 											sx={{
 												border: '2px solid #e3f2fd',
 												'&:hover': { boxShadow: 3, borderColor: '#2596be' },
-												borderRadius: 3,
 											}}
 										>
 											<CardContent>
@@ -395,7 +393,7 @@ export default function HomePageNew() {
 																<PhoneIphoneIcon sx={{ fontSize: 16, mr: 0.5, color:'white' }} />
 																<Typography color="white">{prof.celular || 'Sin datos'}</Typography>
 															</Box>
-															<Button sx={{ mt: 2, bgcolor: 'white', color: 'black' }} fullWidth onClick={() => handleOpenPerfil(prof)}>
+															<Button sx={{ mt: 2, bgcolor: 'white', color: 'text.primary' }} fullWidth onClick={() => handleOpenPerfil(prof)}>
 																Ver perfil completo
 															</Button>
 														</Box>

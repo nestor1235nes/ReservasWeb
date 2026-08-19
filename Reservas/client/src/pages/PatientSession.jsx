@@ -86,7 +86,7 @@ const PatientSession = () => {
       <TopAppBar />
       <Box sx={{ width: '100%', maxWidth: 1100, alignSelf: 'center', flex: 1, p: { xs: 1.5, sm: 3 } }}>
         {/* Encabezado elegante */}
-        <Card sx={{ mb: 2, border: '1px solid #d6eef6', boxShadow: 1 }}>
+        <Card sx={{ mb: 2, border: '1px solid #d6eef6' }}>
           <CardContent>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
               <Stack direction="row" spacing={2} alignItems="center">
@@ -116,7 +116,7 @@ const PatientSession = () => {
 
         {/* Panel de acceso (antes del video) */}
         {!joined && (
-          <Card sx={{ mb: 2, border: '1px solid #d6eef6', boxShadow: 1 }}>
+          <Card sx={{ mb: 2, border: '1px solid #d6eef6' }}>
             <CardHeader title={<Typography variant="subtitle1" fontWeight={700}>Unirme a la videollamada</Typography>} />
             <CardContent>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }}>
@@ -166,7 +166,7 @@ const PatientSession = () => {
         )}
 
         {/* Área de video */}
-        <Card sx={{ border: '1px solid #d6eef6', boxShadow: 1, borderRadius: 2 }}>
+        <Card sx={{ border: '1px solid #d6eef6' }}>
           <CardContent sx={{ p: 0 }}>
             <Box
               ref={videoRef}

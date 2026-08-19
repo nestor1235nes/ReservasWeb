@@ -51,10 +51,13 @@ import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CheckIcon from '@mui/icons-material/Check';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 import TopAppBar from '../components/ui/TopAppBar';
 import SiteFooter from '../components/ui/SiteFooter';
 import FullPageLoader from '../components/ui/FullPageLoader';
+import PageHeader from '../components/ui/PageHeader';
+import PageLayout from '../components/ui/PageLayout';
 
 import { usePaciente } from '../context/pacienteContext';
 import { useReserva } from '../context/reservaContext';
@@ -730,45 +733,52 @@ export default function PacientePortalPageFixed() {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%)' }}>
       <TopAppBar />
 
-      <Box sx={{ width: '100%', maxWidth: 1100, alignSelf: 'center', flex: 1, p: { xs: 1.5, sm: 3 } }}>
+      <PageLayout
+        maxWidth={1100}
+        sx={{ alignSelf: 'center', flex: 1, p: { xs: 1.5, sm: 3 } }}
+      >
+        <PageHeader
+          icon={<AccountCircleIcon />}
+          title="Portal del paciente"
+          subtitle="Tus próximas citas y tu historial"
+          actions={
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-end', sm: 'flex-start' } }}>
+              <Button
+                variant="outlined"
+                onClick={openEdit}
+                startIcon={!isMobile && <EditIcon />}
+                size={isMobile ? 'small' : 'medium'}
+                sx={{ borderColor: 'primary.main', color: 'primary.main', fontWeight: 900, minWidth: { xs: 'auto', sm: 100 } }}
+              >
+                {isMobile ? <EditIcon fontSize="small" /> : 'Editar'}
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleLogout}
+                startIcon={!isMobile && <LogoutIcon />}
+                size={isMobile ? 'small' : 'medium'}
+                sx={{ fontWeight: 900, minWidth: { xs: 'auto', sm: 100 } }}
+              >
+                {isMobile ? <LogoutIcon fontSize="small" /> : 'Salir'}
+              </Button>
+            </Stack>
+          }
+        />
         <Card sx={{ mb: 2, border: `1px solid ${BRAND_BORDER}`, boxShadow: 1, borderRadius: 2, overflow: 'hidden', ...HOVER_CARD_SX }}>
-          <Box sx={{ p: { xs: 1.5, sm: 2 }, color: 'white', background: BRAND_GRADIENT }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1.5, sm: 2 }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
-              <Stack direction="row" spacing={{ xs: 1.5, sm: 2 }} alignItems="center" sx={{ width: { xs: '100%', sm: 'auto' } }}>
-                <Avatar sx={{ width: { xs: 44, sm: 52 }, height: { xs: 44, sm: 52 }, bgcolor: 'rgba(255,255,255,0.25)', fontWeight: 900, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                  {(paciente?.nombre || 'P').trim().slice(0, 1).toUpperCase()}
-                </Avatar>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight={900} noWrap>{paciente?.nombre || 'Paciente'}</Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.95, fontSize: { xs: '0.75rem', sm: '0.875rem' } }} noWrap>
-                    RUT: {rut || '—'} {!isMobile && paciente?.email ? `· ${paciente.email}` : ''}
-                  </Typography>
-                  {isMobile && paciente?.email && (
-                    <Typography variant="caption" sx={{ opacity: 0.85 }} noWrap>{paciente.email}</Typography>
-                  )}
-                </Box>
-              </Stack>
-
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-end', sm: 'flex-start' } }}>
-                <Button 
-                  variant="outlined" 
-                  onClick={openEdit} 
-                  startIcon={!isMobile && <EditIcon />} 
-                  size={isMobile ? 'small' : 'medium'}
-                  sx={{ borderColor: 'rgba(255,255,255,0.7)', color: 'white', fontWeight: 900, minWidth: { xs: 'auto', sm: 100 } }}
-                >
-                  {isMobile ? <EditIcon fontSize="small" /> : 'Editar'}
-                </Button>
-                <Button 
-                  variant="contained" 
-                  onClick={handleLogout} 
-                  startIcon={!isMobile && <LogoutIcon />}
-                  size={isMobile ? 'small' : 'medium'} 
-                  sx={{ background: 'rgba(255,255,255,0.16)', fontWeight: 900, minWidth: { xs: 'auto', sm: 100 } }}
-                >
-                  {isMobile ? <LogoutIcon fontSize="small" /> : 'Salir'}
-                </Button>
-              </Stack>
+          <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Stack direction="row" spacing={{ xs: 1.5, sm: 2 }} alignItems="center" sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              <Avatar sx={{ width: { xs: 44, sm: 52 }, height: { xs: 44, sm: 52 }, bgcolor: '#e8f6fb', color: BRAND_TEXT_DARK, fontWeight: 900, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                {(paciente?.nombre || 'P').trim().slice(0, 1).toUpperCase()}
+              </Avatar>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight={900} noWrap>{paciente?.nombre || 'Paciente'}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }} noWrap>
+                  RUT: {rut || '—'} {!isMobile && paciente?.email ? `· ${paciente.email}` : ''}
+                </Typography>
+                {isMobile && paciente?.email && (
+                  <Typography variant="caption" color="text.secondary" noWrap>{paciente.email}</Typography>
+                )}
+              </Box>
             </Stack>
           </Box>
 
@@ -1699,7 +1709,7 @@ export default function PacientePortalPageFixed() {
             </Button>
           </DialogActions>
         </Dialog>
-      </Box>
+      </PageLayout>
 
       <SiteFooter />
     </Box>

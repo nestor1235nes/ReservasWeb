@@ -21,11 +21,14 @@ import PeopleIcon from '@mui/icons-material/People';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import BarChartIcon from '@mui/icons-material/BarChart';
 import { useAuth } from '../context/authContext';
 import { useAnalytics } from '../context/analyticsContext';
 import FullPageLoader from '../components/ui/FullPageLoader';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import { useSubscription } from '../context/subscriptionContext';
+import PageHeader from '../components/ui/PageHeader';
+import PageLayout from '../components/ui/PageLayout';
 
 // Util: construir lista de meses entre fechaInicio y hoy
 const buildMonthBuckets = (startDate) => {
@@ -200,21 +203,23 @@ export default function GraphicsPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 1.5, md: 3 }, position: 'relative' }}>
-      <Stack direction={isMobile ? 'column' : 'row'} justifyContent="space-between" alignItems={isMobile ? 'stretch' : 'center'} spacing={2} p={2} borderRadius={1} sx={{ background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)' }}>
-        <Typography variant="h5" fontWeight={700} color="white">
-          Reportes y métricas
-        </Typography>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Período</InputLabel>
-          <Select value={timeRange} label="Período" sx={{ background: 'white', borderRadius: 1 }} onChange={(e) => setTimeRange(e.target.value)}>
-            <MenuItem value="1month">1 mes</MenuItem>
-            <MenuItem value="3months">3 meses</MenuItem>
-            <MenuItem value="6months">6 meses</MenuItem>
-            <MenuItem value="1year">1 año</MenuItem>
-          </Select>
-        </FormControl>
-      </Stack> 
+    <PageLayout sx={{ p: { xs: 1.5, md: 3 }, position: 'relative' }}>
+      <PageHeader
+        icon={<BarChartIcon />}
+        title="Gráficos y Reportes"
+        subtitle="Analiza tu actividad y tus ingresos"
+        toolbar={
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Período</InputLabel>
+            <Select value={timeRange} label="Período" sx={{ background: 'white', borderRadius: 1 }} onChange={(e) => setTimeRange(e.target.value)}>
+              <MenuItem value="1month">1 mes</MenuItem>
+              <MenuItem value="3months">3 meses</MenuItem>
+              <MenuItem value="6months">6 meses</MenuItem>
+              <MenuItem value="1year">1 año</MenuItem>
+            </Select>
+          </FormControl>
+        }
+      />
 
       {/* KPIs principales */}
       <Grid container spacing={2} mb={3} mt={1}>
@@ -383,6 +388,6 @@ export default function GraphicsPage() {
           </Paper>
         </Grid>
       </Grid>
-    </Box>
+    </PageLayout>
   );
 }

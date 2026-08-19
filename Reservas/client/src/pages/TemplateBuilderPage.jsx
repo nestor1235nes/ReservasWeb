@@ -12,7 +12,10 @@ import {
   Divider,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import { useAuth } from '../context/authContext';
+import PageHeader from '../components/ui/PageHeader';
+import PageLayout from '../components/ui/PageLayout';
 
 const isHexColor = (value) => {
   if (!value) return false;
@@ -64,19 +67,12 @@ export default function TemplateBuilderPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100%', bgcolor: 'white' }}>
-      <Stack
-        p={1.5}
-        borderRadius={1}
-        sx={{ background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)', mb: 2 }}
-      >
-        <Typography variant="h5" fontWeight={700} color="white">
-          Editor de plantilla
-        </Typography>
-        <Typography variant="body2" color="white" sx={{ opacity: 0.95 }}>
-          Define los colores de tu página pública. Al guardar, se activará la opción “Personalizada”.
-        </Typography>
-      </Stack>
+    <PageLayout>
+      <PageHeader
+        icon={<DashboardCustomizeIcon />}
+        title="Editor de plantilla"
+        subtitle="Diseña la página pública de tu perfil"
+      />
 
       <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
         <CardContent>
@@ -146,6 +142,6 @@ export default function TemplateBuilderPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageLayout>
   );
 }

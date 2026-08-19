@@ -8,7 +8,7 @@ import { SucursalProvider } from "./context/sucursalContext";
 import { AnalyticsProvider } from "./context/analyticsContext";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { createTheme, ThemeProvider, CssBaseline, Box, IconButton, Drawer, useMediaQuery } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, IconButton, Drawer, useMediaQuery } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { gapi } from 'gapi-script';
 import { initClient } from './googleCalendarConfig';
@@ -46,32 +46,10 @@ import PacienteLoginPage from "./pages/PacienteLoginPage.jsx";
 import PacientePortalPage from "./pages/PacientePortalPageFixed.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import GlobalLoadingOverlay from "./components/ui/GlobalLoadingOverlay.jsx";
-
-
-const theme = createTheme({
-  palette: {
-    // Paleta del sistema (cian VITALINK)
-    primary: { main: '#2596be', light: '#21cbe6', dark: '#1b7d9c', contrastText: '#ffffff' },
-    secondary: { main: '#e91e63', light: '#f06292', dark: '#c2185b', contrastText: '#ffffff' },
-  },
-  shape: { borderRadius: 10 },
-  components: {
-    MuiButton: { styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } } },
-    // Switches con el color del sistema por defecto
-    MuiSwitch: {
-      styleOverrides: {
-        switchBase: {
-          '&.Mui-checked': { color: '#2596be' },
-          '&.Mui-checked + .MuiSwitch-track': { backgroundColor: '#2596be' },
-        },
-      },
-    },
-  },
-});
+import theme from './theme';
 
 function AppContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [selectedMenu, setSelectedMenu] = useState('Día Actual');
   const isMobile = useMediaQuery('(max-width:600px)');
   const location = useLocation();
 
@@ -136,7 +114,7 @@ function AppContent() {
                 <AlertProvider>
                   <PacienteProvider>
                     <ReservaProvider>
-                    <Box display="flex" bgcolor="#e9f5f9" minHeight="100vh">
+                    <Box display="flex" minHeight="100vh">
                       {/* Sidebar Desktop */}
                       {!hideSidebar && (
                         <Box
@@ -146,10 +124,7 @@ function AppContent() {
                             flexShrink: 0,
                           }}
                         >
-                          <SlideBar
-                            selected={selectedMenu}
-                            onSelect={(menu) => setSelectedMenu(menu)}
-                          />
+                          <SlideBar />
                         </Box>
                       )}
                       {/* Sidebar Mobile (Drawer) */}
@@ -164,13 +139,7 @@ function AppContent() {
                             '& .MuiDrawer-paper': { width: 240 },
                           }}
                         >
-                          <SlideBar
-                            selected={selectedMenu}
-                            onSelect={(menu) => {
-                              setSelectedMenu(menu);
-                              setMobileOpen(false);
-                            }}
-                          />
+                          <SlideBar onNavigate={() => setMobileOpen(false)} />
                         </Drawer>
                       )}
                       {/* Main Content */}
@@ -201,6 +170,7 @@ function AppContent() {
                           </Route>
                           <Route element={<ProtectedRoute />}>
                             <Route path="/calendario" element={<CalendarioPage />} />
+                            <Route path="/calendario/bloquear" element={<CalendarioPage />} />
                             <Route path="/hoy" element={<TodayPage />} />
                             <Route path="/perfil" element={<PerfilPage />} />
                             <Route path="/admin/planes" element={<AdminPlansPage />} />

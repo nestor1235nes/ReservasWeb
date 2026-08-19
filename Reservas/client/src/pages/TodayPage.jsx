@@ -27,6 +27,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CancelIcon from "@mui/icons-material/Cancel";
 import AddIcon from "@mui/icons-material/Add";
+import TodayIcon from "@mui/icons-material/Today";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
@@ -36,6 +37,8 @@ import { useAlert } from "../context/AlertContext";
 import DespliegueEventos from "../components/PanelDespliegue/DespliegueEventos";
 import { updateConfirmStatus as updateConfirmStatusApi, generateConfirmLink } from '../api/confirmation.js';
 import FullPageLoader from "../components/ui/FullPageLoader";
+import PageHeader from "../components/ui/PageHeader";
+import PageLayout from "../components/ui/PageLayout";
 
 const statusMap = {
   confirmed: { label: "Confirmada", icon: <CheckCircleIcon sx={{ fontSize: 15 }} />, bg: "rgba(22,163,74,0.10)", fg: "#15803d" },
@@ -292,20 +295,13 @@ export default function TodayPage() {
 
   return (
     <>
-      <Box
-        maxWidth={isMobile ? "100%" : "100%"}
-        width="100%"
-        mx="auto"
-        px={isMobile ? 0 : 0}
-        py={isMobile ? 0 : 0}
-        sx={{ overflowX: 'hidden', maxWidth: '100vw', position: 'relative' }}
-      >
+      <PageLayout sx={{ overflowX: 'hidden', maxWidth: '100vw', position: 'relative' }}>
         <FullPageLoader open={loading} withinContainer message="Cargando citas de hoy" />
-        <Stack direction={isMobile ? "column" : "row"} justifyContent="space-between" alignItems={isMobile ? "stretch" : "center"} spacing={2} p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
-          <Typography variant="h5" fontWeight={700} color="white">
-            Citas del día: {dayjs().locale("es").format("dddd, D [de] MMMM [de] YYYY")}
-          </Typography>
-        </Stack>
+        <PageHeader
+          icon={<TodayIcon />}
+          title="Citas del día"
+          subtitle={dayjs().locale("es").format("dddd, D [de] MMMM [de] YYYY")}
+        />
         <Card sx={{ borderRadius: { xs: 0, sm: 2 } }}>
           <CardHeader
               sx={{ pb: 0 }}
@@ -364,7 +360,7 @@ export default function TodayPage() {
             </Box>
           </CardContent>
         </Card>
-      </Box>
+      </PageLayout>
       {/* Drawer para el panel desplegable */}
       <Drawer
         anchor={isMobile ? 'bottom' : 'right'}

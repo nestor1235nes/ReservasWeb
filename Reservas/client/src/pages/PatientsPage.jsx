@@ -6,23 +6,23 @@ import {
   Typography,
   TextField,
   InputAdornment,
-  List,
-  ListItem,
-  ListItemAvatar,
   Avatar,
-  ListItemText,
-  Divider,
   Stack,
   Button,
-  Chip,
   useMediaQuery,
   Slide,
   Drawer,
-  IconButton
+  IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from "@mui/material";
 import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import PersonIcon from "@mui/icons-material/Person";
+import PeopleIcon from "@mui/icons-material/People";
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PhoneIcon from '@mui/icons-material/Phone';
 import AddIcon from "@mui/icons-material/Add";
@@ -35,10 +35,29 @@ import { usePaciente } from "../context/pacienteContext";
 import { useReserva } from "../context/reservaContext";
 import DespliegueEventos from "../components/PanelDespliegue/DespliegueEventos";
 import AgregarPaciente from "../components/Modales/AgregarPaciente";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
+import EventOutlinedIcon from "@mui/icons-material/EventOutlined";
+import { resolveAssetUrl } from "../utils/resolveAssetUrl";
 import dayjs from "dayjs";
 import { useAuth } from "../context/authContext";
 import FullPageLoader from "../components/ui/FullPageLoader";
+import PageHeader from "../components/ui/PageHeader";
+import PageLayout from "../components/ui/PageLayout";
+import FilterBar from "../components/ui/FilterBar";
 
+
+// Fila compacta de icono + valor, compartida por la tabla y las tarjetas moviles.
+function DatoPaciente({ icono, valor, atenuado = false }) {
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+      <Box sx={{ display: 'flex', color: atenuado ? 'text.secondary' : 'primary.main' }}>{icono}</Box>
+      <Typography variant="body2" color={atenuado ? 'text.secondary' : 'text.primary'} noWrap>
+        {valor}
+      </Typography>
+    </Stack>
+  );
+}
 
 export default function PatientsPage() {
   const { getPacientes, getPacientesUsuario, getPacientesSucursal } = usePaciente();
@@ -127,6 +146,47 @@ export default function PatientsPage() {
   const startIndex = page * pageSize;
   const endIndex = Math.min(startIndex + pageSize, filtered.length);
   const paginated = filtered.slice(startIndex, endIndex);
+
+  // Iniciales para el Avatar cuando el paciente no tiene fotoPerfil cargada.
+  const iniciales = (nombre) =>
+    String(nombre || '')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0])
+      .join('')
+      .toUpperCase();
+
+  // Linea secundaria del nombre. 'No especifica' es el default del modelo, asi que
+  // no aporta nada mostrarlo.
+  const metaPaciente = (p) =>
+    [
+      p.edad ? `${p.edad} años` : null,
+      p.sexo && p.sexo !== 'No especifica' ? String(p.sexo).toLowerCase() : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+  // Proxima cita derivada de las reservas que la pagina ya carga: la mas cercana
+  // que no este cancelada y no sea anterior a hoy. Se recorta la fecha a YYYY-MM-DD
+  // antes de parsear para evitar el corrimiento de un dia cuando viene como UTC
+  // medianoche, igual que hace buildLocalStart.
+  const proximaCitaDe = (pacienteId) => {
+    const hoy = dayjs().startOf('day');
+    return reservas
+      .filter((r) => r?.paciente?._id === pacienteId && r?.siguienteCita)
+      .filter((r) => r.confirmStatus !== 'cancelled')
+      .map((r) => ({ fecha: dayjs(String(r.siguienteCita).substring(0, 10)), hora: r.hora }))
+      .filter((r) => r.fecha.isValid() && !r.fecha.isBefore(hoy))
+      .sort((a, b) => a.fecha.valueOf() - b.fecha.valueOf())[0] || null;
+  };
+
+  const textoProximaCita = (p) => {
+    const cita = proximaCitaDe(p._id);
+    if (!cita) return 'Sin agenda';
+    const fecha = cita.fecha.format('D MMM YYYY');
+    return cita.hora ? `${fecha}, ${cita.hora}` : fecha;
+  };
   const prevDisabled = totalPages <= 1 || page === 0;
   const nextDisabled = totalPages <= 1 || page >= totalPages - 1;
 
@@ -203,146 +263,24 @@ export default function PatientsPage() {
     setOpenDrawer(true);
   };
 
-  return (    
-  <Box
-      display="flex"
-      flexDirection="column"
-      minHeight="100%"
-      backgroundColor="white"
-      overflow="visible"
-      px={isMobile ? 0.5 : 0}
-      pb={isMobile ? 1 : 0}
-      sx={{ position: 'relative' }}
+  return (
+  <PageLayout
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100%',
+        overflow: 'visible',
+        px: isMobile ? 0.5 : 0,
+        pb: isMobile ? 1 : 0,
+        position: 'relative',
+      }}
     >
       <FullPageLoader open={loading} withinContainer message="Cargando pacientes" />
-      <Stack
-        p={isMobile ? 1 : 1.5}
-        borderRadius={1}
-        sx={{
-          background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: isMobile ? "stretch" : "center",
-          gap: isMobile ? 1.5 : 0,
-          mb: isMobile ? 1 : 0,
-        }}
-      >
-        <Box
-          display="flex"
-          flexDirection={isMobile ? "column" : "row"}
-          justifyContent="space-between"
-          alignItems={isMobile ? "stretch" : "center"}
-          width="100%"
-          gap={isMobile ? 1 : 0}
-        >
-          <Typography
-            variant={isMobile ? "h6" : "h5"}
-            fontWeight={700}
-            color="white"
-            mb={isMobile ? 1 : 0}
-          >
-            Pacientes
-          </Typography>
-          {user?.sucursal?._id && !esAsistente && (
-            <ToggleButtonGroup
-              color="standard"
-              value={filtroModo}
-              exclusive
-              onChange={(e, val) => { if (val) { setFiltroModo(val); setPage(0); } }}
-              size="small"
-              sx={{
-                backgroundColor: 'rgba(255, 255, 255, 0.81)',
-                borderRadius: '999px',
-                p: 0,
-                height: 40,
-                width: isMobile ? '100%' : 'auto',
-                mb: isMobile ? 1 : 0,
-                boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                border: '1px solid rgba(37,150,190,0.35)',
-                overflow: 'hidden',
-                gap: 0,
-                '& .MuiToggleButtonGroup-grouped': {
-                  border: 'none',
-                  margin: 0,
-                  borderRadius: 0,
-                },
-                '& .MuiToggleButton-root': {
-                  borderRadius: 0,
-                }
-              }}
-            >
-              <ToggleButton
-                value="mios"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  color: '#2596be',
-                  border: 'none',
-                  px: 1.8,
-                  ...(isMobile ? { flex: 1 } : {}),
-                  '&.Mui-selected': {
-                    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-                    color: 'white',
-                    boxShadow: '0 2px 8px rgba(37,150,190,0.35)',
-                    borderRadius: '999px',
-                  },
-                  '&.Mui-selected:hover': {
-                    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-                  },
-                  '&:hover': { background: 'rgba(255,255,255,0.12)' },
-                  transition: 'background 160ms ease-out, color 160ms ease-out',
-                }}
-              >
-                Mis pacientes
-              </ToggleButton>
-              <ToggleButton
-                value="sucursal"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  color: '#2596be',
-                  border: 'none',
-                  px: 1.8,
-                  ...(isMobile ? { flex: 1 } : {}),
-                  '&.Mui-selected': {
-                    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-                    color: 'white',
-                    boxShadow: '0 2px 8px rgba(37,150,190,0.35)',
-                    borderRadius: '999px',
-                  },
-                  '&.Mui-selected:hover': {
-                    background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-                  },
-                  '&:hover': { background: 'rgba(255,255,255,0.12)' },
-                  transition: 'background 160ms ease-out, color 160ms ease-out',
-                }}
-              >
-                Sucursal
-              </ToggleButton>
-            </ToggleButtonGroup>
-          )}
-          <TextField
-            fullWidth
-            placeholder="Buscar por nombre o RUT"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: "#2596be" }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              background: "white",
-              borderRadius: 1,
-              width: isMobile ? "100%" : "300px",
-              marginLeft: isMobile ? 0 : 2,
-              marginRight: isMobile ? 0 : 2,
-              mb: isMobile ? 1 : 0,
-            }}
-            variant="outlined"
-            size="small"
-          />
+      <PageHeader
+        icon={<PeopleIcon />}
+        title="Pacientes"
+        subtitle="Administra tus pacientes y su historial"
+        actions={
           <Button
             variant="contained"
             sx={{
@@ -357,8 +295,111 @@ export default function PatientsPage() {
           >
             Nuevo Paciente
           </Button>
-        </Box>
-      </Stack>
+        }
+      />
+      <FilterBar>
+        {user?.sucursal?._id && !esAsistente && (
+          <ToggleButtonGroup
+            color="standard"
+            value={filtroModo}
+            exclusive
+            onChange={(e, val) => { if (val) { setFiltroModo(val); setPage(0); } }}
+            size="small"
+            sx={{
+              backgroundColor: '#ffffff',
+              borderRadius: '999px',
+              p: 0,
+              height: 40,
+              width: isMobile ? '100%' : 'auto',
+              mb: isMobile ? 1 : 0,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+              border: '1px solid rgba(37,150,190,0.35)',
+              overflow: 'hidden',
+              gap: 0,
+              '& .MuiToggleButtonGroup-grouped': {
+                border: 'none',
+                margin: 0,
+                borderRadius: 0,
+              },
+              '& .MuiToggleButton-root': {
+                borderRadius: 0,
+              }
+            }}
+          >
+            <ToggleButton
+              value="mios"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                color: '#2596be',
+                border: 'none',
+                px: 1.8,
+                ...(isMobile ? { flex: 1 } : {}),
+                '&.Mui-selected': {
+                  background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                  color: 'white',
+                  boxShadow: '0 2px 8px rgba(37,150,190,0.35)',
+                  borderRadius: '999px',
+                },
+                '&.Mui-selected:hover': {
+                  background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                },
+                '&:hover': { background: 'rgba(37,150,190,0.08)' },
+                transition: 'background 160ms ease-out, color 160ms ease-out',
+              }}
+            >
+              Mis pacientes
+            </ToggleButton>
+            <ToggleButton
+              value="sucursal"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                color: '#2596be',
+                border: 'none',
+                px: 1.8,
+                ...(isMobile ? { flex: 1 } : {}),
+                '&.Mui-selected': {
+                  background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                  color: 'white',
+                  boxShadow: '0 2px 8px rgba(37,150,190,0.35)',
+                  borderRadius: '999px',
+                },
+                '&.Mui-selected:hover': {
+                  background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
+                },
+                '&:hover': { background: 'rgba(37,150,190,0.08)' },
+                transition: 'background 160ms ease-out, color 160ms ease-out',
+              }}
+            >
+              Sucursal
+            </ToggleButton>
+          </ToggleButtonGroup>
+        )}
+        <TextField
+          fullWidth
+          placeholder="Buscar por nombre o RUT"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: "#2596be" }} />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            background: "white",
+            borderRadius: 1,
+            width: isMobile ? "100%" : "300px",
+            marginLeft: isMobile ? 0 : 2,
+            marginRight: isMobile ? 0 : 2,
+            mb: isMobile ? 1 : 0,
+          }}
+          variant="outlined"
+          size="small"
+        />
+      </FilterBar>
       <Card
         sx={{
           mt: isMobile ? 1 : 0,
@@ -375,139 +416,159 @@ export default function PatientsPage() {
               No se encontraron pacientes.
             </Typography>
           ) : (
-            <List sx={{ p: isMobile ? 0.5 : 1.5 }}>
-              {paginated.map((paciente) => (
-                <React.Fragment key={paciente._id}>
-                  <ListItem
+            isMobile ? (
+              <Stack spacing={1.25} sx={{ p: 0.5 }}>
+                {paginated.map((paciente) => (
+                  <Card
+                    key={paciente._id}
                     onClick={() => handlePacienteClick(paciente)}
-                    alignItems="flex-start"
                     sx={{
-                      position: 'relative',
-                      backgroundColor: 'white',
-                      border: '1px solid rgba(37,150,190,0.15)',
-                      boxShadow: '0 1px 6px rgba(37,150,190,0.08)',
-                      transition: 'box-shadow 160ms ease, transform 120ms ease, border-color 160ms ease',
-                      '&:hover': {
-                        boxShadow: '0 6px 20px rgba(37,150,190,0.18)',
-                        borderColor: '#2596be',
-                        transform: 'translateY(-1px)'
-                      },
-                      '&:focus-visible': {
-                        outline: '3px solid rgba(33,203,230,0.4)',
-                        outlineOffset: 2,
-                      },
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        left: 6,
-                        top: 10,
-                        bottom: 10,
-                        width: 4,
-                        borderRadius: '999px',
-                        background: 'linear-gradient(180deg, #2596be, #21cbe6)',
-                        opacity: 0,
-                        transition: 'opacity 160ms ease',
-                      },
-                      '&:hover::before': { opacity: 1 },
-                      borderRadius: 2.5,
-                      flexDirection: isMobile ? "column" : "row",
-                      alignItems: isMobile ? "stretch" : "flex-start",
-                      px: isMobile ? 1 : 2.25,
-                      py: isMobile ? 1 : 2,
-                      mb: isMobile ? 1 : 1.25,
+                      cursor: 'pointer',
+                      transition: 'border-color 160ms ease, box-shadow 160ms ease',
+                      '&:active': { borderColor: 'primary.main' },
                     }}
-                    secondaryAction={
-                      <Button
-                        startIcon={<MedicalInformationIcon />}
-                        variant="contained"
-                        size="small"
-                        sx={{
-                          minWidth: 120,
-                          px: 2,
-                          py: 0.75,
-                          borderRadius: '999px',
-                          textTransform: 'none',
-                          fontWeight: 700,
-                          letterSpacing: 0.2,
-                          background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-                          color: 'white',
-                          boxShadow: '0 3px 10px rgba(37,150,190,0.28)',
-                          width: isMobile ? '100%' : 'auto',
-                          mt: isMobile ? 1 : 0,
-                          transition: 'transform 120ms ease, box-shadow 120ms ease, background 120ms ease',
-                          '&:hover': {
-                            transform: 'translateY(-1px)',
-                            background: 'linear-gradient(45deg, #238db1 30%, #1fb8d1 90%)',
-                            boxShadow: '0 6px 14px rgba(37,150,190,0.35)'
-                          },
-                          '&:active': {
-                            transform: 'translateY(0)',
-                            boxShadow: '0 2px 8px rgba(37,150,190,0.25)'
-                          },
-                          '&:focus-visible': {
-                            outline: '3px solid rgba(255,255,255,0.6)',
-                            outlineOffset: 2,
-                          }
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePacienteClick(paciente);
-                        }}
-                      >
-                        Más Info
-                      </Button>
-                    }
                   >
-                    <ListItemAvatar sx={{ minWidth: 56 }}>
-                      <Avatar sx={{ bgcolor: "#2596be" }}>
-                        <PersonIcon />
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography fontWeight={700} component="span" color="text.primary">
-                          {paciente.nombre}
-                        </Typography>
-                      }
-                      secondary={
-                        <Stack
-                          direction={isMobile ? "column" : "row"}
-                          spacing={isMobile ? 1 : 2}
-                          mt={0.75}
-                          alignItems={isMobile ? "flex-start" : "center"}
-                          sx={{ color: 'text.secondary' }}
+                    <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
+                      <Stack direction="row" spacing={1.5} alignItems="center">
+                        <Avatar
+                          src={paciente.fotoPerfil ? resolveAssetUrl(paciente.fotoPerfil) : undefined}
+                          sx={(t) => ({
+                            bgcolor: t.palette.custom.tint[200],
+                            color: t.palette.custom.header.text,
+                            fontWeight: 700,
+                            fontSize: 14,
+                          })}
                         >
-                          <Chip
-                            label={`Rut: ${paciente.rut}`}
+                          {iniciales(paciente.nombre)}
+                        </Avatar>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography fontWeight={700} color="text.primary" noWrap>
+                            {paciente.nombre}
+                          </Typography>
+                          {metaPaciente(paciente) && (
+                            <Typography variant="caption" color="text.secondary">
+                              {metaPaciente(paciente)}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Stack>
+
+                      <Stack spacing={0.75} sx={{ mt: 1.5 }}>
+                        <DatoPaciente icono={<BadgeOutlinedIcon fontSize="small" />} valor={paciente.rut} />
+                        <DatoPaciente icono={<PhoneIcon fontSize="small" />} valor={paciente.telefono ? `+${paciente.telefono}` : 'Sin teléfono'} />
+                        <DatoPaciente icono={<MailOutlineIcon fontSize="small" />} valor={paciente.email || 'Sin email'} />
+                        {paciente.prevision && (
+                          <DatoPaciente icono={<ShieldOutlinedIcon fontSize="small" />} valor={paciente.prevision} />
+                        )}
+                        <DatoPaciente
+                          icono={<EventOutlinedIcon fontSize="small" />}
+                          valor={textoProximaCita(paciente)}
+                          atenuado={!proximaCitaDe(paciente._id)}
+                        />
+                      </Stack>
+
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        startIcon={<MedicalInformationIcon />}
+                        sx={{ mt: 1.75 }}
+                        onClick={(e) => { e.stopPropagation(); handlePacienteClick(paciente); }}
+                      >
+                        Ficha clínica
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer>
+                <Table size="medium">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Paciente</TableCell>
+                      <TableCell>Contacto</TableCell>
+                      <TableCell>RUT</TableCell>
+                      <TableCell>Previsión</TableCell>
+                      <TableCell>Próxima cita</TableCell>
+                      <TableCell align="right">Ficha</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {paginated.map((paciente) => (
+                      <TableRow
+                        key={paciente._id}
+                        hover
+                        onClick={() => handlePacienteClick(paciente)}
+                        sx={{ cursor: 'pointer', '&:last-child td': { borderBottom: 0 } }}
+                      >
+                        <TableCell>
+                          <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Avatar
+                              src={paciente.fotoPerfil ? resolveAssetUrl(paciente.fotoPerfil) : undefined}
+                              sx={(t) => ({
+                                width: 38,
+                                height: 38,
+                                bgcolor: t.palette.custom.tint[200],
+                                color: t.palette.custom.header.text,
+                                fontWeight: 700,
+                                fontSize: 14,
+                              })}
+                            >
+                              {iniciales(paciente.nombre)}
+                            </Avatar>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography fontWeight={700} color="text.primary">
+                                {paciente.nombre}
+                              </Typography>
+                              {metaPaciente(paciente) && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {metaPaciente(paciente)}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Stack>
+                        </TableCell>
+
+                        <TableCell>
+                          <Stack spacing={0.5}>
+                            <DatoPaciente icono={<PhoneIcon fontSize="small" />} valor={paciente.telefono ? `+${paciente.telefono}` : 'Sin teléfono'} />
+                            <DatoPaciente icono={<MailOutlineIcon fontSize="small" />} valor={paciente.email || 'Sin email'} atenuado={!paciente.email} />
+                          </Stack>
+                        </TableCell>
+
+                        <TableCell>
+                          <Typography variant="body2" color="text.primary">{paciente.rut}</Typography>
+                        </TableCell>
+
+                        <TableCell>
+                          {paciente.prevision
+                            ? <Typography variant="body2" color="text.primary">{paciente.prevision}</Typography>
+                            : <Typography variant="body2" color="text.secondary">—</Typography>}
+                        </TableCell>
+
+                        <TableCell>
+                          <Typography variant="body2" color={proximaCitaDe(paciente._id) ? 'text.primary' : 'text.secondary'}>
+                            {textoProximaCita(paciente)}
+                          </Typography>
+                        </TableCell>
+
+                        <TableCell align="right">
+                          <Button
+                            variant="contained"
                             size="small"
-                            sx={{
-                              fontWeight: 700,
-                              color: '#2596be',
-                              borderColor: '#2596be',
-                              backgroundColor: 'rgba(37,150,190,0.06)'
-                            }}
-                            variant="outlined"
-                          />
-                          <Box display="flex" alignItems="center">
-                            <PhoneIcon fontSize="small" sx={{ mr: 0.5, color: '#2596be' }} />
-                            <Typography variant="body2" component="span" color="text.primary">
-                              +{paciente.telefono}
-                            </Typography>
-                          </Box>
-                          <Box display="flex" alignItems="center">
-                            <MailOutlineIcon fontSize="small" sx={{ mr: 0.5, color: '#2596be' }} />
-                            <Typography variant="body2" component="span" color="text.primary">
-                              {paciente.email || 'Sin email'}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      }
-                    />
-                  </ListItem>
-                  {/* Divider eliminado para estilo de tarjetas espaciadas */}
-                </React.Fragment>
-              ))}
-            </List>
+                            startIcon={<MedicalInformationIcon />}
+                            sx={{ whiteSpace: 'nowrap' }}
+                            onClick={(e) => { e.stopPropagation(); handlePacienteClick(paciente); }}
+                          >
+                            Ficha
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
           )}
         </CardContent>
          {/* Controles de paginación inferiores */}
@@ -583,6 +644,6 @@ export default function PatientsPage() {
         fetchReservas={fetchPacientesYActualizar}
         gapi={window.gapi}
       />
-    </Box>
+    </PageLayout>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  Box, Typography, IconButton, Slide, Button, TextField, Card, CardContent, CardHeader,
+  Box, Typography, IconButton, Slide, Button, TextField,
   FormControl, InputLabel, Select, MenuItem, Divider, Chip, Stack, Tooltip, Avatar,
   Grid, Paper, Badge, Modal, Fab, Fade, Skeleton
 } from '@mui/material';
@@ -87,6 +87,48 @@ function getInitialHour(event) {
   if (event?.start instanceof Date) return dayjs(event.start).format('HH:mm');
   if (event?.paciente?.hora) return event.paciente.hora;
   return '';
+}
+
+
+// Iniciales del paciente: la identidad manda en la cabecera del panel, no un
+// icono genérico de calendario.
+const inicialesPaciente = (nombre) =>
+  String(nombre || '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
+
+// Subtítulo de la cabecera: cuándo es la cita. Se prefiere `start` (Date ya
+// construido por la página) y se cae a `hora` suelta si no hay fecha.
+const subtituloCita = (event) => {
+  if (event?.start && dayjs(event.start).isValid()) {
+    return dayjs(event.start).format('dddd D [de] MMMM, HH:mm');
+  }
+  return event?.hora ? `Hora: ${event.hora}` : 'Sin fecha agendada';
+};
+
+// Sección plana del panel. Reemplaza a las Card con borde y sombra: dentro de un
+// drawer angosto, tarjetas anidadas dentro de otro contenedor son marco de más y
+// restan ancho útil. El encabezado sigue el patrón del sidebar y de las tablas.
+function SeccionPanel({ icono, titulo, accion, children, sx }) {
+  return (
+    <Box component="section" sx={{ mb: 3.5, ...sx }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+        {icono && <Box sx={{ display: 'flex', color: 'primary.main' }}>{icono}</Box>}
+        <Typography
+          variant="overline"
+          sx={{ fontWeight: 700, letterSpacing: '0.08em', color: 'text.secondary', lineHeight: 1.6, flex: 1 }}
+        >
+          {titulo}
+        </Typography>
+        {accion}
+      </Stack>
+      {children}
+    </Box>
+  );
 }
 
 const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente }) => {
@@ -788,7 +830,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             bottom: { xs: 0, md: 'auto' },
             top: { xs: '8vh', md: 'auto' },
             margin: { xs: 0, md: 0 },
-            border: '1px solid #e2e8f0',
+            border: '1px solid rgba(37,150,190,0.16)',
             display: 'flex',
             flexDirection: 'column',
             maxHeight: { xs: '92vh', md: '100%' },
@@ -811,63 +853,48 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             }}
             ref={scrollRef}
           >
-          {/* Encabezado moderno */}
+          {/* Encabezado: quien atiende necesita primero saber a quién tiene delante */}
           <Paper
             elevation={0}
-            sx={{
-              background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
-              color: 'white',
-              // Edge-to-edge dentro del contenedor con padding
+            sx={(t) => ({
+              bgcolor: t.palette.custom.header.bg,
+              borderBottom: `1px solid ${t.palette.custom.header.border}`,
               mx: -3,
-              borderRadius: { xs: '16px 16px 0 0', md: '12px 12px 0 0' },
+              borderRadius: 0,
               px: 3,
-              py: 3,
+              py: 2.5,
               mb: 3,
-              position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: '100px',
-                height: '100px',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '50%',
-                transform: 'translate(30px, -30px)'
-              }
-            }}
+            })}
           >
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Box display="flex" alignItems="center" gap={2}>
-                <Avatar 
-                  sx={{ 
-                    bgcolor: 'rgba(255,255,255,0.2)', 
-                    width: 48, 
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
+              <Box display="flex" alignItems="center" gap={2} sx={{ minWidth: 0 }}>
+                <Avatar
+                  sx={(t) => ({
+                    bgcolor: t.palette.primary.main,
+                    color: t.palette.primary.contrastText,
+                    width: 48,
                     height: 48,
-                    border: '2px solid rgba(255,255,255,0.3)'
-                  }}
+                    fontWeight: 700,
+                  })}
                 >
-                  <CalendarTodayIcon sx={{ fontSize: 24 }} />
+                  {inicialesPaciente(event.paciente?.nombre)}
                 </Avatar>
-                <Box>
-                  <Typography variant="h5" fontWeight={700} >
-                    Detalles de la Cita
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography
+                    variant="h6"
+                    fontWeight={700}
+                    noWrap
+                    sx={(t) => ({ color: t.palette.custom.header.text })}
+                  >
+                    {event.paciente?.nombre || 'Paciente'}
                   </Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    {event.paciente?.nombre}
+                  <Typography variant="body2" color="text.secondary" noWrap sx={{ textTransform: 'capitalize' }}>
+                    {subtituloCita(event)}
                   </Typography>
                 </Box>
               </Box>
               <Tooltip title="Cerrar">
-                <IconButton 
-                  onClick={onClose} 
-                  sx={{ 
-                    color: 'white', 
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
-                  }}
-                >
+                <IconButton onClick={onClose} sx={{ color: 'text.secondary', flexShrink: 0 }}>
                   <CloseIcon />
                 </IconButton>
               </Tooltip>
@@ -904,7 +931,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
           >
             <DialogTitle sx={{
-              background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+              background: '#2596be',
               color: 'white',
               display: 'flex',
               alignItems: 'center',
@@ -922,7 +949,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
               </IconButton>
             </DialogTitle>
 
-            <DialogContent sx={{ p: 3, backgroundColor: '#f8fafc' }}>
+            <DialogContent sx={{ p: 3, backgroundColor: '#f6fcfd' }}>
               {getClinicalCasesForArchivos().length > 0 ? (
                 <Stack spacing={2} mt={2}>
                   <FormControl fullWidth size="small">
@@ -940,7 +967,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     </Select>
                   </FormControl>
 
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid rgba(37,150,190,0.16)' }}>
                     <Stack spacing={1.5}>
                       {!esAsistente && (
                         <Box display="flex" justifyContent="flex-end">
@@ -957,9 +984,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                                   setOpenUploadModal(true);
                                 }}
                                 sx={{
-                                  background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                                  background: '#2596be',
                                   '&:hover': {
-                                    background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)'
+                                    background: '#1b7d9c'
                                   }
                                 }}
                               >
@@ -973,8 +1000,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                       <Box
                         sx={{
                           borderRadius: 2,
-                          border: '1px solid #e2e8f0',
-                          bgcolor: '#f8fafc',
+                          border: '1px solid rgba(37,150,190,0.16)',
+                          bgcolor: '#f6fcfd',
                           p: 1,
                           minHeight: 240,
                           display: 'flex',
@@ -994,7 +1021,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
               )}
             </DialogContent>
 
-            <DialogActions sx={{ p: 2, backgroundColor: 'white', borderTop: '1px solid #e2e8f0' }}>
+            <DialogActions sx={{ p: 2, backgroundColor: 'white', borderTop: '1px solid rgba(37,150,190,0.16)' }}>
               <Button onClick={handleCloseArchivosPaciente} sx={{ borderRadius: 2, textTransform: 'none', color: "#656565ff" }}>
                 Cerrar
               </Button>
@@ -1015,7 +1042,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             }}
           >
             <DialogTitle sx={{ 
-              background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+              background: '#2596be',
               color: 'white',
               display: 'flex',
               alignItems: 'center',
@@ -1069,10 +1096,10 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 onClick={() => handleDialogClose(true)} 
                 variant="contained"
                 sx={{
-                  background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                  background: '#2596be',
                   borderRadius: 2,
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)'
+                    background: '#1b7d9c'
                   }
                 }}
               >
@@ -1082,28 +1109,10 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           </Dialog>
 
           {/* Datos del paciente - Diseño mejorado */}
-          <Card 
-            className="info-card"
-            sx={{ 
-              mb: 3, 
-              borderRadius: 3,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              border: '1px solid #e2e8f0',
-              overflow: 'hidden'
-            }}
-          >
-            <CardHeader
-              avatar={
-                <Avatar sx={{ bgcolor: '#10b981', width: 40, height: 40 }}>
-                  <PersonIcon />
-                </Avatar>
-              }
-              title={
-                <Typography variant="h6" fontWeight={600} sx={{color:"#2596be"}}>
-                  Información del Paciente
-                </Typography>
-              }
-              action={
+          <SeccionPanel
+            icono={<PersonIcon />}
+            titulo="Información del Paciente"
+            accion={
                 editSection === 'paciente' ? (
                   <Stack direction="row" spacing={1}>
                     <Tooltip title="Guardar cambios">
@@ -1148,18 +1157,16 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   )
                 )
               }
-              sx={{ pb: 1 }}
-            />
-            <CardContent sx={{ pt: 0 }}>
+          >
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <Paper 
                     elevation={0} 
                     sx={{ 
                       p: 2, 
-                      bgcolor: '#f8fafc',
+                      bgcolor: '#f6fcfd',
                       borderRadius: 2,
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid rgba(37,150,190,0.16)'
                     }}
                   >
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -1188,9 +1195,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     elevation={0} 
                     sx={{ 
                       p: 2, 
-                      bgcolor: '#f8fafc',
+                      bgcolor: '#f6fcfd',
                       borderRadius: 2,
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid rgba(37,150,190,0.16)'
                     }}
                   >
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -1207,9 +1214,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     elevation={0} 
                     sx={{ 
                       p: 2, 
-                      bgcolor: '#f8fafc',
+                      bgcolor: '#f6fcfd',
                       borderRadius: 2,
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid rgba(37,150,190,0.16)'
                     }}
                   >
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -1237,9 +1244,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     elevation={0} 
                     sx={{ 
                       p: 2, 
-                      bgcolor: '#f8fafc',
+                      bgcolor: '#f6fcfd',
                       borderRadius: 2,
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid rgba(37,150,190,0.16)'
                     }}
                   >
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -1290,9 +1297,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     elevation={0}
                     sx={{
                       p: 2,
-                      bgcolor: '#f8fafc',
+                      bgcolor: '#f6fcfd',
                       borderRadius: 2,
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid rgba(37,150,190,0.16)'
                     }}
                   >
                     <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1, color:"#2596be" }}>
@@ -1351,7 +1358,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                               sx={{
                                 bgcolor: 'white',
                                 borderRadius: 1,
-                                border: '1px solid #e2e8f0',
+                                border: '1px solid rgba(37,150,190,0.16)',
                                 p: 1,
                                 height: 140,
                                 overflow: 'hidden',
@@ -1447,32 +1454,13 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   </Paper>
                 </Box>
               )}
-            </CardContent>
-          </Card>
+          </SeccionPanel>
 
           {/* Detalles de la cita - Diseño mejorado */}
-          <Card 
-            className="info-card"
-            sx={{ 
-              mb: 3, 
-              borderRadius: 3,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              border: '1px solid #e2e8f0',
-              overflow: 'hidden'
-            }}
-          >
-            <CardHeader
-              avatar={
-                <Avatar sx={{ bgcolor: '#8b5cf6', width: 40, height: 40 }}>
-                  <ManageAccountsIcon />
-                </Avatar>
-              }
-              title={
-                <Typography variant="h6" fontWeight={600} sx={{color:"#2596be"}}>
-                  Información de la Cita
-                </Typography>
-              }
-              action={
+          <SeccionPanel
+            icono={<ManageAccountsIcon />}
+            titulo="Información de la Cita"
+            accion={
                 editSection === 'cita' ? (
                   <Stack direction="row" spacing={1}>
                     <Tooltip title="Guardar cambios">
@@ -1515,9 +1503,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   </Tooltip>
                 )
               }
-              sx={{ pb: 1 }}
-            />
-            <CardContent sx={{ pt: 0 }}>
+          >
               {editSection === 'cita' ? (
                 <Stack spacing={2}>
                   {esAsistente && (
@@ -1589,9 +1575,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                       elevation={0} 
                       sx={{ 
                         p: 2, 
-                        bgcolor: '#f8fafc',
+                        bgcolor: '#f6fcfd',
                         borderRadius: 2,
-                        border: '1px solid #e2e8f0'
+                        border: '1px solid rgba(37,150,190,0.16)'
                       }}
                     >
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -1608,9 +1594,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                       elevation={0} 
                       sx={{ 
                         p: 2, 
-                        bgcolor: '#f8fafc',
+                        bgcolor: '#f6fcfd',
                         borderRadius: 2,
-                        border: '1px solid #e2e8f0'
+                        border: '1px solid rgba(37,150,190,0.16)'
                       }}
                     >
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -1627,9 +1613,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                       elevation={0} 
                       sx={{ 
                         p: 2, 
-                        bgcolor: '#f8fafc',
+                        bgcolor: '#f6fcfd',
                         borderRadius: 2,
-                        border: '1px solid #e2e8f0'
+                        border: '1px solid rgba(37,150,190,0.16)'
                       }}
                     >
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -1654,32 +1640,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   sx={{ fontWeight: 600 }}
                 />
               </Stack>
-            </CardContent>
-          </Card>
-          <Card 
-    className="info-card"
-    sx={{ 
-      mb: 3, 
-      borderRadius: 3,
-      boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-      border: '1px solid #e2e8f0',
-      overflow: 'hidden'
-    }}
-  >
-    <CardHeader
-      avatar={
-        <Avatar sx={{ bgcolor: '#059669', width: 40, height: 40 }}>
-          <PaymentIcon />
-        </Avatar>
-      }
-      title={
-        <Typography variant="h6" fontWeight={600} sx={{color:"#2596be"}}>
-          Estado de Pago
-        </Typography>
-      }
-      sx={{ pb: 1 }}
-    />
-    <CardContent sx={{ pt: 0 }}>
+          </SeccionPanel>
+          <SeccionPanel icono={<PaymentIcon />} titulo="Estado de Pago">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
         <Typography variant="body2">Estado:</Typography>
         <Chip 
@@ -1708,8 +1670,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           onPaymentSuccess={() => setPaymentStatus('completed')}
         />
       )}
-    </CardContent>
-  </Card>
+          </SeccionPanel>
           </Box>
 
           {/* Panel de acciones fijo en la parte inferior */}
@@ -1717,8 +1678,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
             sx={{
               flexShrink: 0,
               p: 1,
-              background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
-              borderTop: '1px solid #e2e8f0',
+              background: '#ffffff',
+              borderTop: '1px solid rgba(37,150,190,0.16)',
               borderRadius: { xs: 0, md: '0 0 12px 12px' },
               boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
               position: 'sticky',
@@ -1747,10 +1708,10 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                   sx={{ 
                     fontWeight: 600,
                     py: 1,
-                    background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
+                    background: '#8b5cf6',
                     boxShadow: '0 3px 10px rgba(139, 92, 246, 0.3)',
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)',
+                      background: '#7c3aed',
                       boxShadow: '0 4px 15px rgba(139, 92, 246, 0.5)',
                       transform: 'translateY(-1px)'
                     },
@@ -1781,10 +1742,10 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     sx={{ 
                       fontWeight: 600,
                       py: 1,
-                      background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                      background: '#2596be',
                       boxShadow: '0 3px 10px rgba(37, 150, 190, 0.3)',
                       '&:hover': {
-                        background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)',
+                        background: '#1b7d9c',
                         boxShadow: '0 4px 15px rgba(37, 150, 190, 0.5)',
                         transform: 'translateY(-1px)'
                       },
@@ -1805,10 +1766,10 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     sx={{ 
                       fontWeight: 600,
                       py: 1,
-                      background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                      background: '#2596be',
                       boxShadow: '0 3px 10px rgba(37, 150, 190, 0.3)',
                       '&:hover': {
-                        background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)',
+                        background: '#1b7d9c',
                         boxShadow: '0 4px 15px rgba(37, 150, 190, 0.5)',
                         transform: 'translateY(-1px)'
                       },
@@ -1885,7 +1846,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
           >
             <Box
               sx={{
-                background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                background: '#2596be',
                 color: 'white',
                 px: 3,
                 py: 2.25,
@@ -1919,7 +1880,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
               </IconButton>
             </Box>
 
-            <DialogContent sx={{ p: 3, backgroundColor: '#f8fafc' }}>
+            <DialogContent sx={{ p: 3, backgroundColor: '#f6fcfd' }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                 Esta acción cerrará el caso clínico/diagnóstico actual y creará uno nuevo para el paciente.
               </Typography>
@@ -1936,7 +1897,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 p: 3,
                 gap: 1,
                 backgroundColor: 'white',
-                borderTop: '1px solid #e2e8f0'
+                borderTop: '1px solid rgba(37,150,190,0.16)'
               }}
             >
               <Button
@@ -1953,9 +1914,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                 sx={{
                   borderRadius: 2,
                   textTransform: 'none',
-                  background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                  background: '#2596be',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)'
+                    background: '#1b7d9c'
                   }
                 }}
               >
@@ -2030,7 +1991,7 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     textAlign: 'center',
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
-                    bgcolor: isDragActive ? '#f0f9ff' : '#f8fafc',
+                    bgcolor: isDragActive ? '#f0f9ff' : '#f6fcfd',
                     borderColor: isDragActive ? '#2596be' : '#cbd5e1',
                     '&:hover': {
                       borderColor: '#2596be',
@@ -2066,8 +2027,8 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                           elevation={0}
                           sx={{ 
                             p: 2, 
-                            bgcolor: '#f8fafc',
-                            border: '1px solid #e2e8f0'
+                            bgcolor: '#f6fcfd',
+                            border: '1px solid rgba(37,150,190,0.16)'
                           }}
                         >
                           <Stack direction="row" alignItems="center" spacing={2}>
@@ -2105,9 +2066,9 @@ const DespliegueEventos = ({ event, onClose, fetchReservas, gapi, esAsistente })
                     disabled={uploadFiles.length === 0 || isUploading || !canUploadExamImages}
                     startIcon={isUploading ? <Skeleton width={20} height={20} /> : <CloudUploadIcon />}
                     sx={{
-                      background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)',
+                      background: '#2596be',
                       '&:hover': {
-                        background: 'linear-gradient(135deg, #1e7a9b 0%, #1ba6c6 100%)'
+                        background: '#1b7d9c'
                       }
                     }}
                   >

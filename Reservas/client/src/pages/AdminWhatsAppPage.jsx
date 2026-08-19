@@ -15,10 +15,13 @@ import {
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import ChatIcon from '@mui/icons-material/Chat';
 
 import api from '../api/axios';
 import { useAlert } from '../context/AlertContext';
 import { useAuth } from '../context/authContext';
+import PageHeader from '../components/ui/PageHeader';
+import PageLayout from '../components/ui/PageLayout';
 
 export default function AdminWhatsAppPage() {
   const showAlert = useAlert();
@@ -147,19 +150,16 @@ export default function AdminWhatsAppPage() {
   }
 
   return (
-    <Box maxWidth={900} mx="auto">
-      <Card sx={{ borderRadius: 3 }}>
+    <PageLayout maxWidth={900}>
+      <PageHeader
+        icon={<ChatIcon />}
+        title="Admin · WhatsApp (GreenAPI)"
+        subtitle="Configuración global de credenciales (un solo número para toda la plataforma)."
+      />
+
+      <Card>
         <CardContent>
           <Stack spacing={2}>
-            <Box>
-              <Typography variant="h5" fontWeight={800}>
-                Admin · WhatsApp (GreenAPI)
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Configuración global de credenciales (un solo número para toda la plataforma).
-              </Typography>
-            </Box>
-
             {error ? <Alert severity="error">{error}</Alert> : null}
 
             <Alert severity={status.configured ? 'success' : 'warning'}>
@@ -224,6 +224,6 @@ export default function AdminWhatsAppPage() {
           </Stack>
         </CardContent>
       </Card>
-    </Box>
+    </PageLayout>
   );
 }

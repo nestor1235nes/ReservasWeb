@@ -38,7 +38,6 @@ import LockOpenIcon from "@mui/icons-material/LockOpen";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import PlayCircleIcon from "@mui/icons-material/PlayCircle";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
 import PeopleIcon from "@mui/icons-material/People";
 import LayersIcon from "@mui/icons-material/Layers";
 import CloseIcon from "@mui/icons-material/Close";
@@ -52,6 +51,8 @@ import {
   cancelarOcupacionRequest,
 } from "../../api/boxes";
 import { useAuth } from "../../context/authContext";
+import PageHeader from "../../components/ui/PageHeader";
+import PageLayout from "../../components/ui/PageLayout";
 
 dayjs.locale("es");
 
@@ -286,65 +287,55 @@ export default function AgendaBox() {
   const colorBox = box?.color || "#2596be";
 
   return (
-    <Box width="100%" minHeight="100%" bgcolor="#f5f7fa">
-      {/* Header */}
-      <Stack
-        direction={isMobile ? "column" : "row"}
-        justifyContent="space-between"
-        alignItems={isMobile ? "stretch" : "center"}
-        spacing={2}
-        p={2}
-        sx={{ background: `linear-gradient(45deg, ${colorBox} 30%, ${colorBox}bb 90%)` }}
-      >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Tooltip title="Volver a Salas de Box">
-            <IconButton onClick={() => navigate("/mi-empresa/boxes")} sx={{ color: "white" }}>
-              <ArrowBackIcon />
-            </IconButton>
-          </Tooltip>
-          <MeetingRoomIcon sx={{ color: "white", fontSize: 28 }} />
-          <Box>
-            <Typography variant="h5" fontWeight={700} color="white" lineHeight={1}>
-              {box?.nombre || "Box"}
-            </Typography>
+    <PageLayout sx={{ width: "100%", minHeight: "100%" }}>
+      <PageHeader
+        bg={`linear-gradient(45deg, ${colorBox} 30%, ${colorBox}bb 90%)`}
+        icon={<EventAvailableIcon />}
+        title={`Agenda de ${box?.nombre || "Box"}`}
+        actions={
+          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+            <Tooltip title="Volver a Salas de Box">
+              <IconButton onClick={() => navigate("/mi-empresa/boxes")} sx={{ color: "white" }}>
+                <ArrowBackIcon />
+              </IconButton>
+            </Tooltip>
             {box?.codigo && (
               <Typography variant="caption" color="rgba(255,255,255,0.8)">#{box.codigo}</Typography>
             )}
-          </Box>
-          {esHoy && (
-            <Chip label="Auto-actualización activa" size="small"
-              sx={{ bgcolor: "rgba(255,255,255,0.2)", color: "white", fontSize: 11 }} />
-          )}
-        </Stack>
-
-        {/* Navegación de fecha */}
-        <Stack direction="row" alignItems="center" spacing={0.5}>
-          <IconButton onClick={() => setFecha((p) => p.subtract(1, "day"))} sx={{ color: "white" }}>
-            <ChevronLeftIcon />
-          </IconButton>
-          <Stack alignItems="center" minWidth={200}>
-            <Typography color="white" fontWeight={700} fontSize={15}>
-              {fecha.format("dddd D [de] MMMM YYYY")}
-            </Typography>
-            {esHoy && <Chip label="Hoy" size="small" sx={{ bgcolor: "white", color: colorBox, fontWeight: 700, height: 16, fontSize: 11 }} />}
+            {esHoy && (
+              <Chip label="Auto-actualización activa" size="small"
+                sx={{ bgcolor: "rgba(255,255,255,0.2)", color: "white", fontSize: 11 }} />
+            )}
+            {puedeReservar && (
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => abrirReservar()}
+                sx={{ bgcolor: "white", color: colorBox, fontWeight: 700, borderRadius: 2, "&:hover": { bgcolor: "#f0f0f0" } }}>
+                Nueva reserva
+              </Button>
+            )}
           </Stack>
-          <IconButton onClick={() => setFecha((p) => p.add(1, "day"))} sx={{ color: "white" }}>
-            <ChevronRightIcon />
-          </IconButton>
-          <Tooltip title="Ir a hoy">
-            <IconButton onClick={() => setFecha(dayjs())} sx={{ color: "white" }}>
-              <TodayIcon />
+        }
+        toolbar={
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <IconButton onClick={() => setFecha((p) => p.subtract(1, "day"))} sx={{ color: "white" }}>
+              <ChevronLeftIcon />
             </IconButton>
-          </Tooltip>
-        </Stack>
-
-        {puedeReservar && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => abrirReservar()}
-            sx={{ bgcolor: "white", color: colorBox, fontWeight: 700, borderRadius: 2, "&:hover": { bgcolor: "#f0f0f0" } }}>
-            Nueva reserva
-          </Button>
-        )}
-      </Stack>
+            <Stack alignItems="center" minWidth={200}>
+              <Typography color="white" fontWeight={700} fontSize={15}>
+                {fecha.format("dddd D [de] MMMM YYYY")}
+              </Typography>
+              {esHoy && <Chip label="Hoy" size="small" sx={{ bgcolor: "white", color: colorBox, fontWeight: 700, height: 16, fontSize: 11 }} />}
+            </Stack>
+            <IconButton onClick={() => setFecha((p) => p.add(1, "day"))} sx={{ color: "white" }}>
+              <ChevronRightIcon />
+            </IconButton>
+            <Tooltip title="Ir a hoy">
+              <IconButton onClick={() => setFecha(dayjs())} sx={{ color: "white" }}>
+                <TodayIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        }
+      />
 
       {/* Info del box */}
       {box && (
@@ -786,7 +777,7 @@ export default function AgendaBox() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageLayout>
   );
 }
 

@@ -15,6 +15,9 @@ import {
   Stack,
   Divider,
 } from "@mui/material";
+import CreditCardIcon from "@mui/icons-material/CreditCard";
+import PageHeader from "../components/ui/PageHeader";
+import PageLayout from "../components/ui/PageLayout";
 
 // Página para mantener los planes de suscripción manualmente
 export default function AdminPlansPage() {
@@ -155,15 +158,12 @@ export default function AdminPlansPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1100, mx: "auto" }}>
-      <Typography variant="h4" sx={{ mb: 1 }}>
-        Administrar planes de suscripción
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Usa esta página solo para mantenimiento interno. Puedes crear, activar/desactivar y
-        ajustar precios y duración de los planes. Para el plan Teams también puedes
-        configurar los precios por tipo de usuario.
-      </Typography>
+    <PageLayout maxWidth={1100}>
+      <PageHeader
+        icon={<CreditCardIcon />}
+        title="Administrar planes de suscripción"
+        subtitle="Usa esta página solo para mantenimiento interno. Puedes crear, activar/desactivar y ajustar precios y duración de los planes. Para el plan Teams también puedes configurar los precios por tipo de usuario."
+      />
 
       <Grid container spacing={3} alignItems="flex-start">
         <Grid item xs={12} md={6}>
@@ -434,6 +434,6 @@ export default function AdminPlansPage() {
           </Card>
         </Grid>
       </Grid>
-    </Box>
+    </PageLayout>
   );
 }

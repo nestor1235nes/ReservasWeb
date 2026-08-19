@@ -20,6 +20,8 @@ import AddLinkIcon from '@mui/icons-material/AddLink';
 import LinkIcon from '@mui/icons-material/Link';
 import QRCode from 'qrcode';
 import { useSucursal } from '../../context/sucursalContext';
+import PageHeader from '../../components/ui/PageHeader';
+import PageLayout from '../../components/ui/PageLayout';
 
 export default function EnlaceSucursal() {
   const theme = useTheme();
@@ -106,22 +108,12 @@ export default function EnlaceSucursal() {
   };
 
   return (
-    <Box display="flex" flexDirection="column" minHeight="100%" backgroundColor="white" px={isMobile ? 0.5 : 0}>
-      <Stack
-        p={isMobile ? 1 : 1.5}
-        borderRadius={1}
-        sx={{
-          background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'stretch' : 'center',
-          gap: isMobile ? 1.5 : 0,
-          mb: isMobile ? 1 : 0,
-        }}
-      >
-        <Typography variant={isMobile ? 'h6' : 'h5'} fontWeight={700} color="white">
-          Enlace público de la sucursal
-        </Typography>
-      </Stack>
+    <PageLayout>
+      <PageHeader
+        icon={<AddLinkIcon />}
+        title="Enlace de sucursal"
+        subtitle="Comparte el enlace público de tu sucursal"
+      />
 
       <Card sx={{ mt: isMobile ? 1 : 0, borderRadius: isMobile ? 0 : 2, boxShadow: isMobile ? 0 : 2 }}>
         <CardContent sx={{ p: isMobile ? 2 : 3 }}>
@@ -251,6 +243,6 @@ export default function EnlaceSucursal() {
           Enlace copiado
         </Alert>
       </Snackbar>
-    </Box>
+    </PageLayout>
   );
 }

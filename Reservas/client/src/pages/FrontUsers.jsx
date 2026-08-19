@@ -360,7 +360,7 @@ export default function FrontUsers() {
 
 	// Default marketing page when no slug
 	return (
-		<Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f7fbfd' }}>
+		<Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 			{/* Header (sticky like HomePageNew) */}
 			<AppBar
 				position="sticky"
@@ -492,7 +492,7 @@ export default function FrontUsers() {
 					<Grid container spacing={2}>
 						{features.map((f, i) => (
 							<Grid key={i} item xs={12} sm={6} md={4}>
-								<Card elevation={0} sx={{ border: '2px solid #e3f2fd', height: '100%', borderRadius: 3, transition: 'all 0.3s ease', '&:hover': { borderColor: primary, boxShadow: 3 } }}>
+								<Card elevation={0} sx={{ border: '2px solid #e3f2fd', height: '100%', transition: 'all 0.3s ease', '&:hover': { borderColor: primary, boxShadow: 3 } }}>
 									<CardContent>
 										<Stack direction="row" spacing={2}>
 											<Box sx={{ width: 48, height: 48, borderRadius: 2, display: 'grid', placeItems: 'center', color: '#fff', background: 'linear-gradient(135deg, #2596be 0%, #21cbe6 100%)', boxShadow: 2, flexShrink: 0 }}>
@@ -528,7 +528,7 @@ export default function FrontUsers() {
 							{ n: 3, t: 'Recibe reservas', d: 'Comparte tu enlace y confirma citas fácilmente.' },
 						].map(s => (
 							<Grid item xs={12} md={4} key={s.n}>
-								<Card elevation={0} sx={{ border: '2px solid #e3f2fd', borderRadius: 3, height: '100%', transition: 'all 0.3s ease', '&:hover': { borderColor: primary, boxShadow: 3 } }}>
+								<Card elevation={0} sx={{ border: '2px solid #e3f2fd', height: '100%', transition: 'all 0.3s ease', '&:hover': { borderColor: primary, boxShadow: 3 } }}>
 									<CardContent>
 										<Stack spacing={1.5}>
 											<Chip label={`Paso ${s.n}`} sx={{ alignSelf: 'flex-start', bgcolor: 'rgba(37,150,190,0.12)', color: primary, fontWeight: 700 }} />
@@ -561,7 +561,6 @@ export default function FrontUsers() {
 								elevation={0}
 								sx={{
 									border: '2px solid #e3f2fd',
-									borderRadius: 3,
 									height: '100%',
 									transition: 'all 0.3s ease',
 									'&:hover': { transform: 'translateY(-4px)', boxShadow: '0 14px 40px rgba(37,150,190,0.12)', borderColor: primary },
@@ -614,10 +613,8 @@ export default function FrontUsers() {
 								sx={{
 									position: 'relative',
 									border: '2px solid rgba(37,150,190,0.55)',
-									borderRadius: 3,
 									height: '100%',
 									background: 'linear-gradient(180deg, rgba(37,150,190,0.06) 0%, #ffffff 55%)',
-									boxShadow: '0 10px 30px rgba(37,150,190,0.10)',
 									transition: 'all 0.3s ease',
 									'&:hover': { transform: 'translateY(-4px)', boxShadow: '0 16px 46px rgba(37,150,190,0.18)', borderColor: primary },
 									'&::before': {
@@ -680,7 +677,6 @@ export default function FrontUsers() {
 								elevation={0}
 								sx={{
 									border: '2px solid #e3f2fd',
-									borderRadius: 3,
 									height: '100%',
 									transition: 'all 0.3s ease',
 									'&:hover': { transform: 'translateY(-4px)', boxShadow: '0 14px 40px rgba(37,150,190,0.12)', borderColor: primary },

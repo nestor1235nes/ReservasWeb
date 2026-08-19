@@ -28,12 +28,15 @@ import AddIcon from "@mui/icons-material/Add";
 import EmailIcon from "@mui/icons-material/Email";
 import LocalPhoneIcon from "@mui/icons-material/LocalPhone";
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import { useSucursal } from "../../context/sucursalContext";
 import { useAuth } from "../../context/authContext";
 import { useSubscription } from "../../context/subscriptionContext";
 import RegisterProfesional from "../../components/Surcursales/RegisterProfesional";
 import { useTheme } from "@mui/material/styles";
 import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
+import PageHeader from "../../components/ui/PageHeader";
+import PageLayout from "../../components/ui/PageLayout";
 
 export default function GestionarProfesionales() {
   const { user, deleteUser } = useAuth();
@@ -254,45 +257,30 @@ export default function GestionarProfesionales() {
   );
 
   return (
-    <Box
-      maxWidth={isMobile ? "100%" : "100%"}
-      width="100%"
-      mx="auto"
-      px={isMobile ? 0 : 0}
-      py={isMobile ? 0 : 0}
-      minHeight="100%"
-      bgcolor="#f5f7fa"
-    >
-      <Stack
-        direction={isMobile ? "column" : "row"}
-        justifyContent="space-between"
-        alignItems={isMobile ? "stretch" : "center"}
-        spacing={2}
-        p={2}
-        borderRadius={1}
-        sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}
-        mb={0}
-      >
-        <Typography variant="h5" fontWeight={700} color="white">
-          Lista de profesionales de la clínica {sucursal?.nombre || "desconocida"}
-        </Typography>
-        <Tooltip
-          title={professionalsTooltipTitle}
-          disableHoverListener={canAddProfessional || !isTeamsSucursalPlan}
-        >
-          <span>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              sx={{ background: "white", color: "#2596be", borderRadius: 2 }}
-              onClick={() => setOpenDialog(true)}
-              disabled={!canAddProfessional}
-            >
-              Agregar profesional
-            </Button>
-          </span>
-        </Tooltip>
-      </Stack>
+    <PageLayout>
+      <PageHeader
+        icon={<MedicalServicesIcon />}
+        title="Profesionales"
+        subtitle={`Lista de profesionales de la clínica ${sucursal?.nombre || "desconocida"}`}
+        actions={
+          <Tooltip
+            title={professionalsTooltipTitle}
+            disableHoverListener={canAddProfessional || !isTeamsSucursalPlan}
+          >
+            <span>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                sx={{ background: "white", color: "#2596be", borderRadius: 2 }}
+                onClick={() => setOpenDialog(true)}
+                disabled={!canAddProfessional}
+              >
+                Agregar profesional
+              </Button>
+            </span>
+          </Tooltip>
+        }
+      />
       <Box
         sx={{
           width: isMobile ? "100%" : "100%",
@@ -378,6 +366,6 @@ export default function GestionarProfesionales() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageLayout>
   );
 }

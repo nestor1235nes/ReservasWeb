@@ -50,6 +50,8 @@ import {
   eliminarBoxRequest,
   toggleActivoBoxRequest,
 } from "../../api/boxes";
+import PageHeader from "../../components/ui/PageHeader";
+import PageLayout from "../../components/ui/PageLayout";
 
 const COLORES_PRESET = [
   "#2596be", "#21cbe6", "#0d9488", "#16a34a", "#ca8a04",
@@ -211,33 +213,24 @@ export default function GestionarBoxes() {
   };
 
   return (
-    <Box width="100%" minHeight="100%" bgcolor="#f5f7fa">
-      {/* Header */}
-      <Stack
-        direction={isMobile ? "column" : "row"}
-        justifyContent="space-between"
-        alignItems={isMobile ? "stretch" : "center"}
-        spacing={2}
-        p={2}
-        sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}
-      >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <MeetingRoomIcon sx={{ color: "white", fontSize: 32 }} />
-          <Typography variant="h5" fontWeight={700} color="white">
-            Salas de Box — {sucursal?.nombre || "..."}
-          </Typography>
-        </Stack>
-        {puedeGestionar && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            sx={{ background: "white", color: "#2596be", borderRadius: 2, fontWeight: 700 }}
-            onClick={abrirCrear}
-          >
-            Nuevo Box
-          </Button>
-        )}
-      </Stack>
+    <PageLayout sx={{ width: "100%", minHeight: "100%" }}>
+      <PageHeader
+        icon={<MeetingRoomIcon />}
+        title="Salas de Box"
+        subtitle={sucursal?.nombre || "..."}
+        actions={
+          puedeGestionar && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              sx={{ background: "white", color: "#2596be", borderRadius: 2, fontWeight: 700 }}
+              onClick={abrirCrear}
+            >
+              Nuevo Box
+            </Button>
+          )
+        }
+      />
 
       {/* Contenido */}
       <Box sx={{ background: "white", borderRadius: 3, boxShadow: 4, p: isMobile ? 1 : 3, mt: 0 }}>
@@ -526,7 +519,7 @@ export default function GestionarBoxes() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageLayout>
   );
 }
 

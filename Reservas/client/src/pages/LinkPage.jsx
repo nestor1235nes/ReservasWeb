@@ -10,6 +10,8 @@ import Template1Img from '../assets/referenciaTemplate/template1.png';
 import Template2Img from '../assets/referenciaTemplate/template2.png';
 import Template3Img from '../assets/referenciaTemplate/template3.png';
 import QRCode from 'qrcode';
+import PageHeader from '../components/ui/PageHeader';
+import PageLayout from '../components/ui/PageLayout';
 
 export default function LinkPage() {
 		const { user, generateMiEnlace, updatePerfil } = useAuth();
@@ -119,31 +121,19 @@ export default function LinkPage() {
 		};
 
 		return (
-			<Box
-				display="flex"
-				flexDirection="column"
-				minHeight="100%"
-				backgroundColor="white"
-				overflow="visible"
-				px={isMobile ? 0.5 : 0}
-				pb={isMobile ? 1 : 0}
+			<PageLayout
+				sx={{
+					display: 'flex',
+					flexDirection: 'column',
+					px: isMobile ? 0.5 : 0,
+					pb: isMobile ? 1 : 0,
+				}}
 			>
-				{/* Encabezado con gradiente, consistente con otras páginas */}
-				<Stack
-					p={isMobile ? 1 : 1.5}
-					borderRadius={1}
-					sx={{
-						background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-						flexDirection: isMobile ? 'column' : 'row',
-						alignItems: isMobile ? 'stretch' : 'center',
-						gap: isMobile ? 1.5 : 0,
-						mb: isMobile ? 1 : 0,
-					}}
-				>
-					<Typography variant={isMobile ? 'h6' : 'h5'} fontWeight={700} color="white">
-						Mi enlace de reservas
-					</Typography>
-				</Stack>
+				<PageHeader
+					icon={<AddLinkIcon />}
+					title="Mi Enlace"
+					subtitle="Comparte tu enlace de reservas con tus pacientes"
+				/>
 
 				{/* Contenido principal en Card */}
 				<Card
@@ -303,7 +293,7 @@ export default function LinkPage() {
 						Enlace copiado al portapapeles
 					</Alert>
 				</Snackbar>
-			</Box>
+			</PageLayout>
 		);
 }
 

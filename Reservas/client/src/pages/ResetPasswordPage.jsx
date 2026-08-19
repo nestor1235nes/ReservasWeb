@@ -70,7 +70,7 @@ export default function ResetPasswordPage() {
 
   return (
     <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: 'linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%)', p: 2 }}>
-      <Card sx={{ maxWidth: 520, width: '100%', borderRadius: 2, border: '2px solid #e3f2fd', boxShadow: 3, '&:hover': { boxShadow: 6, borderColor: primary } }}>
+      <Card sx={{ maxWidth: 520, width: '100%', border: '2px solid #e3f2fd', '&:hover': { boxShadow: 6, borderColor: primary } }}>
         <CardContent sx={{ p: { xs: 3, md: 4 } }}>
           <Stack spacing={3}>
             <Box>

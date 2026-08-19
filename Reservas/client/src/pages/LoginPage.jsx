@@ -61,7 +61,7 @@ export function LoginPage() {
 
   return (
     <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: 'linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%)', p: 2 }}>
-      <Card sx={{ maxWidth: 420, width: '100%', borderRadius: 2, boxShadow: 6 }}>
+      <Card sx={{ maxWidth: 420, width: '100%' }}>
         <CardContent sx={{ p: { xs: 3, md: 4 } }}>
           <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
             <Typography variant="h5" component="div" fontWeight={800}>

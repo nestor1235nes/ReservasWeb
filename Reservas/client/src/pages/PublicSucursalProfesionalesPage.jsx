@@ -270,7 +270,7 @@ export default function PublicSucursalProfesionalesPage() {
 
       <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3 } }}>
         {/* Perfil de sucursal */}
-        <Card sx={{ borderRadius: 3, boxShadow: 2, overflow: 'hidden' }}>
+        <Card sx={{ overflow: 'hidden' }}>
           <Box
             sx={{
               height: 120,
@@ -294,11 +294,11 @@ export default function PublicSucursalProfesionalesPage() {
                 />
 
                 <Box sx={{ flex: 1, minWidth: 0, textAlign: { xs: 'center', sm: 'left' } }}>
-                  <Typography variant={isMobile ? 'h5' : 'h4'} fontWeight={900} sx={{ mt: { xs: 0, sm: 1 } }}>
+                  <Typography variant="h5" fontWeight={900} sx={{ mt: { xs: 0, sm: 1 } }}>
                     {sucursal?.nombre || 'Sucursal'}
                   </Typography>
                   {sucursal?.direccion && (
-                    <Typography variant="body1" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary">
                       {sucursal.direccion}
                     </Typography>
                   )}
@@ -388,7 +388,7 @@ export default function PublicSucursalProfesionalesPage() {
         </Card>
 
         {/* Buscador + lista */}
-        <Card sx={{ mt: 2, borderRadius: 3, boxShadow: 2 }}>
+        <Card sx={{ mt: 2 }}>
           <CardContent sx={{ p: isMobile ? 2 : 3 }}>
             <Stack spacing={2}>
               <Typography variant="h6" fontWeight={900}>
@@ -426,7 +426,6 @@ export default function PublicSucursalProfesionalesPage() {
                     <Card
                       variant="outlined"
                       sx={{
-                        borderRadius: 3,
                         overflow: 'hidden',
                         height: '100%',
                         display: 'flex',
@@ -542,7 +541,7 @@ export default function PublicSucursalProfesionalesPage() {
 
         {/* Mapa al final */}
         {Boolean(locationData.formattedAddress) && Boolean(mapImg) && (
-          <Card sx={{ mt: 2, borderRadius: 3, boxShadow: 2, overflow: 'hidden' }}>
+          <Card sx={{ mt: 2, overflow: 'hidden' }}>
             <Box
               component="img"
               alt="Mapa"
@@ -553,7 +552,7 @@ export default function PublicSucursalProfesionalesPage() {
               <Stack spacing={1}>
                 <Typography fontWeight={900}>¿Cómo llegar?</Typography>
                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                  <Typography color="text.secondary">{locationData.formattedAddress}</Typography>
+                  <Typography variant="body2" color="text.secondary">{locationData.formattedAddress}</Typography>
                   {locationData.mapsUrl && (
                     <Link
                       href={locationData.mapsUrl}

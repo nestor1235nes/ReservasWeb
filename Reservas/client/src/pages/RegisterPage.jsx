@@ -144,7 +144,7 @@ export function RegisterPage() {
           </Container>
         </Box>
         <Container maxWidth="sm" sx={{ flex: 1, display: 'grid', placeItems: 'center', py: 6 }}>
-          <Card elevation={0} sx={{ width: '100%', border: '1px solid #e3f2fd', borderRadius: 3, boxShadow: '0 8px 24px rgba(37,150,190,0.08)' }}>
+          <Card elevation={0} sx={{ width: '100%', border: '1px solid #e3f2fd' }}>
             <CardContent>
               <Stack spacing={2} alignItems="center" sx={{ mb: 1 }}>
                 <Avatar sx={{ bgcolor: '#2596be', width: 56, height: 56 }}>
@@ -218,7 +218,7 @@ export function RegisterPage() {
         </Container>
       </Box>
       <Container maxWidth="sm" sx={{ flex: 1, display: 'grid', placeItems: 'center', py: 6 }}>
-        <Card elevation={0} sx={{ width: '100%', border: '1px solid #e3f2fd', borderRadius: 3, boxShadow: '0 8px 24px rgba(37,150,190,0.08)' }}>
+        <Card elevation={0} sx={{ width: '100%', border: '1px solid #e3f2fd' }}>
           <CardContent>
             {registerErrors.map((error, i) => (
               <Alert severity="error" key={i} sx={{ mb: 1 }}>{error}</Alert>

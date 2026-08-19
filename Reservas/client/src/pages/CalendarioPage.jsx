@@ -1,20 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { AppBar, Toolbar, Typography, Box, Drawer, Slide, Stack, Chip, Paper, useMediaQuery, Button, CircularProgress } from '@mui/material';
+import { Box, Card, Drawer, Slide, Stack, Chip, useMediaQuery, Button, IconButton, Typography, ToggleButton, ToggleButtonGroup, CircularProgress } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useReserva } from '../context/reservaContext';
 import { useAuth } from '../context/authContext';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import DespliegueEventos from '../components/PanelDespliegue/DespliegueEventos';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 import 'dayjs/locale/es';
-import BotonFlotante from '../components/PanelDespliegue/BotonFlotante';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import LiberarHoras from '../components/Modales/LiberarHoras';
 import SinDatos from '../components/Modales/SinDatos';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
@@ -28,6 +30,9 @@ import { useSucursal } from '../context/sucursalContext';
 import FullPageLoader from '../components/ui/FullPageLoader';
 import { useAlert } from '../context/AlertContext';
 import SyncIcon from '@mui/icons-material/Sync';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import PageHeader from '../components/ui/PageHeader';
+import PageLayout from '../components/ui/PageLayout';
 
 dayjs.extend(localizedFormat);
 dayjs.extend(utc);
@@ -44,7 +49,138 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-export function CalendarioPage() {
+export const ETIQUETAS_VISTA = { month: 'Mes', week: 'Semana', day: 'Día', agenda: 'Agenda' };
+
+// Reemplaza la toolbar de fábrica de react-big-calendar, que trae botones grises
+// con borde y desentona dentro del sistema MUI del resto de la app.
+function CalendarToolbar({ label, onNavigate, onView, view, views }) {
+  const vistas = Array.isArray(views) ? views : Object.keys(views || {});
+
+  return (
+    <Stack
+      direction={{ xs: 'column', sm: 'row' }}
+      alignItems={{ xs: 'stretch', sm: 'center' }}
+      justifyContent="space-between"
+      spacing={1.5}
+      sx={{ mb: 2 }}
+    >
+      <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
+        <IconButton size="small" onClick={() => onNavigate('PREV')} aria-label="Período anterior">
+          <ChevronLeftIcon />
+        </IconButton>
+        <IconButton size="small" onClick={() => onNavigate('NEXT')} aria-label="Período siguiente">
+          <ChevronRightIcon />
+        </IconButton>
+        <Button size="small" variant="outlined" onClick={() => onNavigate('TODAY')} sx={{ ml: 0.5 }}>
+          Hoy
+        </Button>
+      </Stack>
+
+      <Typography
+        variant="h6"
+        sx={(t) => ({
+          color: t.palette.custom.header.text,
+          textTransform: 'capitalize',
+          textAlign: 'center',
+          flexShrink: 0,
+        })}
+      >
+        {label}
+      </Typography>
+
+      <Stack direction="row" justifyContent={{ xs: 'stretch', sm: 'flex-end' }} sx={{ flex: 1, minWidth: 0 }}>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={view}
+          onChange={(e, v) => v && onView(v)}
+          sx={{ width: { xs: '100%', sm: 'auto' } }}
+        >
+          {vistas.map((v) => (
+            <ToggleButton key={v} value={v} sx={{ px: 1.75, flex: { xs: 1, sm: 'none' } }}>
+              {ETIQUETAS_VISTA[v] || v}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Stack>
+    </Stack>
+  );
+}
+
+// Overrides acotados al calendario: apuntan a las clases .rbc-* pero viven dentro
+// del sx de su contenedor, asi que no hay CSS global ni fuga a otras paginas.
+const estiloCalendario = (t) => ({
+  '& .rbc-month-view, & .rbc-time-view, & .rbc-agenda-view table.rbc-agenda-table': {
+    border: `1px solid ${t.palette.divider}`,
+    borderRadius: '10px',
+    overflow: 'hidden',
+  },
+  '& .rbc-header': {
+    padding: '10px 6px',
+    borderBottom: `1px solid ${t.palette.divider}`,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    fontSize: 11,
+    fontWeight: 700,
+    color: t.palette.text.secondary,
+  },
+  '& .rbc-header + .rbc-header': { borderLeft: `1px solid ${t.palette.divider}` },
+  '& .rbc-day-bg + .rbc-day-bg': { borderLeft: `1px solid ${t.palette.divider}` },
+  '& .rbc-month-row + .rbc-month-row': { borderTop: `1px solid ${t.palette.divider}` },
+  '& .rbc-time-content, & .rbc-time-header-content, & .rbc-timeslot-group, & .rbc-time-content > * + * > *': {
+    borderColor: t.palette.divider,
+  },
+
+  // Fuera de mes: se atenua el numero, no se inunda la celda de gris.
+  '& .rbc-off-range-bg': { backgroundColor: 'transparent' },
+  '& .rbc-off-range .rbc-button-link': { color: t.palette.text.secondary, opacity: 0.45 },
+
+  '& .rbc-date-cell': { padding: '6px 8px', fontSize: 13, fontWeight: 600 },
+  '& .rbc-date-cell .rbc-button-link': { color: t.palette.text.primary },
+
+  '& .rbc-today': { backgroundColor: t.palette.custom.tint[100] },
+  '& .rbc-now .rbc-button-link': { color: t.palette.primary.main, fontWeight: 800 },
+
+  '& .rbc-event': {
+    borderRadius: '6px',
+    border: 'none',
+    padding: '3px 8px',
+    fontSize: 12,
+    fontWeight: 600,
+    boxShadow: 'none',
+  },
+  '& .rbc-event:focus-visible': { outline: `2px solid ${t.palette.primary.light}`, outlineOffset: 1 },
+  '& .rbc-show-more': {
+    color: t.palette.primary.main,
+    fontWeight: 700,
+    fontSize: 11,
+    backgroundColor: 'transparent',
+  },
+  '& .rbc-agenda-view table.rbc-agenda-table tbody > tr > td': {
+    borderColor: t.palette.divider,
+    color: t.palette.text.primary,
+  },
+});
+
+// La hora es el dato más útil de una celda de mes y RBC no la muestra ahí por
+// defecto. Va delante del nombre, en tabular-nums para que las filas se alineen.
+function EventoCalendario({ event, title }) {
+  const hora = event?.start ? dayjs(event.start).format('HH:mm') : null;
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
+      {hora && (
+        <Box component="span" sx={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', flexShrink: 0, opacity: 0.85 }}>
+          {hora}
+        </Box>
+      )}
+      <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {title}
+      </Box>
+    </Box>
+  );
+}
+
+function CalendarioPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [reservas, setReservas] = useState([]);
@@ -56,6 +192,7 @@ export function CalendarioPage() {
   const { logout, user, esAsistente } = useAuth();
   const showAlert = useAlert();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -269,10 +406,6 @@ export function CalendarioPage() {
     setTimeout(() => setSelectedEvent(null), 500); // Espera que termine la animación antes de desmontar
   };
 
-  const handleFabClick = () => {
-    // Acción al hacer clic en el botón flotante
-  };
-
   const handleProfileClick = () => {
     navigate('/perfil');
   };
@@ -459,8 +592,8 @@ export function CalendarioPage() {
     if (blockedDaysSet.has(dateStr)) {
       return {
         style: {
-          backgroundColor: "#ffe0b2", // naranja suave para distinguir de feriados
-          color: "#e65100",
+          backgroundColor: "#fdf1e3", // ambar atenuado: dia bloqueado
+          color: "#8a5a1a",
           cursor: "not-allowed",
         },
         className: "blocked-day"
@@ -469,8 +602,8 @@ export function CalendarioPage() {
     if (feriadosSet.has(dateStr)) {
       return {
         style: {
-          backgroundColor: "#fbb4b5",
-          color: "#b71c1c",
+          backgroundColor: "#fdecec", // rojo atenuado: feriado
+          color: "#a33a3a",
           cursor: "not-allowed",
         },
         className: "feriado-day"
@@ -480,41 +613,29 @@ export function CalendarioPage() {
   };
 
   // Esta función se usa para dar estilo a los eventos según su tipo
+  // Paleta por tipo de cita. Se conserva el mismo color semántico que ya usaban
+  // los chips del header; cambia cómo se aplica: acento + tinte en vez de relleno
+  // sólido, que a 12px se leía como un bloque de color con texto encima.
+  const PALETA_EVENTO = {
+    pendiente: { acento: '#2596be', tinte: 'rgba(37,150,190,0.14)', texto: '#14607d' },
+    primera:   { acento: '#10b981', tinte: 'rgba(16,185,129,0.14)', texto: '#0a6e4d' },
+    historial: { acento: '#8b5cf6', tinte: 'rgba(139,92,246,0.14)', texto: '#5b3aa8' },
+    otro:      { acento: '#6b7280', tinte: 'rgba(107,114,128,0.14)', texto: '#40464f' },
+  };
+
   const eventStyleGetter = (event) => {
-    let backgroundColor = '#2596be'; // Color por defecto
-    let borderColor = '#2596be';
-    let color = 'white';
-
-    switch (event.tipo) {
-      case 'pendiente':
-        backgroundColor = '#2596be'; // Azul para citas pendientes
-        borderColor = '#1e7a9b';
-        break;
-      case 'primera':
-        backgroundColor = '#10b981'; // Verde para primera consulta
-        borderColor = '#059669';
-        break;
-      case 'historial':
-        backgroundColor = '#8b5cf6'; // Morado para sesiones del historial
-        borderColor = '#7c3aed';
-        break;
-      default:
-        backgroundColor = '#6b7280'; // Gris para otros casos
-        borderColor = '#4b5563';
-    }
-
+    const c = PALETA_EVENTO[event.tipo] || PALETA_EVENTO.otro;
     return {
       style: {
-        backgroundColor,
-        borderColor,
-        color,
-        border: `2px solid ${borderColor}`,
+        backgroundColor: c.tinte,
+        color: c.texto,
+        border: 'none',
+        borderLeft: `3px solid ${c.acento}`,
         borderRadius: '6px',
         fontSize: '12px',
-        fontWeight: '600',
-        padding: '2px 6px',
-        opacity: event.tipo === 'historial' ? 0.8 : 1,
-      }
+        fontWeight: 600,
+        padding: '3px 8px',
+      },
     };
   };
 
@@ -534,60 +655,62 @@ export function CalendarioPage() {
   const toggleType = (key) => setVisibleTypes(prev => ({ ...prev, [key]: !prev[key] }));
 
   return (
-  <Box display="flex" flexDirection="column" height="100%" backgroundColor="white" sx={{ position: 'relative', overflow: 'visible' }}>
-      <FullPageLoader open={loading} withinContainer message="Cargando tu calendario" />    
-      <Stack p={2} borderRadius={1} sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={1}>
-          <Typography variant="h5" fontWeight={700} color="white">
-            Calendario
-          </Typography>
-          {/* Leyenda de colores con filtros */}
+  <PageLayout sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'visible' }}>
+      <FullPageLoader open={loading} withinContainer message="Cargando tu calendario" />
+      <PageHeader
+        icon={<CalendarMonthIcon />}
+        title="Calendario"
+        subtitle="Tu agenda completa"
+        actions={
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-            <Chip 
-              label="Pendientes" 
-              size="small" 
+            <Chip
+              label="Pendientes"
+              size="small"
               onClick={() => toggleType('pendiente')}
-              sx={{ 
-                bgcolor: '#2596be', 
-                color: 'white',
+              sx={{
+                bgcolor: visibleTypes.pendiente ? '#2596be' : 'transparent',
+                color: visibleTypes.pendiente ? 'white' : '#2596be',
                 fontSize: '15px',
                 height: '30px',
                 m: 0.5,
-                border: `${visibleTypes.pendiente ? 2 : 1}px solid ${visibleTypes.pendiente ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
-                cursor: 'pointer'
-              }} 
+                border: '1px solid #2596be',
+                cursor: 'pointer',
+                '&:hover': { bgcolor: visibleTypes.pendiente ? '#2596be' : 'rgba(37,150,190,0.10)' }
+              }}
             />
-            <Chip 
-              label="Primera consulta" 
-              size="small" 
+            <Chip
+              label="Primera consulta"
+              size="small"
               onClick={() => toggleType('primera')}
-              sx={{ 
-                bgcolor: '#10b981', 
-                color: 'white',
+              sx={{
+                bgcolor: visibleTypes.primera ? '#10b981' : 'transparent',
+                color: visibleTypes.primera ? 'white' : '#10b981',
                 fontSize: '15px',
                 height: '30px',
                 m: 0.5,
-                border: `${visibleTypes.primera ? 2 : 1}px solid ${visibleTypes.primera ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
-                cursor: 'pointer'
-              }} 
+                border: '1px solid #10b981',
+                cursor: 'pointer',
+                '&:hover': { bgcolor: visibleTypes.primera ? '#10b981' : 'rgba(37,150,190,0.10)' }
+              }}
             />
-            <Chip 
-              label="Historial" 
-              size="small" 
+            <Chip
+              label="Historial"
+              size="small"
               onClick={() => toggleType('historial')}
-              sx={{ 
-                bgcolor: '#8b5cf6', 
-                color: 'white',
+              sx={{
+                bgcolor: visibleTypes.historial ? '#8b5cf6' : 'transparent',
+                color: visibleTypes.historial ? 'white' : '#8b5cf6',
                 fontSize: '15px',
                 height: '30px',
                 m: 0.5,
-                border: `${visibleTypes.historial ? 2 : 1}px solid ${visibleTypes.historial ? '#ffffff' : 'rgba(255,255,255,0.7)'}`,
-                cursor: 'pointer'
-              }} 
+                border: '1px solid #8b5cf6',
+                cursor: 'pointer',
+                '&:hover': { bgcolor: visibleTypes.historial ? '#8b5cf6' : 'rgba(37,150,190,0.10)' }
+              }}
             />
             {!esAsistente && Boolean(user?.googleEmail) && (
-              <Button 
-                size="small" 
+              <Button
+                size="small"
                 variant="contained"
                 onClick={handleSyncPending}
                 disabled={syncing}
@@ -603,16 +726,16 @@ export function CalendarioPage() {
               </Button>
             )}
           </Stack>
-        </Box>
-      </Stack>
-      <Box flex="1" display="flex" justifyContent="center" alignItems="center" p={2}>
+        }
+      />
+      <Card sx={(t) => ({ flex: 1, display: "flex", flexDirection: "column", p: 2, overflow: "visible", ...estiloCalendario(t) })}>
         <Calendar
           localizer={localizer}
           events={filteredEvents}
           startAccessor="start"
           endAccessor="end"
           culture="es"
-          style={{ height: isMobile ? 'calc(100dvh - 220px)' : 'calc(100vh - 220px)', width: '100%' }}
+          style={{ height: isMobile ? 'calc(100dvh - 240px)' : 'calc(100vh - 240px)', minHeight: 520, width: '100%' }}
           messages={{
             next: "Siguiente",
             previous: "Anterior",
@@ -627,10 +750,12 @@ export function CalendarioPage() {
           min={new Date(0, 0, 0, 8, 0, 0)}  // Limitar a las 8:00 AM
           max={new Date(0, 0, 0, 21, 0, 0)}
           components={{
+            toolbar: CalendarToolbar,
+            event: EventoCalendario,
             dateCellWrapper: DateCellWrapper,
           }}
         />
-      </Box>
+      </Card>
 
       <Drawer
         anchor={isMobile ? 'bottom' : 'right'}
@@ -660,11 +785,16 @@ export function CalendarioPage() {
         <SinDatos open={showModal} />)
         }
 
-      {/* Botón flotante para liberar horas / agregar paciente / etc. */}
+      {/* Bloquear días: vive en el sidebar (AGENDA) y se abre por la ruta */}
       {!esAsistente && (
-        <BotonFlotante onClick={handleFabClick} fetchReservas={fetchReservas} gapi={gapi} />
+        <LiberarHoras
+          open={location.pathname === '/calendario/bloquear'}
+          onClose={() => navigate('/calendario')}
+          fetchReservas={fetchReservas}
+          gapi={gapi}
+        />
       )}
-    </Box>
+    </PageLayout>
   );
 }
 

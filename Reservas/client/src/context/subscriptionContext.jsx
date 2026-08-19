@@ -109,6 +109,7 @@ export function SubscriptionProvider({ children }) {
     canUploadExamImages: canUseAdvancedFeatures,
     canSyncCalendar: canUseAdvancedFeatures,
     canUseTelemedicina: canUseAdvancedFeatures,
+    canBlockHours: canUseAdvancedFeatures,
     canUsePayments: canUseAdvancedFeatures,
     canViewAdvancedReports: canUseAdvancedFeatures,
   };

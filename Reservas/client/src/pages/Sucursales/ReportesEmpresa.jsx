@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Card, CardContent, CardHeader, Chip, Divider, FormControl, InputLabel, MenuItem, Select, Stack, Typography, useMediaQuery } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { Box, Card, CardContent, CardHeader, Chip, Divider, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import { useAuth } from '../../context/authContext';
 import { useSucursal } from '../../context/sucursalContext';
 import { useAlert } from '../../context/AlertContext';
 import dayjs from 'dayjs';
 import FullPageLoader from '../../components/ui/FullPageLoader';
+import PageHeader from '../../components/ui/PageHeader';
+import PageLayout from '../../components/ui/PageLayout';
 import { BarChart, PieChart, LineChart } from '@mui/x-charts';
 
 // Period options in months
@@ -101,8 +103,6 @@ function computeMetrics(reservas, fromDate) {
 }
 
 const ReportesEmpresa = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user, esAdminSucursal } = useAuth();
   const { getReservasSucursal, getProfesionalesSucursal } = useSucursal();
   const showAlert = useAlert();
@@ -157,24 +157,14 @@ const ReportesEmpresa = () => {
   const formatMoney = (n) => `$${(n || 0).toLocaleString('es-CL')}`;
 
   return (
-    <Box sx={{ position: 'relative' }}>
+    <PageLayout sx={{ position: 'relative' }}>
       <FullPageLoader open={loading} withinContainer message="Cargando reportes de la empresa" />
 
-      <Stack
-        p={isMobile ? 1 : 1.5}
-        borderRadius={1}
-        sx={{
-          background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'stretch' : 'center',
-          gap: isMobile ? 1.5 : 0,
-          mb: isMobile ? 1 : 0,
-        }}
-      >
-        <Box display="flex" flexDirection={isMobile ? 'column' : 'row'} justifyContent="space-between" alignItems={isMobile ? 'stretch' : 'center'} width="100%" gap={isMobile ? 1 : 0}>
-          <Typography variant={isMobile ? 'h6' : 'h5'} fontWeight={700} color="white" mb={isMobile ? 1 : 0}>
-            Reportes de Mi Empresa
-          </Typography>
+      <PageHeader
+        icon={<AssessmentIcon />}
+        title="Reportes de empresa"
+        subtitle="Métricas agregadas de tu sucursal"
+        toolbar={(
           <FormControl size="small" sx={{ minWidth: 160, background: 'white', borderRadius: 1 }}>
             <InputLabel>Período</InputLabel>
             <Select label="Período" value={periodMonths} onChange={(e) => setPeriodMonths(Number(e.target.value))}>
@@ -183,8 +173,8 @@ const ReportesEmpresa = () => {
               ))}
             </Select>
           </FormControl>
-        </Box>
-      </Stack>
+        )}
+      />
 
       {/* KPIs globales */}
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} mt={2}>
@@ -308,7 +298,7 @@ const ReportesEmpresa = () => {
           )}
         </CardContent>
       </Card>
-    </Box>
+    </PageLayout>
   );
 };
 

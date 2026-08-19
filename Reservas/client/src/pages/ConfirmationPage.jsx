@@ -131,7 +131,7 @@ const ConfirmationPage = () => {
   const statusMeta = STATUS_META[info.status] || { label: info.status, bg: 'rgba(144,164,174,0.14)', fg: '#607d8b' };
 
   return wrap(
-    <Card variant="outlined" sx={{ maxWidth: 640, width: '100%', border: '1px solid #e6eef2', boxShadow: '0 10px 30px rgba(14,42,51,0.06)', borderRadius: 4 }}>
+    <Card variant="outlined" sx={{ maxWidth: 640, width: '100%', border: '1px solid #e6eef2' }}>
       <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack direction="row" spacing={1.5} alignItems="center" mb={0.5}>
           <Box sx={{ width: 42, height: 42, borderRadius: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(37,150,190,0.10)' }}>

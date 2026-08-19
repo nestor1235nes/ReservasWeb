@@ -81,7 +81,7 @@ export default function PacienteLoginPage() {
       <TopAppBar />
 
       <Box sx={{ width: '100%', maxWidth: 520, alignSelf: 'center', flex: 1, p: { xs: 1.5, sm: 3 }, display: 'flex', alignItems: 'center' }}>
-        <Card sx={{ width: '100%', borderRadius: 2, boxShadow: 6 }}>
+        <Card sx={{ width: '100%' }}>
           <CardContent sx={{ p: { xs: 3, md: 4 } }}>
             <Typography variant="h5" fontWeight={800} sx={{ mb: 0.5 }}>
               Acceso Paciente

@@ -15,14 +15,15 @@ import {
   TextField,
   IconButton,
   Tooltip,
-  useMediaQuery
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import LinkIcon from '@mui/icons-material/Link';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import VideoCallIcon from '@mui/icons-material/VideoCall';
 import CompartirEnlaceTelemedicina from '../components/Modales/CompartirEnlaceTelemedicina';
+import PageHeader from '../components/ui/PageHeader';
+import PageLayout from '../components/ui/PageLayout';
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -39,8 +40,6 @@ const Telemedicina = ({ reservaId }) => {
   const [sharePassword, setSharePassword] = useState('');
   const [joinPassword, setJoinPassword] = useState('');
   const query = useQuery();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const joinWithToken = async (roomUrl, token) => {
     try {
@@ -128,16 +127,12 @@ const Telemedicina = ({ reservaId }) => {
   };
 
   return (
-    <Box
-      maxWidth={isMobile ? '100%' : '100%'}
-      width="100%"
-      mx="auto"
-      px={isMobile ? 0 : 0}
-      py={isMobile ? 0 : 0}
-    >
-      <Stack direction={isMobile ? 'column' : 'row'} justifyContent="space-between" alignItems={isMobile ? 'stretch' : 'center'} spacing={2} p={2} borderRadius={1} sx={{ background: 'linear-gradient(45deg, #2596be 30%, #21cbe6 90%)' }}>
-        <Typography variant="h5" fontWeight={700} color="white">Telemedicina</Typography>
-      </Stack>
+    <PageLayout>
+      <PageHeader
+        icon={<VideoCallIcon />}
+        title="Telemedicina"
+        subtitle="Videoconsultas con tus pacientes"
+      />
 
       <Card sx={{ mt: 2 }}>
         <CardHeader sx={{ pb: 0 }} title={null} />
@@ -218,7 +213,7 @@ const Telemedicina = ({ reservaId }) => {
           )}
         </CardContent>
       </Card>
-    </Box>
+    </PageLayout>
   );
 };
 

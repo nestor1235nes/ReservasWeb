@@ -26,12 +26,15 @@ import PersonIcon from "@mui/icons-material/Person";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import EmailIcon from "@mui/icons-material/Email";
+import GroupAddIcon from "@mui/icons-material/GroupAdd";
 import { useSucursal } from "../../context/sucursalContext";
 import { useAuth } from "../../context/authContext";
 import { useSubscription } from "../../context/subscriptionContext";
 import RegisterAsistente from "../../components/Surcursales/RegisterAsistente";
 import { useTheme } from "@mui/material/styles";
 import { resolveAssetUrl } from '../../utils/resolveAssetUrl';
+import PageHeader from "../../components/ui/PageHeader";
+import PageLayout from "../../components/ui/PageLayout";
 
 export default function GestionarAsistentes() {
   const { user, deleteUser } = useAuth();
@@ -231,45 +234,30 @@ export default function GestionarAsistentes() {
   );
 
   return (
-    <Box
-      maxWidth={isMobile ? "100%" : "100%"}
-      width="100%"
-      mx="auto"
-      px={isMobile ? 0 : 0}
-      py={isMobile ? 0 : 0}
-      minHeight="100%"
-      bgcolor="#f5f7fa"
-    >
-      <Stack
-        direction={isMobile ? "column" : "row"}
-        justifyContent="space-between"
-        alignItems={isMobile ? "stretch" : "center"}
-        spacing={2}
-        p={2}
-        borderRadius={1}
-        sx={{ background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)" }}
-        mb={0}
-      >
-        <Typography variant="h5" fontWeight={700} color="white">
-          Lista de asistentes de la clínica {sucursal?.nombre || "desconocida"}
-        </Typography>
-        <Tooltip
-          title={assistantsTooltipTitle}
-          disableHoverListener={canAddAssistant || !isTeamsSucursalPlan}
-        >
-          <span>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              sx={{ background: "white", color: "#2596be", borderRadius: 2 }}
-              onClick={() => setOpenDialog(true)}
-              disabled={!canAddAssistant}
-            >
-              Agregar asistente
-            </Button>
-          </span>
-        </Tooltip>
-      </Stack>
+    <PageLayout>
+      <PageHeader
+        icon={<GroupAddIcon />}
+        title="Asistentes"
+        subtitle={`Lista de asistentes de la clínica ${sucursal?.nombre || "desconocida"}`}
+        actions={
+          <Tooltip
+            title={assistantsTooltipTitle}
+            disableHoverListener={canAddAssistant || !isTeamsSucursalPlan}
+          >
+            <span>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                sx={{ background: "white", color: "#2596be", borderRadius: 2 }}
+                onClick={() => setOpenDialog(true)}
+                disabled={!canAddAssistant}
+              >
+                Agregar asistente
+              </Button>
+            </span>
+          </Tooltip>
+        }
+      />
       <Box
         sx={{
           width: isMobile ? "100%" : "100%",
@@ -354,6 +342,6 @@ export default function GestionarAsistentes() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageLayout>
   );
 }

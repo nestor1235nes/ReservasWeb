@@ -34,6 +34,9 @@ import { useSubscription } from "../context/subscriptionContext";
 import MapboxAddressField from "../components/ui/MapboxAddressField";
 import SubscriptionPlansModal from '../components/Modales/SubscriptionPlansModal';
 import ChangePasswordSection from '../components/ChangePasswordSection';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import PageHeader from '../components/ui/PageHeader';
+import PageLayout from '../components/ui/PageLayout';
 
 const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const intervals = [10, 15, 30, 60];
@@ -1199,94 +1202,82 @@ export function PerfilPage() {
   if (!user) return <Typography>Cargando perfil...</Typography>;
 
   return (
-    <Box
-      maxWidth={"100%"}
-      px={{ xs: 1, sm: 2 }}
-      py={{ xs: 1, sm: 2 }}
+    <PageLayout
       sx={{
         overflowX: "hidden",
         maxWidth: '100vw',
         boxSizing: 'border-box',
+        px: { xs: 1, sm: 2 },
+        py: { xs: 1, sm: 2 },
       }}
     >
-      <Stack
-        direction={isMobile ? "column" : "row"}
-        justifyContent="space-between"
-        alignItems={isMobile ? "stretch" : "center"}
-        spacing={2}
-        p={2}
-        borderRadius={1}
-        mb={2}
-        sx={{
-          background: "linear-gradient(45deg, #2596be 30%, #21cbe6 90%)",
-          color: "white",
-          boxShadow: 3,
-        }}
-      >
-        <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} color="white">
-          {esAsistente ? "Mi Perfil Personal" : "Mi Perfil Profesional"}
-        </Typography>
-        <Box display="flex" gap={1} flexWrap="wrap" sx={{ '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}>
-          {canSeePlanChip && (
-            <Chip
-              label={
-                hasActiveSubscription
-                  ? `Plan activo: ${activePlanName}${planLevel === 'teams' ? ' (Equipo)' : ''}`
-                  : 'Sin suscripción activa'
-              }
-              color={hasActiveSubscription ? 'success' : 'default'}
-              variant="filled"
-              clickable
-              onClick={() => {
-                setSubscriptionModalOpen(true);
-              }}
-              sx={{
-                mr: 1,
-                backgroundColor: hasActiveSubscription ? '#2ecc71' : 'rgba(255,255,255,0.2)',
-                color: 'white',
-                cursor: 'pointer',
-                border: '1px solid white',
-              }}
-            />
-          )}
-          {!esAsistente && (
-            <Button startIcon={<PreviewIcon />} variant="contained" sx={{ background: 'white', color: '#2596be' }} onClick={() => setModalOpen(true)}>
-              Vista previa
-            </Button>
-          )}
-          {editProfileMode ? (
-            <>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={handleSaveProfileClick}
-                sx={{ mr: 1, background: "#2ecc71", color: "white" }}
-              >
-                Guardar cambios
+      <PageHeader
+        icon={<AccountCircleIcon />}
+        title={esAsistente ? "Mi Perfil Personal" : "Mi Perfil Profesional"}
+        subtitle="Gestiona tu información, tus horarios y tus servicios"
+        actions={
+          <Box display="flex" gap={1} flexWrap="wrap" sx={{ '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}>
+            {canSeePlanChip && (
+              <Chip
+                label={
+                  hasActiveSubscription
+                    ? `Plan activo: ${activePlanName}${planLevel === 'teams' ? ' (Equipo)' : ''}`
+                    : 'Sin suscripción activa'
+                }
+                color={hasActiveSubscription ? 'success' : 'default'}
+                variant="filled"
+                clickable
+                onClick={() => {
+                  setSubscriptionModalOpen(true);
+                }}
+                sx={{
+                  mr: 1,
+                  backgroundColor: hasActiveSubscription ? '#2ecc71' : 'rgba(37,150,190,0.12)',
+                  color: hasActiveSubscription ? 'white' : 'primary.main',
+                  cursor: 'pointer',
+                  border: hasActiveSubscription ? '1px solid white' : '1px solid rgba(37,150,190,0.35)',
+                }}
+              />
+            )}
+            {!esAsistente && (
+              <Button startIcon={<PreviewIcon />} variant="contained" sx={{ background: 'white', color: '#2596be' }} onClick={() => setModalOpen(true)}>
+                Vista previa
               </Button>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={handleCancelProfileClick}
-                sx={{ background: "#e74c3c", color: "white" }}
-              >
-                Cancelar
-              </Button>
-            </>
-          ) : (
-            (esAsistente ? tab === 0 : (tab === 0 || tab === 1)) && (
-              <Button
-                variant="contained"
-                startIcon={<ManageAccountsIcon />}
-                onClick={handleEditProfileClick}
-                sx={{ background: "white", color: "#2596be" }}
-              >
-                Configurar perfil
-              </Button>
-            )
-          )}
-        </Box>
-      </Stack>
+            )}
+            {editProfileMode ? (
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handleSaveProfileClick}
+                  sx={{ mr: 1, background: "#2ecc71", color: "white" }}
+                >
+                  Guardar cambios
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleCancelProfileClick}
+                  sx={{ background: "#e74c3c", color: "white" }}
+                >
+                  Cancelar
+                </Button>
+              </>
+            ) : (
+              (esAsistente ? tab === 0 : (tab === 0 || tab === 1)) && (
+                <Button
+                  variant="contained"
+                  startIcon={<ManageAccountsIcon />}
+                  onClick={handleEditProfileClick}
+                  sx={{ background: "white", color: "#2596be" }}
+                >
+                  Configurar perfil
+                </Button>
+              )
+            )}
+          </Box>
+        }
+      />
       <Box
         sx={{
           minWidth: isMobile ? "100%" : "100%",
@@ -2058,7 +2049,7 @@ export function PerfilPage() {
         index={servicioEditingIndex}
         isEditing={servicioEditing !== null}
       />
-    </Box>
+    </PageLayout>
   );
 }
 
